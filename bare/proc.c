@@ -50,6 +50,29 @@ int proc_fork(u64 *f)
     return pid;
 }
 
+/* clone：和 fork 的差别只有“地址空间共不共享”。
+ * 这里只加引用不复制页——线程看得见父进程的每一页，写进去也是同一份。
+ * 参数：x0=flags、x1=entry、x2=arg、x3=新栈顶。 */
+int proc_clone(u64 *f)
+{
+    u64 *l1 = sched_get_l1();
+    int tid;
+
+    if (l1 == (u64 *)0) {
+        printk("[kern] proc: clone without aspace\n");
+        return -1;
+    }
+    pg_aspace_ref(l1);
+    tid = sched_clone_thread(f, l1, sched_get_ftab(), f[1], f[2], f[3]);
+    if (tid < 0) {
+        pg_aspace_unref(l1);
+        return -1;
+    }
+    printk("[kern] proc: clone tid=%u tgid=%u entry=%x sp=%x\n",
+           (u32)tid, (u32)sched_tgid(), (u32)f[1], (u32)f[3]);
+    return tid;
+}
+
 /* exec：扔掉旧地址空间，装一个新程序，然后让 do_sync 的返回路径 eret 进去。 */
 void proc_exec(u64 *f, u64 id)
 {

@@ -160,6 +160,8 @@ void do_sync(u64 *f)
                 proc_exec(f, f[0]);
             } else if (from_el0 && f[8] == 11) { /* SYS_FORK */
                 f[0] = (u64)(i64)proc_fork(f);
+            } else if (from_el0 && f[8] == 16) { /* SYS_CLONE */
+                f[0] = (u64)(i64)proc_clone(f);
             } else if (from_el0 && f[8] == 13) { /* SYS_WAIT */
                 f[0] = proc_wait(f);
             } else if (from_el0 && f[8] == 9) { /* SYS_EXIT */
@@ -638,6 +640,10 @@ int kmain(u64 dtb)
     /* 第六个：COW —— fork 不再复制内容，写故障时才分页。 */
     if (kthread_create("u5", user_cow_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread u5 failed\n");
+    }
+    /* 第七个：线程 —— clone 共享地址空间与 fd 表。 */
+    if (kthread_create("u6", user_thr_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread u6 failed\n");
     }
     sched_go();
     schedule();

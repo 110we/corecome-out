@@ -105,6 +105,7 @@ u64 *pg_aspace_new(void)
         l3[i] = 0;
     }
     last_aspace = l1;
+    pg_aspace_ref(l1);   /* 出生即持有 1 次引用 */
     return l1;
 }
 
@@ -348,6 +349,89 @@ void pg_cow_stats(u64 *copies, u64 *shared)
 {
     *copies = cow_copies;
     *shared = cow_shared;
+}
+
+/* ---- 地址空间引用计数 ----
+ * fork 出来的进程各占一份；clone(CLONE_VM) 的线程共用同一份，
+ * 只加引用。最后一个使用者（被 wait 收尸时）才真正拆页表、还用户页。
+ * 不做这张表的话，线程一退就把父进程的 aspace 拆了 —— 那是必崩的写法。
+ */
+#define ASP_MAX 64
+
+static struct {
+    u64 *l1;
+    u32 refs;
+} asp[ASP_MAX];
+
+static int asp_slot(u64 *l1, int create)
+{
+    int i;
+    int free_slot = -1;
+
+    for (i = 0; i < ASP_MAX; i++) {
+        if (l1 != (u64 *)0 && asp[i].l1 == l1) {
+            return i;
+        }
+        if (asp[i].l1 == (u64 *)0 && free_slot < 0) {
+            free_slot = i;
+        }
+    }
+    return create ? free_slot : -1;
+}
+
+void pg_aspace_ref(u64 *l1)
+{
+    int s;
+
+    if (l1 == (u64 *)0) {
+        return;
+    }
+    s = asp_slot(l1, 1);
+    if (s < 0) {
+        printk("[paging] aspace table full\n");
+        return;
+    }
+    asp[s].l1 = l1;
+    asp[s].refs++;
+}
+
+void pg_aspace_unref(u64 *l1)
+{
+    u64 *l2;
+    u64 *l3;
+    u64 i;
+    int s;
+
+    if (l1 == (u64 *)0) {
+        return;
+    }
+    s = asp_slot(l1, 0);
+    if (s < 0) {
+        return; /* 不是登记过的 aspace：不动它，宁漏不拆 */
+    }
+    if (asp[s].refs > 1) {
+        asp[s].refs--;
+        return;
+    }
+    asp[s].l1 = (u64 *)0;
+    asp[s].refs = 0;
+
+    l3 = win_l3(l1);
+    if (l3 != (u64 *)0) {
+        for (i = 0; i < 512; i++) {
+            u64 e = l3[i];
+
+            if ((e & 1UL) != 0) {
+                mm_page_unref((void *)(e & PA_MASK)); /* 共享页只还引用 */
+            }
+        }
+        mm_page_free(l3);
+    }
+    l2 = (u64 *)(l1[0] & PA_MASK);
+    if (l2 != (u64 *)0) {
+        mm_page_free(l2);
+    }
+    mm_page_free(l1);
 }
 
 /* 给 kstruct 看的解码：用户窗里到底映射了什么、什么权限 */

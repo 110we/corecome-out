@@ -28,6 +28,8 @@
 #define SYS_WAIT   13
 #define SYS_PID    14
 #define SYS_PPID   15
+#define SYS_CLONE  16
+#define SYS_GETTID 17
 
 extern u64 heap_used(void);
 
@@ -145,6 +147,12 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
         return (u64)(i64)sched_pid();
     case SYS_PPID:
         return (u64)(i64)sched_ppid();
+    case SYS_CLONE:
+        /* 真正的 clone 在 do_sync 里做（要读整份 trap frame：entry/arg/sp），
+         * 走到这里说明调用方式不对，直接 ENOSYS。 */
+        return (u64)-1;
+    case SYS_GETTID:
+        return (u64)(i64)sched_pid();
     default:
         return (u64)-1; /* ENOSYS */
     }
@@ -155,12 +163,13 @@ void syscall_dump(void)
     static const char *names[] = {
         "puts", "ticks", "heap", "write", "open",
         "read", "close", "yield", "exit", "list",
-        "fork", "exec", "wait", "pid", "ppid"
+        "fork", "exec", "wait", "pid", "ppid",
+        "clone", "gettid"
     };
     u64 nr;
 
     printk("[syscall] svc #0x80, x8=nr; EL0 ptr -> u_ok/u_str\n");
-    for (nr = 1; nr <= 15; nr++) {
+    for (nr = 1; nr <= 17; nr++) {
         int guarded = (nr == SYS_PUTS || nr == SYS_WRITE || nr == SYS_OPEN ||
                        nr == SYS_READ || nr == SYS_LIST);
         printk("  %u %s%s\n", (u32)nr, names[nr - 1],

@@ -29,6 +29,7 @@ typedef struct tcb {
     u64 ftab;               /* 进程私有 fd 表（vfs.c 的 struct filetable） */
     int pid;
     int ppid;
+    int tgid;               /* 线程组：clone 出来的线程与创建者同组 */
     u64 code;               /* 退出码：僵尸态留给父进程收 */
 } tcb_t;
 
@@ -63,12 +64,14 @@ void sched_init(void)
         tcbs[i].ftab = 0;
         tcbs[i].pid = -1;
         tcbs[i].ppid = -1;
+        tcbs[i].tgid = -1;
         tcbs[i].code = 0;
     }
     nth = 1;
     tcbs[0].idx = 0;
     tcbs[0].pid = 0;
     tcbs[0].ppid = -1;
+    tcbs[0].tgid = 0;
     name_copy(tcbs[0].name, "kmain");
     tcbs[0].state = ST_RUN;
     cur = &tcbs[0];
@@ -91,6 +94,7 @@ int kthread_create(const char *name, void (*fn)(void *), void *arg)
     t->slice = SLICE;
     t->pid = next_pid++;
     t->ppid = 0;
+    t->tgid = (int)t->pid;
     t->code = 0;
     t->ftab = 0;
     t->l1 = (u64 *)0;
@@ -210,9 +214,12 @@ void sched_set_l1(u64 *l1)
 
 /* ---- 进程原语：fork / 僵尸 / wait / 每进程 fd 表 ---- */
 
-/* 从父进程的 trap frame 造一个孩子：frame 原样抄，x0=0（fork 在孩子里返回 0）。
- * 孩子的内核栈是新的，所以第一次被切到会走 thread_boot 的 eret 路径。 */
-int sched_fork_from(u64 *f, u64 *child_l1, u64 ftab, const char *nm)
+/* 所有“新执行流”都收敛到这里：给 frame、asm、fd 表、父子关系，
+ * 剩下的（内核栈、first-run 路径）由它统一铺。
+ * 关键那条：第一次被切到必须走 thread_boot；若照抄用户的 x30，
+ * ret 会跳回调用者的返回路径，fork 就变成“无限分身”。 */
+static int sched_spawn(u64 *f, u64 *l1, u64 ftab, const char *nm,
+                       int ppid, int tgid)
 {
     tcb_t *t;
     u64 *frame;
@@ -227,27 +234,68 @@ int sched_fork_from(u64 *f, u64 *child_l1, u64 ftab, const char *nm)
     t->state = ST_READY;
     t->slice = SLICE;
     t->pid = next_pid++;
-    t->ppid = (int)cur->pid;
+    t->ppid = ppid;
+    t->tgid = tgid > 0 ? tgid : (int)t->pid;
     t->code = 0;
     t->ftab = ftab;
-    t->l1 = child_l1;
+    t->l1 = l1;
     t->daif = 0;
     t->fp = f[29];
-    /* 关键：第一次被切到必须走 thread_boot（它负责 eret 进 EL0）。
-     * 这里若照抄用户的 x30，ret 会跳回调用者的返回路径，
-     * 子进程就会借父进程的 eret 回到程序开头 —— fork 变成“无限分身”。 */
     t->lr = (u64)&thread_boot;
     frame = (u64 *)((u8 *)&stacks[nth][0] + STACK_SZ - 288);
     for (i = 0; i < 36; i++) {
         frame[i] = f[i];
     }
-    frame[0] = 0;          /* 孩子的 fork() 返回 0 */
     t->sp = (u64)frame;
     nth++;
     return t->pid;
 }
 
-/* 用户态 exit：变成僵尸，把退出码留在 tcb 上，等父进程来收。 */
+/* 从父进程的 trap frame 造一个孩子：frame 原样抄，x0=0（fork 在孩子里返回 0）。 */
+int sched_fork_from(u64 *f, u64 *child_l1, u64 ftab, const char *nm)
+{
+    u64 g[36];
+    int i;
+
+    if (cur == (tcb_t *)0) {
+        return -1;
+    }
+    for (i = 0; i < 36; i++) {
+        g[i] = f[i];
+    }
+    g[0] = 0;              /* 孩子的 fork() 返回 0 */
+    return sched_spawn(g, child_l1, ftab, nm, (int)cur->pid, 0);
+}
+
+/* clone(CLONE_VM|CLONE_THREAD)：共用同一个 aspace 与 fd 表，
+ * 只换一段入口和新栈。线程退出不复用父的收尸路径之外的东西。 */
+int sched_clone_thread(u64 *f, u64 *l1, u64 ftab, u64 entry, u64 arg, u64 sp)
+{
+    u64 g[36];
+    int i;
+
+    if (cur == (tcb_t *)0) {
+        return -1;
+    }
+    for (i = 0; i < 36; i++) {
+        g[i] = f[i];
+    }
+    g[0] = arg;
+    g[30] = 0;
+    g[32] = entry;         /* ELR：线程从 entry 开始 */
+    g[33] = 0;             /* SPSR=EL0t */
+    g[34] = sp;            /* SP_EL0：线程自己的栈 */
+    return sched_spawn(g, l1, ftab, "thr", (int)cur->pid, (int)cur->tgid);
+}
+
+int sched_tgid(void)
+{
+    return cur == (tcb_t *)0 ? -1 : (int)cur->tgid;
+}
+
+/* 用户态 exit：变成僵尸，把退出码留在 tcb 上，等父进程来收。
+ * 线程也一样进僵尸（父 wait(tid) 能取到 code），区别只在收尸时
+ * 不拆 aspace——那由线程组最后一个人负责。 */
 void sched_exit_zombie(int code)
 {
     cur->code = (u64)code;
@@ -276,6 +324,10 @@ int sched_wait_child(int pid, int *code)
         *code = (int)t->code;
         t->state = ST_FREE;
         t->ppid = -1;
+        /* 收尸时才还地址空间引用。fork 的进程引用只有 1 次，这里直接拆；
+         * clone 的线程共享同一份，refs>1 时只减一，最后一个才真拆。 */
+        pg_aspace_unref(t->l1);
+        t->l1 = (u64 *)0;
         return t->pid;
     }
     return 0;

@@ -23,6 +23,8 @@ extern const u8 user_init_start[];
 extern const u8 user_init_end[];
 extern const u8 user_cow_start[];
 extern const u8 user_cow_end[];
+extern const u8 user_thr_start[];
+extern const u8 user_thr_end[];
 
 /* 进 EL0。返回只可能发生在异常没处理好时——正常路径是 exit 掉。 */
 static void user_enter(u64 entry, u64 sp)
@@ -140,4 +142,11 @@ void user_cow_thread(void *arg)
 {
     (void)arg;
     user_spawn(user_cow_start, user_cow_end, "cow");
+}
+
+/* ---- 线程的靶子：clone 共享地址空间 ---- */
+void user_thr_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_thr_start, user_thr_end, "thr");
 }

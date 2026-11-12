@@ -67,6 +67,8 @@ test: $(BUILD)/kernel.elf
 > @grep -q "cow: child wrote" $(BUILD)/serial.log || (echo "FAIL: cow child"; exit 1)
 > @grep -q "cow: parent intact" $(BUILD)/serial.log || (echo "FAIL: cow isolation"; exit 1)
 > @grep -q "\[kern\] cow: pid=.* copy ok" $(BUILD)/serial.log || (echo "FAIL: cow fault path"; exit 1)
+> @grep -q "proc: clone tid=.* tgid=" $(BUILD)/serial.log || (echo "FAIL: clone"; exit 1)
+> @grep -q "thread: shared ok" $(BUILD)/serial.log || (echo "FAIL: clone shared mm"; exit 1)
 > @grep -q "\[kern\] vfs: hello from ramfs" $(BUILD)/serial.log || (echo "FAIL: vfs"; exit 1)
 > @grep -q "\[kern\] rootfs:" $(BUILD)/serial.log || (echo "FAIL: rootfs"; exit 1)
 > @grep -q "\[thr\] A 0" $(BUILD)/serial.log || (echo "FAIL: thread A"; exit 1)

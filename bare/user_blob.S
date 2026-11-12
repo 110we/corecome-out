@@ -161,6 +161,81 @@ user_cow_start:
     .balign 8
 user_cow_end:
 
+/* ---- clone 靶子：和父进程共用同一块内存，各自 +3 ----
+ * 期望 counter 最后是 6：任何一段没跑，或者线程拿到了自己的一份拷贝
+ * （而不是共享），这个数都会对不上。16=clone 8=yield 13=wait 9=exit */
+    .balign 8
+    .global user_thr_start
+    .global user_thr_end
+user_thr_start:
+    mov x4, #0x10000000
+    add x4, x4, #0x880
+    add x4, x4, #0x880      /* +0x1100：add 的立即数只有 12 位，拆两次 */
+    mov x5, #0
+    str x5, [x4]
+
+    adr x1, 3f              /* 线程入口 */
+    mov x2, #0              /* arg */
+    mov x5, #0x10000000
+    add x5, x5, #0xC00
+    add x5, x5, #0xC00      /* 线程自己的栈顶 0x10001800 */
+    mov x3, x5
+    mov x0, #1              /* flags：CLONE_VM|CLONE_THREAD 的占位 */
+    mov x8, #16
+    svc #0x80
+    mov x19, x0             /* tid */
+
+    mov x6, #3
+4:
+    ldr x5, [x4]
+    add x5, x5, #1
+    str x5, [x4]
+    mov x8, #8
+    svc #0x80               /* yield：让线程也跑起来 */
+    subs x6, x6, #1
+    b.ne 4b
+
+    mov x0, x19
+    mov x8, #13
+    svc #0x80               /* wait(tid) */
+    ldr x5, [x4]
+    cmp x5, #6
+    b.ne 5f
+    adr x0, 6f
+    mov x8, #1
+    svc #0x80
+    b 7f
+5:
+    adr x0, 8f
+    mov x8, #1
+    svc #0x80
+7:
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+
+3:  /* 线程体 */
+    mov x6, #3
+9:
+    ldr x5, [x4]
+    add x5, x5, #1
+    str x5, [x4]
+    mov x8, #8
+    svc #0x80
+    subs x6, x6, #1
+    b.ne 9b
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+6:
+    .asciz "thread: shared ok\n"
+8:
+    .asciz "thread: MISMATCH\n"
+    .balign 8
+user_thr_end:
+
 /* ---- exec 装载进去的那个程序 ---- */
     .balign 8
     .global user_exec_start
