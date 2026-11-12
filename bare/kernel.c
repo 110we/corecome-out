@@ -4,6 +4,7 @@
  */
 
 #include "kern.h"
+#include "blk.h"
 
 #define UART0_BASE 0x09000000UL
 #define GICD_BASE  0x08000000UL
@@ -631,6 +632,29 @@ int kmain(u64 dtb)
         } else {
             puts_("[kern] vfs FAIL\n");
         }
+    }
+
+    /* ---- 块设备 + 真文件系统：virtio-blk 上的 ext2（只读） ---- */
+    puts_("[kern] init: blk\n");
+    if (blk_init() == 0) {
+        printk("[kern] blk: virtio-mmio sectors=%u\n", blk_sectors());
+        if (ext2_init() == 0) {
+            char fb[64];
+            i64 n = ext2_read("/hello.txt", fb, sizeof(fb) - 1);
+
+            printk("[kern] ext2: bs=%u inodes=%u\n", ext2_block_size(),
+                   ext2_inodes());
+            if (n > 0) {
+                fb[n] = '\0';
+                printk("[kern] ext2: %s", fb);
+            } else {
+                puts_("[kern] ext2: read failed\n");
+            }
+        } else {
+            puts_("[kern] ext2: no fs found\n");
+        }
+    } else {
+        puts_("[kern] blk: no device (skip)\n");
     }
 
     {
