@@ -1,0 +1,96 @@
+name: kernel
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kernel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  java:
+    name: Java 内核与自检
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 编译
+        run: ./build.sh
+
+      - name: NetOS 自检
+        timeout-minutes: 5
+        run: timeout 180 python3 tools/selftest.py 18131
+
+      - name: 安全面三档
+        timeout-minutes: 5
+        run: timeout 180 python3 tools/security_test.py 18211
+
+      - name: Astra 能力总线
+        timeout-minutes: 5
+        run: timeout 180 python3 tools/astra_selftest.py 18411
+
+      - name: 兼容验收（Astra 跑同一套断言）
+        timeout-minutes: 8
+        run: |
+          KERNEL_MAIN=astra.compat.CompatMain timeout 180 python3 tools/selftest.py 18511
+          KERNEL_MAIN=astra.compat.CompatMain timeout 180 python3 tools/security_test.py 18512
+
+  bare:
+    name: 裸机（AArch64 / QEMU）
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装交叉编译器与 QEMU
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu qemu-system-arm
+          qemu-system-aarch64 --version | head -1
+          aarch64-linux-gnu-gcc --version | head -1
+
+      - name: 编译
+        run: make -C bare
+
+      - name: 开机与 P0 断言
+        run: bash .github/scripts/bare-qemu-test.sh
+
+      - name: 汇总串口
+        if: always()
+        run: |
+          {
+            echo "## 裸机 QEMU"
+            echo '```'
+            if [ -s bare/build/serial.log ]; then
+              tail -n 60 bare/build/serial.log
+            else
+              echo "(无串口输出)"
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bare-qemu-logs
+          path: |
+            bare/build/serial.log
+            bare/build/qemu.log
+          if-no-files-found: warn
