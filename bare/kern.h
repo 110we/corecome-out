@@ -8,6 +8,7 @@
 #define KERN_H
 
 typedef unsigned char u8;
+typedef unsigned short u16;
 typedef unsigned int u32;
 typedef unsigned long u64;
 typedef long i64;
@@ -26,6 +27,12 @@ u64 mm_pages_free(void);
 u64 mm_pages_total(void);
 void *mm_page_alloc(void);   /* 4K，已清零；页表/用户页都从这里出 */
 void mm_page_free(void *p);
+/* 页引用计数：COW 的地基。共享一页 = ref+1；最后一个使用者归还才回池子。 */
+void mm_page_ref(void *p);
+int  mm_page_unref(void *p);
+u64  mm_page_refcnt(void *p);
+void mm_page_set_cow(void *p, int on);
+int  mm_page_cow(void *p);
 
 /* ---- 分页：4K 粒度 + 用户地址空间 ---- */
 #define PG_USER_RW  1UL
@@ -58,6 +65,7 @@ void user_bad_thread(void *arg);
 void user_bad2_thread(void *arg);
 void user_bad3_thread(void *arg);
 void user_init_thread(void *arg);
+void user_cow_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 u64 proc_wait(u64 *f);
@@ -71,6 +79,9 @@ void sched_dump(void);
 void ps_dump(void);
 void pg_dump(u64 *l1);
 u64 *pg_aspace_clone(u64 *src);
+int pg_cow_fault(u64 far);
+u64 pg_cow_faults(void);
+void pg_cow_stats(u64 *copies, u64 *shared);
 /* ---- 进程：fork / 僵尸 / wait / 每进程 fd 表 ---- */
 int sched_fork_from(u64 *f, u64 *child_l1, u64 ftab, const char *nm);
 void sched_exit_zombie(int code);

@@ -204,6 +204,13 @@ void do_sync(u64 *f)
          * 直接判这个线程死刑，并把 TTBR0 切回模板；内核自己的探测仍按老规矩
          * +4 继续，因为那是自检故意踩的。 */
         if ((f[33] & 0xFUL) == 0) {
+            /* 先问 COW：共享页上的写故障不是越界，补一页让他继续写。
+             * 这里**不能**推进 ELR —— 原指令要重新执行一次。 */
+            if (pg_cow_fault(far) == 0) {
+                printk("[kern] cow: pid=%u far=%x copy ok\n",
+                       (u32)sched_pid(), (u32)far);
+                return;
+            }
             printk("[kern] user: fault esr=%x far=%x\n", esr, far);
             sched_set_l1((u64 *)0);
             pg_activate((u64 *)0);
@@ -627,6 +634,10 @@ int kmain(u64 dtb)
     /* 第五个：进程语义主靶子 —— fork/exec/wait/退出码。 */
     if (kthread_create("u4", user_init_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread u4 failed\n");
+    }
+    /* 第六个：COW —— fork 不再复制内容，写故障时才分页。 */
+    if (kthread_create("u5", user_cow_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread u5 failed\n");
     }
     sched_go();
     schedule();

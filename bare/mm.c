@@ -13,6 +13,11 @@
 
 static u8 pool[POOL_PAGES * PAGE_SIZE] __attribute__((aligned(4096)));
 static u64 bitmap[POOL_PAGES / 64];
+/* 引用计数与 COW 标记：按页号索引，跟位图同生共死。
+ * refs==0 才回池子；cowf 表示“这页是 fork 时改成只读的”，
+ * 两者一起才能把“写时复制”和“本来就只读（代码页）”分开。 */
+static u16 refs[POOL_PAGES];
+static u8 cowf[POOL_PAGES];
 static const u64 cls_size[NCLASS] = {16, 32, 64, 128, 256, 512, 1024};
 static void *freelist[NCLASS];
 
@@ -27,10 +32,26 @@ static void *page_alloc(void)
     for (i = 0; i < POOL_PAGES; i++) {
         if ((bitmap[i / 64] & (1UL << (i % 64))) == 0) {
             bitmap[i / 64] |= (1UL << (i % 64));
+            refs[i] = 1;
+            cowf[i] = 0;
             return (void *)&pool[i * PAGE_SIZE];
         }
     }
     return (void *)0;
+}
+
+/* 页号换算：不是池里的页返回 -1（外部指针不许改位图/计数） */
+static int page_idx(void *p)
+{
+    u8 *q = (u8 *)p;
+
+    if (q < &pool[0] || q >= &pool[POOL_PAGES * PAGE_SIZE]) {
+        return -1;
+    }
+    if (((u64)(q - &pool[0]) & (PAGE_SIZE - 1)) != 0) {
+        return -1;
+    }
+    return (int)((u64)(q - &pool[0]) / PAGE_SIZE);
 }
 
 void mm_init(void)
@@ -38,6 +59,10 @@ void mm_init(void)
     u64 i;
     for (i = 0; i < POOL_PAGES / 64; i++) {
         bitmap[i] = 0;
+    }
+    for (i = 0; i < POOL_PAGES; i++) {
+        refs[i] = 0;
+        cowf[i] = 0;
     }
     for (i = 0; i < NCLASS; i++) {
         freelist[i] = (void *)0;
@@ -61,16 +86,65 @@ void *mm_page_alloc(void)
 
 void mm_page_free(void *p)
 {
-    u64 i;
+    int i = page_idx(p);
 
-    if (p == (void *)0) {
-        return;
-    }
-    if ((u8 *)p < &pool[0] || (u8 *)p >= &pool[POOL_PAGES * PAGE_SIZE]) {
+    if (i < 0) {
         return; /* 不是池里的页，宁可泄漏也不改位图 */
     }
-    i = (u64)((u8 *)p - &pool[0]) / PAGE_SIZE;
     bitmap[i / 64] &= ~(1UL << (i % 64));
+    refs[i] = 0;
+    cowf[i] = 0;
+}
+
+/* ---- 引用计数：COW 的账本 ---- */
+void mm_page_ref(void *p)
+{
+    int i = page_idx(p);
+
+    if (i >= 0 && refs[i] < 0xFFFF) {
+        refs[i]++;
+    }
+}
+
+/* 归还一次引用；返回剩余引用数。归零才真正还池子。 */
+int mm_page_unref(void *p)
+{
+    int i = page_idx(p);
+
+    if (i < 0) {
+        return -1;
+    }
+    if (refs[i] > 1) {
+        refs[i]--;
+        return (int)refs[i];
+    }
+    refs[i] = 0;
+    bitmap[i / 64] &= ~(1UL << (i % 64));
+    cowf[i] = 0;
+    return 0;
+}
+
+u64 mm_page_refcnt(void *p)
+{
+    int i = page_idx(p);
+
+    return i < 0 ? 0 : (u64)refs[i];
+}
+
+void mm_page_set_cow(void *p, int on)
+{
+    int i = page_idx(p);
+
+    if (i >= 0) {
+        cowf[i] = on ? 1 : 0;
+    }
+}
+
+int mm_page_cow(void *p)
+{
+    int i = page_idx(p);
+
+    return i < 0 ? 0 : (int)cowf[i];
 }
 
 u64 mm_pages_total(void)

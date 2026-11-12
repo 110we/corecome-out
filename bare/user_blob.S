@@ -100,6 +100,67 @@ user_init_start:
     b .
 user_init_end:
 
+/* ---- COW 靶子：父子共享一页栈，孩子先写，父亲再看 ----
+ * 期望：孩子写自己的副本、父亲读到 0xAAAA；接着父亲自己写，也触发一次
+ * COW，读回 0xBBBB。两条都对，才说明“共享读、分离写”成立。
+ * 11=fork 13=wait 1=puts 9=exit */
+    .balign 8
+    .global user_cow_start
+    .global user_cow_end
+user_cow_start:
+    mov x1, #0xAAAA
+    str x1, [sp, #-16]      /* 共享页初值 */
+    mov x8, #11
+    svc #0x80
+    cbnz x0, 2f
+
+    /* 孩子：改自己那份 */
+    mov x3, #0x111
+    ldr x2, [sp, #-16]
+    add x2, x2, x3
+    str x2, [sp, #-16]      /* 这里必须 COW */
+    adr x0, 3f
+    mov x8, #1
+    svc #0x80
+    mov x0, #3
+    mov x8, #9
+    svc #0x80
+
+2:  /* 父亲 */
+    mov x0, #-1
+    mov x8, #13
+    svc #0x80               /* wait(any) -> code，顺带收尸 */
+    ldr x2, [sp, #-16]
+    mov x3, #0xAAAA
+    cmp x2, x3
+    b.ne 4f                 /* 孩子的写串到父亲脸上 = 失败 */
+    mov x3, #0xBBBB
+    str x3, [sp, #-16]      /* 父亲这一写也必须 COW */
+    ldr x2, [sp, #-16]
+    cmp x2, x3
+    b.ne 4f
+    adr x0, 5f
+    mov x8, #1
+    svc #0x80
+    b 6f
+4:
+    adr x0, 7f
+    mov x8, #1
+    svc #0x80
+6:
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+3:
+    .asciz "cow: child wrote\n"
+5:
+    .asciz "cow: parent intact\n"
+7:
+    .asciz "cow: TAINTED\n"
+    .balign 8
+user_cow_end:
+
 /* ---- exec 装载进去的那个程序 ---- */
     .balign 8
     .global user_exec_start

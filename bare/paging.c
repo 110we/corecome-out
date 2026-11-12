@@ -217,8 +217,28 @@ int pg_selftest(void)
     return ok;
 }
 
-/* 深拷贝一份地址空间：每个已映射的用户页都分到新物理页并复制内容。
- * fork 的语义就在这里——父子从此各走各的，改一个不会串到另一个。 */
+/* ---- 写时复制（COW）----
+ * fork 不再复制内容：父子共享同一批物理页，两边都降成只读，
+ * 页上打一个 cow 标记、引用计数 +1。谁先写谁吃 permission fault，
+ * 由 pg_cow_fault() 复制一页给他，另一个人的内容原样不动。
+ * 代码页（RX）本来就不可写，直接共享，连“复制”这一步都省掉。
+ */
+static u64 cow_faults;
+static u64 cow_copies;
+static u64 cow_shared;
+
+static void tlb_flush_all(void)
+{
+    __asm__ volatile("dsb sy; tlbi vmalle1; dsb sy; isb");
+}
+
+static void tlb_flush_va(u64 va)
+{
+    u64 op = va >> 12;
+
+    __asm__ volatile("dsb sy; tlbi vaae1, %0; dsb sy; isb" ::"r"(op));
+}
+
 u64 *pg_aspace_clone(u64 *src)
 {
     u64 *dst = pg_aspace_new();
@@ -236,34 +256,98 @@ u64 *pg_aspace_clone(u64 *src)
     }
     for (i = 0; i < 512; i++) {
         u64 e = ls[i];
-        u8 *np;
-        u8 *sp;
-        u64 j;
-        u64 attr;
+        u64 pa;
+        u64 va;
 
         if ((e & 1UL) == 0) {
             continue;
         }
-        np = (u8 *)mm_page_alloc();
-        if (np == (u8 *)0) {
+        pa = e & PA_MASK;
+        va = USER_WIN_BASE + i * 4096;
+
+        if ((e & UXN) == 0) {          /* 代码页：只读可执行，共享 */
+            mm_page_ref((void *)pa);
+            if (pg_map_user(dst, va, pa, PG_USER_RX) != 0) {
+                return (u64 *)0;
+            }
+            cow_shared++;
+            continue;
+        }
+        /* 数据页：父子的 PTE 都改成只读，标记 COW，等写故障再分家 */
+        ls[i] = pa | ATTR_USER_RO;
+        mm_page_set_cow((void *)pa, 1);
+        mm_page_ref((void *)pa);
+        if (pg_map_user(dst, va, pa, PG_USER_RO) != 0) {
             return (u64 *)0;
         }
-        sp = (u8 *)(e & PA_MASK);
-        for (j = 0; j < 4096; j++) {
-            np[j] = sp[j];
-        }
-        if ((e & UXN) == 0) {
-            attr = PG_USER_RX;
-        } else if ((e & (1UL << 7)) != 0) {
-            attr = PG_USER_RO;
-        } else {
-            attr = PG_USER_RW;
-        }
-        if (pg_map_user(dst, USER_WIN_BASE + i * 4096, (u64)np, attr) != 0) {
-            return (u64 *)0;
-        }
+        cow_shared++;
     }
+    /* 父进程的 PTE 刚被降成只读，TLB 里还留着可写的旧项 —— 必须刷掉，
+     * 否则父进程下一次写会绕开保护，直接改到孩子脸上的共享页。 */
+    tlb_flush_all();
     return dst;
+}
+
+/* 写故障入口：只在“用户窗 + 只读 + cow 标记”三个条件同时成立时接管。
+ * 返回 0 = 复制完成，调用者必须重试原指令（不能推进 ELR）。
+ * 返回 -1 = 不是 COW（真只读 / 不在窗里 / 没页），交给调用者杀进程。 */
+int pg_cow_fault(u64 far)
+{
+    u64 va = far & ~0xFFFUL;
+    u64 *l1 = sched_get_l1();
+    u64 *l3;
+    u64 idx;
+    u64 e;
+    u64 pa;
+    u8 *np;
+    u64 i;
+
+    if (l1 == (u64 *)0) {
+        return -1;
+    }
+    l3 = win_l3(l1);
+    if (l3 == (u64 *)0 || va < USER_WIN_BASE || va >= USER_WIN_TOP) {
+        return -1;
+    }
+    idx = (va >> 12) & IDX_MASK;
+    e = l3[idx];
+    if ((e & 1UL) == 0) {
+        return -1;                 /* 没映射：越界，不是 COW */
+    }
+    if ((e & (1UL << 7)) == 0) {
+        return -1;                 /* 本来就可写：这不是我们的故障 */
+    }
+    pa = e & PA_MASK;
+    if (mm_page_cow((void *)pa) == 0) {
+        return -1;                 /* 真只读（代码/只读数据）→ 杀进程 */
+    }
+
+    np = (u8 *)mm_page_alloc();
+    if (np == (u8 *)0) {
+        return -1;
+    }
+    for (i = 0; i < 4096; i++) {
+        np[i] = ((u8 *)pa)[i];
+    }
+    mm_page_set_cow((void *)np, 0);
+    mm_page_unref((void *)pa);      /* 让出旧页的一份引用 */
+    l3[idx] = (u64)np | ATTR_USER_RW;
+    tlb_flush_va(va);
+
+    cow_faults++;
+    cow_copies++;
+    return 0;
+}
+
+u64 pg_cow_faults(void)
+{
+    return cow_faults;
+}
+
+void pg_cow_stats(u64 *copies, u64 *shared)
+{
+    *copies = cow_copies;
+    *shared = cow_shared;
 }
 
 /* 给 kstruct 看的解码：用户窗里到底映射了什么、什么权限 */

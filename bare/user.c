@@ -21,6 +21,8 @@ extern const u8 user_bad3_start[];
 extern const u8 user_bad3_end[];
 extern const u8 user_init_start[];
 extern const u8 user_init_end[];
+extern const u8 user_cow_start[];
+extern const u8 user_cow_end[];
 
 /* 进 EL0。返回只可能发生在异常没处理好时——正常路径是 exit 掉。 */
 static void user_enter(u64 entry, u64 sp)
@@ -131,4 +133,11 @@ void user_init_thread(void *arg)
 {
     (void)arg;
     user_spawn(user_init_start, user_init_end, "init");
+}
+
+/* ---- COW 的靶子：fork 后父子共享页，写时才分家 ---- */
+void user_cow_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_cow_start, user_cow_end, "cow");
 }
