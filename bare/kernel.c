@@ -177,6 +177,17 @@ void do_sync(u64 *f)
         if (!from_el0) {
             svc_seen++;
         }
+    } else if (ec == 0x20 || ec == 0x21) { /* instruction abort */
+        /* 执行越权：用户栈挂了 UXN 之后，跳到栈上就是这一类。
+         * 同样只杀线程，不给“跳过”的机会。 */
+        if ((f[33] & 0xFUL) == 0) {
+            printk("[kern] user: insn-fault esr=%x far=%x\n", esr, far);
+            sched_set_l1((u64 *)0);
+            pg_activate((u64 *)0);
+            kthread_exit();
+        }
+        fault_seen++;
+        f[32] += 4;
     } else if (ec == 0x24 || ec == 0x25) { /* data abort */
         /* 从 EL0 撞上来就没得“跳过指令”了：那等于让用户态静默越过保护。
          * 直接判这个线程死刑，并把 TTBR0 切回模板；内核自己的探测仍按老规矩
@@ -338,7 +349,9 @@ static void run_cmd(const char *s)
         return;
     }
     if (streq(s, "help")) {
-        puts_("cmds: help ticks mmu exc fault\n");
+        puts_("cmds: help ticks mmu exc fault kstruct\n");
+    } else if (streq(s, "kstruct")) {
+        kernel_structure();
     } else if (streq(s, "ticks")) {
         printk("ticks=%u\n", ticks);
     } else if (streq(s, "mmu")) {
@@ -593,6 +606,10 @@ int kmain(u64 dtb)
     /* 第三个：参数递内核地址，只看 syscall 层能不能挡住。 */
     if (kthread_create("u2", user_bad2_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread u2 failed\n");
+    }
+    /* 第四个：跳到栈上执行，只看 UXN 能不能把执行权也关掉。 */
+    if (kthread_create("u3", user_bad3_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread u3 failed\n");
     }
     sched_go();
     schedule();

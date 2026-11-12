@@ -60,3 +60,43 @@ u_str(p,dst,cap) // 逐字节 copyin，页边界处重新校验，绝不跟着�
 —— 46 拍时钟是在 EL0 里被打进来的，不是靠屏蔽混过去的；
 且它在被抢占、让出、再恢复之后仍然打印出 `hello from EL0`
 （说明 TTBR0 恢复正确，落回了自己的地址空间）。
+
+## 补记：数据页的 UXN（执行权也是权限）
+
+做 `kstruct` 时顺手核了一遍 `ATTR_USER_*`，发现一个真漏洞：`ATTR_USER_RW`
+只设了 `AP[1]`（EL0 可访问），**没设 UXN**（bit54）。后果是用户栈是 RWX——
+用户态可以往栈上写一段指令，再跳过去执行。前两层都拦不住它：页表允许访问，
+异常也不会发生。
+
+修法：`ATTR_USER_RW` / `ATTR_USER_RO` 都显式挂 `UXN`；只有 `ATTR_USER_RX`
+（代码页）不挂。同时把 **指令中止**（EC=0x20/0x21）也接进“EL0 即杀线程”的
+分支——之前只处理了数据中止，真跳上去会直接 panic。
+
+证据（`user_bad3`：把栈地址装进 `x1` 然后 `blr x1`）：
+
+```
+[kern] user: insn-fault esr=0x000000008200000f far=0x0000000010001000
+```
+
+`EC = 0x20`（低 EL 指令中止），`FSC = 0b001111`（三级权限故障），
+`FAR` 正是栈页 `0x10001000`。只死该线程，内核继续跑到 `BIG_KERNEL_OK`。
+
+## 观测面：`kstruct`
+
+`bare> kstruct` 打印运行时结构，全部取自实际状态（链接器符号、堆/页池计数、
+线程表、当前/最近的 aspace L3、系统调用表），可以用来当断言看：
+
+```
+[image] 0x40000000..0x40005768 .text/.rodata/.data
+[image] 0x40005768..0x400abe40 .bss (681688 bytes)
+[stack] 0x400abe40..0x400cbe40 (128K)
+[mem] heap 164/65536 B, pages free 102/128
+[cpu] sctlr=0x85183f ttbr0=0x4009a000 (4K granule, MMU on)
+[sched] live=1 created=7 cur=kmain
+  #0 kmain state=run ... #6 u3 state=exit
+[paging] ttbr0=0x4002d000 win=[0x10000000,0x10200000) 4K
+  0x10000000 -> 0x40030000 RX U=1
+  0x10001000 -> 0x40031000 RW U=1
+[syscall] 1 puts [ptr-check] ... 10 list [ptr-check]
+[perm] L1 页表(U/AP/UXN) | L2 EL0 故障杀线程 | L3 u_ok/u_str
+```

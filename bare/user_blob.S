@@ -64,3 +64,18 @@ user_bad2_start:
     svc #0x80
     b .
 user_bad2_end:
+/* 第四个靶子：执行权。栈页是 RW + UXN，跳到栈上去必须 abort。
+ * 以前 RW 没挂 UXN，这块页就是 RWX — 用户态能自己写指令再跳过去。
+ * 期望：instruction abort（EC=0x20），线程被杀。 */
+    .balign 8
+    .global user_bad3_start
+    .global user_bad3_end
+user_bad3_start:
+    mov x1, #0x10000000
+    add x1, x1, #0x1000
+    blr x1
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+user_bad3_end:

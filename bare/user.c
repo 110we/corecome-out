@@ -17,6 +17,8 @@ extern const u8 user_bad_start[];
 extern const u8 user_bad_end[];
 extern const u8 user_bad2_start[];
 extern const u8 user_bad2_end[];
+extern const u8 user_bad3_start[];
+extern const u8 user_bad3_end[];
 
 /* 进 EL0。返回只可能发生在异常没处理好时——正常路径是 exit 掉。 */
 static void user_enter(u64 entry, u64 sp)
@@ -113,4 +115,11 @@ void user_bad2_thread(void *arg)
 {
     (void)arg;
     user_spawn(user_bad2_start, user_bad2_end, "deny");
+}
+
+/* 第四个靶子：栈上执行。UXN 挡住的必须是指令中止，不是数据中止。 */
+void user_bad3_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_bad3_start, user_bad3_end, "nx");
 }

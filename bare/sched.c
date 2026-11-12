@@ -189,3 +189,28 @@ void sched_set_l1(u64 *l1)
         cur->l1 = l1;
     }
 }
+
+/* ---- kstruct：把线程表原样倒出来 ---- */
+void sched_dump(void)
+{
+    static const char *st[4] = { "free", "ready", "run", "exit" };
+    u64 live = 0;
+    u64 created = 0;
+    int i;
+
+    for (i = 0; i < nth; i++) {
+        if (tcbs[i].state != ST_FREE) {
+            created++;
+        }
+        if (tcbs[i].state == ST_READY || tcbs[i].state == ST_RUN) {
+            live++;
+        }
+    }
+    printk("[sched] live=%u created=%u cur=%s\n", (u32)live, (u32)created,
+           kthread_cur());
+    for (i = 0; i < nth; i++) {
+        printk("  #%u %s state=%s slice=%u sp=%x l1=%x\n", (u32)i,
+               tcbs[i].name, st[tcbs[i].state & 3], (u32)tcbs[i].slice,
+               (u32)tcbs[i].sp, (u32)(u64)tcbs[i].l1);
+    }
+}

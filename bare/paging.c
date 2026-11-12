@@ -33,8 +33,12 @@
  *   bit7 = AP[2]：置 1 是只读。
  * 之前把 bit7 当“用户位”用，结果页是 EL1 只读，写立即 permission fault。
  * bit[9:8] 才是 SH，别和 AP 混。 */
-#define ATTR_USER_RW (ATTR_NORM | ATTR_SH_IN | (1UL << 6))
-#define ATTR_USER_RO (ATTR_NORM | ATTR_SH_IN | (1UL << 6) | (1UL << 7))
+/* bit6 = AP[1]：EL0 可访问；bit7 = AP[2]：只读；
+ * bit54 = UXN：EL0 不可执行。数据页必须显式挂 UXN，
+ * 否则用户栈、用户数据就是一块 RWX。 */
+#define UXN          (1UL << 54)
+#define ATTR_USER_RW (ATTR_NORM | ATTR_SH_IN | (1UL << 6) | UXN)
+#define ATTR_USER_RO (ATTR_NORM | ATTR_SH_IN | (1UL << 6) | (1UL << 7) | UXN)
 #define ATTR_USER_RX (ATTR_NORM | ATTR_SH_IN | (1UL << 6) | (1UL << 7))
 
 static u64 boot_l1[512] __attribute__((aligned(PG_SIZE)));
@@ -69,6 +73,8 @@ void pg_init(void)
 }
 
 /* 新地址空间：L1/L2 照模板抄一份，L3 清零待填。 */
+static u64 *last_aspace;   /* kstruct 用：最近派生的一份 aspace */
+
 u64 *pg_aspace_new(void)
 {
     u64 *l1 = (u64 *)mm_page_alloc();
@@ -98,6 +104,7 @@ u64 *pg_aspace_new(void)
     for (i = 0; i < 512; i++) {
         l3[i] = 0;
     }
+    last_aspace = l1;
     return l1;
 }
 
@@ -208,4 +215,42 @@ int pg_selftest(void)
         ok = 0;
     }
     return ok;
+}
+
+/* 给 kstruct 看的解码：用户窗里到底映射了什么、什么权限 */
+void pg_dump(u64 *l1)
+{
+    u64 *l3;
+    u64 i;
+
+    if (l1 == (u64 *)0) {
+        l1 = pg_template();
+        printk("[paging] cur=template (内核线程无私有 aspace)\n");
+        if (win_l3(l1) == (u64 *)0 && last_aspace != (u64 *)0) {
+            l1 = last_aspace;
+            printk("[paging] 模板没有用户窗，改看最近派生的 aspace\n");
+        }
+    }
+    l3 = win_l3(l1);
+    if (l3 == (u64 *)0) {
+        printk("[paging] 该 aspace 未映射用户窗\n");
+        return;
+    }
+    printk("[paging] ttbr0=%x win=[%x,%x) 4K\n", (u32)(u64)l1,
+           (u32)USER_WIN_BASE, (u32)USER_WIN_TOP);
+    for (i = 0; i < 512; i++) {
+        u64 e = l3[i];
+        const char *kind;
+
+        if ((e & 1UL) == 0) {
+            continue;
+        }
+        if ((e & UXN) != 0) {
+            kind = (e & (1UL << 7)) != 0 ? "RO" : "RW";
+        } else {
+            kind = "RX";
+        }
+        printk("  %x -> %x %s U=1\n", (u32)(USER_WIN_BASE + i * 4096),
+               (u32)(e & PA_MASK), kind);
+    }
 }

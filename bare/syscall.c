@@ -140,3 +140,20 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
         return (u64)-1; /* ENOSYS */
     }
 }
+/* ---- kstruct：系统调用表 + 哪几个号吃指针 ---- */
+void syscall_dump(void)
+{
+    static const char *names[] = {
+        "puts", "ticks", "heap", "write", "open",
+        "read", "close", "yield", "exit", "list"
+    };
+    u64 nr;
+
+    printk("[syscall] svc #0x80, x8=nr; EL0 ptr -> u_ok/u_str\n");
+    for (nr = 1; nr <= 10; nr++) {
+        int guarded = (nr == SYS_PUTS || nr == SYS_WRITE || nr == SYS_OPEN ||
+                       nr == SYS_READ || nr == SYS_LIST);
+        printk("  %u %s%s\n", (u32)nr, names[nr - 1],
+               guarded ? " [ptr-check]" : "");
+    }
+}
