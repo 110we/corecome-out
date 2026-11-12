@@ -66,11 +66,7 @@ test: $(BUILD)/kernel.elf
 > @$(MAKE) -s test-cmd
 
 test-cmd: $(BUILD)/kernel.elf
-> @rm -f $(BUILD)/cmd.log
-> @(sleep 1; printf 'help\rticks\rexc\r'; sleep 1) | timeout 8 $(QEMU) $(QEMUFLAGS) -serial stdio -kernel $< > $(BUILD)/cmd.log 2>&1 || true
-> @grep -q "cmds: help" $(BUILD)/cmd.log || (echo "FAIL: cmd help"; exit 1)
-> @grep -q "ticks=[0-9]" $(BUILD)/cmd.log || (echo "FAIL: cmd ticks"; exit 1)
-> @grep -q "svc handled, count=3" $(BUILD)/cmd.log || (echo "FAIL: cmd svc"; exit 1)
+> @sh tools/serial_cmd.sh "$(QEMU)" "$<" "$(BUILD)/cmd.log"
 > @echo "BARE_CMD_OK"
 
 clean:

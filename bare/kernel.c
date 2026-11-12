@@ -562,10 +562,9 @@ int kmain(u64 dtb)
 
     for (;;) {
         char c;
-        /* 兜底轮询：FIFO 里剩下的字节不必等中断 */
-        while (!(uart[UART_FR / 4] & FR_RXFE)) {
-            ring_push((char)(uart[UART_DR / 4] & 0xFF));
-        }
+        /* 收字节只有一个主人：uart_rx_isr。
+         * 主循环再去轮询 DR 会和中段抢 FIFO——某一边读到空 FIFO 就拿到 0x00，
+         * 于是命令行里会冒出 "hel\0p" 这种脏字节。这里只消费环形缓冲。 */
         while (ring_pop(&c)) {
             feed(c);
         }
