@@ -53,6 +53,8 @@ jobs:
 
   bare:
     name: 裸机（AArch64 / QEMU）
+    # QEMU 10 / GCC 15（ubuntu-latest = 26.04）下该内核无串口输出；
+    # 固定 24.04：QEMU 8.2.2 + GCC 13.3，与本地验证环境一致。
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
