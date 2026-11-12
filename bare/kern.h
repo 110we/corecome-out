@@ -49,7 +49,7 @@ void pg_activate(u64 *l1);
 int pg_selftest(void);
 
 /* ---- 调度：内核线程 ---- */
-#define KTHREAD_MAX 16
+#define KTHREAD_MAX 24
 int kthread_create(const char *name, void (*fn)(void *), void *arg);
 void sched_init(void);
 void sched_go(void);
@@ -67,6 +67,7 @@ void user_bad3_thread(void *arg);
 void user_init_thread(void *arg);
 void user_cow_thread(void *arg);
 void user_thr_thread(void *arg);
+void user_sig_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 u64 proc_wait(u64 *f);
@@ -90,6 +91,8 @@ int sched_fork_from(u64 *f, u64 *child_l1, u64 ftab, const char *nm);
 int sched_clone_thread(u64 *f, u64 *l1, u64 ftab, u64 entry, u64 arg, u64 sp);
 int sched_tgid(void);
 int proc_clone(u64 *f);
+int sched_kill(int pid, int sig);
+int sched_signal_self(void);
 void sched_exit_zombie(int code);
 int sched_wait_child(int pid, int *code);
 int sched_has_child(void);

@@ -154,8 +154,13 @@ void do_sync(u64 *f)
         /* 从 EL0 进来时 SPSR 是 EL0t；内核线程自己 svc 则是 EL1h。 */
         int from_el0 = ((f[33] & 0xFUL) == 0);
         if (imm == 0x80) { /* S0：系统调用门 */
-            /* exit 只对 EL0 特殊处理：注销线程，并且把 TTBR0 切回模板，
-             * 免得下一个内核线程沿用一份已经作废的用户地址空间。 */
+            /* 这几个号要的是**整份 trap frame**（entry/arg/sp/父帧），不是
+             * 三个参数；它们在自己的分支里把结果写进 f[0]，并且**不能再
+             * 走通用 dispatch** —— 否则 dispatch 对一个没有实现的号返回 -1，
+             * 会把刚写好的返回值（fork 的 pid、wait 的 code）当场覆盖掉。
+             * 这类覆盖不会崩，只会让“父进程拿到 -1”这种错悄悄留在语义里。 */
+            int handled = 1;
+
             if (from_el0 && f[8] == 12) { /* SYS_EXEC：换掉地址空间，返回路径直接 eret 进新程序 */
                 proc_exec(f, f[0]);
             } else if (from_el0 && f[8] == 11) { /* SYS_FORK */
@@ -177,13 +182,27 @@ void do_sync(u64 *f)
                 sched_set_l1((u64 *)0);
                 pg_activate((u64 *)0);
                 kthread_exit();
+            } else {
+                handled = 0;
             }
-            g_from_el0 = from_el0;
-            {
-                u64 r = syscall_dispatch(f[8], f[0], f[1], f[2]);
-                f[0] = r; /* 返回值走 x0 */
+            if (!handled) {
+                g_from_el0 = from_el0;
+                {
+                    u64 r = syscall_dispatch(f[8], f[0], f[1], f[2]);
+                    f[0] = r; /* 返回值走 x0 */
+                }
+                g_from_el0 = 0;
             }
-            g_from_el0 = 0;
+            /* 系统调用返回前是安全点：这里投递致命信号，绝不能再 eret 回去。 */
+            if (from_el0 && sched_get_l1() != (u64 *)0) {
+                int sig = sched_signal_self();
+
+                if (sig != 0) {
+                    printk("[kern] sign: pid=%u sig=%u exit\n",
+                           (u32)sched_pid(), (u32)sig);
+                    sched_exit_zombie(-sig);
+                }
+            }
         }
         /* 统计 EL1 自己的 svc（含 svc #0 这种立即数自检）：
          * EL0 的 puts/exit 不该污染 "svc handled, count=N" 这条数字。 */
@@ -248,6 +267,17 @@ void do_irq(void)
     }
     if (id < 1020) {
         gicc[0x10 / 4] = iar;
+    }
+    /* 时钟回来时也查一次信号：只靠 syscall 返回点的话，
+     * 一个死循环的用户进程可以永远不进来，kill 就永远送不到。 */
+    if (sched_get_l1() != (u64 *)0) {
+        int sig = sched_signal_self();
+
+        if (sig != 0) {
+            printk("[kern] sign: pid=%u sig=%u exit\n",
+                   (u32)sched_pid(), (u32)sig);
+            sched_exit_zombie(-sig);
+        }
     }
     sched_tick(); /* 最后一句：这里可能换栈，之后不再碰局部变量 */
 }
@@ -644,6 +674,10 @@ int kmain(u64 dtb)
     /* 第七个：线程 —— clone 共享地址空间与 fd 表。 */
     if (kthread_create("u6", user_thr_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread u6 failed\n");
+    }
+    /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    if (kthread_create("u7", user_sig_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread u7 failed\n");
     }
     sched_go();
     schedule();

@@ -25,6 +25,8 @@ extern const u8 user_cow_start[];
 extern const u8 user_cow_end[];
 extern const u8 user_thr_start[];
 extern const u8 user_thr_end[];
+extern const u8 user_sig_start[];
+extern const u8 user_sig_end[];
 
 /* 进 EL0。返回只可能发生在异常没处理好时——正常路径是 exit 掉。 */
 static void user_enter(u64 entry, u64 sp)
@@ -149,4 +151,11 @@ void user_thr_thread(void *arg)
 {
     (void)arg;
     user_spawn(user_thr_start, user_thr_end, "thr");
+}
+
+/* ---- 信号的靶子：kill 子进程，退出码 -15 ---- */
+void user_sig_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_sig_start, user_sig_end, "sig");
 }

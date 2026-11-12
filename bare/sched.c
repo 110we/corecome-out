@@ -30,6 +30,7 @@ typedef struct tcb {
     int pid;
     int ppid;
     int tgid;               /* 线程组：clone 出来的线程与创建者同组 */
+    u64 sig_pending;        /* 待投递信号：位图，bit n = signal n */
     u64 code;               /* 退出码：僵尸态留给父进程收 */
 } tcb_t;
 
@@ -65,6 +66,7 @@ void sched_init(void)
         tcbs[i].pid = -1;
         tcbs[i].ppid = -1;
         tcbs[i].tgid = -1;
+        tcbs[i].sig_pending = 0;
         tcbs[i].code = 0;
     }
     nth = 1;
@@ -95,6 +97,7 @@ int kthread_create(const char *name, void (*fn)(void *), void *arg)
     t->pid = next_pid++;
     t->ppid = 0;
     t->tgid = (int)t->pid;
+    t->sig_pending = 0;
     t->code = 0;
     t->ftab = 0;
     t->l1 = (u64 *)0;
@@ -236,6 +239,7 @@ static int sched_spawn(u64 *f, u64 *l1, u64 ftab, const char *nm,
     t->pid = next_pid++;
     t->ppid = ppid;
     t->tgid = tgid > 0 ? tgid : (int)t->pid;
+    t->sig_pending = 0;
     t->code = 0;
     t->ftab = ftab;
     t->l1 = l1;
@@ -299,9 +303,60 @@ int sched_tgid(void)
 void sched_exit_zombie(int code)
 {
     cur->code = (u64)code;
+    cur->sig_pending = 0;
     cur->state = ST_ZOMBIE;
     schedule();
     panic("sched: zombie returned");
+}
+
+/* ---- 信号：P0 子集 ----
+ * 只有默认动作：KILL/TERM 终止，SEGV 终止，CHLD 忽略。
+ * 没有用户态 handler、没有 sigreturn —— 那要把信号帧铺到用户栈上，
+ * 是下一层的事。这一层先把“能被打断、退出码 = -signum”做对：
+ * 投递点是 (1) 时钟中断回来时 (2) 系统调用返回前，两处都是安全点。
+ */
+#define SIGSEGV 11
+#define SIGKILL 9
+#define SIGTERM 15
+
+int sched_kill(int pid, int sig)
+{
+    int i;
+
+    if (sig <= 0 || sig > 63) {
+        return -1;
+    }
+    for (i = 0; i < nth; i++) {
+        tcb_t *t = &tcbs[i];
+
+        if (t->pid != pid || t->state == ST_FREE || t->state == ST_ZOMBIE) {
+            continue;
+        }
+        if (sig == SIGKILL || sig == SIGTERM || sig == SIGSEGV) {
+            t->sig_pending |= 1UL << sig;
+        }
+        printk("[kern] sign: kill pid=%u sig=%u\n", (u32)pid, (u32)sig);
+        return 0;
+    }
+    return -1;
+}
+
+/* 当前线程该不该死：返回信号号（0 = 没有）。 */
+int sched_signal_self(void)
+{
+    if (cur == (tcb_t *)0) {
+        return 0;
+    }
+    if ((cur->sig_pending & (1UL << SIGKILL)) != 0) {
+        return SIGKILL;
+    }
+    if ((cur->sig_pending & (1UL << SIGTERM)) != 0) {
+        return SIGTERM;
+    }
+    if ((cur->sig_pending & (1UL << SIGSEGV)) != 0) {
+        return SIGSEGV;
+    }
+    return 0;
 }
 
 /* 收尸：只收自己的孩子（pid==-1 收任意）。返回 pid，0 表示还没有僵尸。 */

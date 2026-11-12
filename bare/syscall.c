@@ -30,6 +30,7 @@
 #define SYS_PPID   15
 #define SYS_CLONE  16
 #define SYS_GETTID 17
+#define SYS_KILL   18
 
 extern u64 heap_used(void);
 
@@ -153,6 +154,8 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
         return (u64)-1;
     case SYS_GETTID:
         return (u64)(i64)sched_pid();
+    case SYS_KILL:
+        return (u64)(i64)sched_kill((int)a0, (int)a1);
     default:
         return (u64)-1; /* ENOSYS */
     }
@@ -164,12 +167,12 @@ void syscall_dump(void)
         "puts", "ticks", "heap", "write", "open",
         "read", "close", "yield", "exit", "list",
         "fork", "exec", "wait", "pid", "ppid",
-        "clone", "gettid"
+        "clone", "gettid", "kill"
     };
     u64 nr;
 
     printk("[syscall] svc #0x80, x8=nr; EL0 ptr -> u_ok/u_str\n");
-    for (nr = 1; nr <= 17; nr++) {
+    for (nr = 1; nr <= 18; nr++) {
         int guarded = (nr == SYS_PUTS || nr == SYS_WRITE || nr == SYS_OPEN ||
                        nr == SYS_READ || nr == SYS_LIST);
         printk("  %u %s%s\n", (u32)nr, names[nr - 1],

@@ -236,6 +236,61 @@ user_thr_start:
     .balign 8
 user_thr_end:
 
+/* ---- 信号靶子：父 kill 子，子的退出码必须是 -15 ----
+ * 子进程死循环 yield（永远不 exit），父发 SIGTERM 后 wait。
+ * 期望："sign: killed ok"，并且 wait 取到的 code = -15。
+ * 11=fork 8=yield 18=kill 13=wait 1=puts 9=exit */
+    .balign 8
+    .global user_sig_start
+    .global user_sig_end
+user_sig_start:
+    mov x8, #11
+    svc #0x80
+    mov x19, x0
+    cbz x19, 3f             /* 子是 0：进死循环 */
+
+    mov x6, #5
+2:
+    mov x8, #8
+    svc #0x80               /* 让子先跑起来 */
+    subs x6, x6, #1
+    b.ne 2b
+
+    mov x0, x19
+    mov x1, #15             /* SIGTERM */
+    mov x8, #18
+    svc #0x80
+
+    mov x0, x19
+    mov x8, #13
+    svc #0x80               /* wait -> -15 */
+    mov x3, #-15
+    cmp x0, x3
+    b.ne 4f
+    adr x0, 5f
+    mov x8, #1
+    svc #0x80
+    b 6f
+4:
+    adr x0, 7f
+    mov x8, #1
+    svc #0x80
+6:
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+3:
+    mov x8, #8
+    svc #0x80
+    b 3b
+5:
+    .asciz "sign: killed ok\n"
+7:
+    .asciz "sign: FAIL\n"
+    .balign 8
+user_sig_end:
+
 /* ---- exec 装载进去的那个程序 ---- */
     .balign 8
     .global user_exec_start
