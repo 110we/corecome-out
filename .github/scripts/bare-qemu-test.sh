@@ -12,7 +12,7 @@ qemu-system-aarch64 \
   -display none -monitor none -no-reboot \
   -serial file:build/serial.log \
   -D build/qemu.log -d guest_errors \
-  -kernel build/kernel.elf &
+  -kernel build/kernel.elf 2>build/qemu.err &
 qpid=$!
 
 cleanup() {
@@ -40,6 +40,8 @@ echo "--- serial.log (${bytes} bytes) ---"
 cat build/serial.log 2>/dev/null || true
 echo "--- qemu.log (guest_errors) ---"
 tail -n 80 build/qemu.log 2>/dev/null || true
+echo "--- qemu.err ---"
+tail -n 80 build/qemu.err 2>/dev/null || true
 echo "--- end logs ---"
 
 fail=0

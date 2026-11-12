@@ -55,6 +55,8 @@ jobs:
     name: 裸机（AArch64 / QEMU）
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -69,7 +71,9 @@ jobs:
         run: make -C bare
 
       - name: 开机与 P0 断言
-        run: bash .github/scripts/bare-qemu-test.sh
+        run: |
+          set -o pipefail
+          bash .github/scripts/bare-qemu-test.sh 2>&1 | tee bare/build/ci.log
 
       - name: 汇总串口
         if: always()
@@ -93,4 +97,30 @@ jobs:
           path: |
             bare/build/serial.log
             bare/build/qemu.log
+            bare/build/qemu.err
+            bare/build/ci.log
           if-no-files-found: warn
+
+      - name: 回写诊断（失败时）
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          rm -rf /tmp/diag && mkdir -p /tmp/diag
+          for f in serial.log qemu.log qemu.err ci.log; do
+            cp "bare/build/$f" "/tmp/diag/$f" 2>/dev/null || true
+          done
+          {
+            echo "run=$GITHUB_RUN_ID"
+            echo "commit=$GITHUB_SHA"
+            echo "qemu=$(qemu-system-aarch64 --version | head -1)"
+            echo "gcc=$(aarch64-linux-gnu-gcc --version | head -1)"
+            echo "uname=$(uname -a)"
+            echo "serial_bytes=$(wc -c < bare/build/serial.log 2>/dev/null || echo 0)"
+          } > /tmp/diag/meta.txt
+          cd /tmp/diag
+          git init -q
+          git add -A
+          git -c user.name=github-actions -c user.email=actions@github.com commit -q -m "ci diag run $GITHUB_RUN_ID"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci/diag
