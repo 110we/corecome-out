@@ -147,11 +147,26 @@ void do_sync(u64 *f)
     /* 先改返回地址再 printk：frame 指针可能只是临时寄存器，printk 会踩它 */
     if (ec == 0x15) { /* SVC from AArch64：ELR 已是下一条，不能再 +4 */
         u32 imm = (u32)(esr & 0xFFFF);
+        /* 从 EL0 进来时 SPSR 是 EL0t；内核线程自己 svc 则是 EL1h。 */
+        int from_el0 = ((f[33] & 0xFUL) == 0);
         if (imm == 0x80) { /* S0：系统调用门 */
-            u64 r = syscall_dispatch(f[8], f[0], f[1], f[2]);
-            f[0] = r; /* 返回值走 x0 */
+            /* exit 只对 EL0 特殊处理：注销线程，并且把 TTBR0 切回模板，
+             * 免得下一个内核线程沿用一份已经作废的用户地址空间。 */
+            if (from_el0 && f[8] == 9) { /* SYS_EXIT */
+                printk("[kern] user: exit ok code=%u\n", (u32)f[0]);
+                pg_activate((u64 *)0);
+                kthread_exit();
+            }
+            {
+                u64 r = syscall_dispatch(f[8], f[0], f[1], f[2]);
+                f[0] = r; /* 返回值走 x0 */
+            }
         }
-        svc_seen++;
+        /* 统计 EL1 自己的 svc（含 svc #0 这种立即数自检）：
+         * EL0 的 puts/exit 不该污染 "svc handled, count=N" 这条数字。 */
+        if (!from_el0) {
+            svc_seen++;
+        }
     } else if (ec == 0x24 || ec == 0x25) { /* data abort：ELR 指向故障指令，+4 跳过 */
         fault_seen++;
         f[32] += 4; /* 帧里 ELR 在 256 字节处 = f[32] */
@@ -236,6 +251,7 @@ static void mmu_init(void)
         u64 s;
         __asm__ volatile("mrs %0, sctlr_el1" : "=r"(s));
         s |= 1UL | 2UL | 4UL | (1UL << 12); /* M A C I */
+        s &= ~(1UL << 22); /* 清 PAN：内核要替用户态读写缓冲区（copyin/out） */
         __asm__ volatile("msr sctlr_el1, %0; isb" ::"r"(s));
     }
 }
@@ -547,6 +563,10 @@ int kmain(u64 dtb)
     kthread_create("ta", thr_a, (void *)"A");
     kthread_create("tb", thr_b, (void *)"B");
     printk("[kern] sched: threads=%u cur=%s slice=5\n", kthread_alive(), kthread_cur());
+    /* EL0 自检放在这条断言之后：threads 的数字不变，用户线程单独算一笔。 */
+    if (kthread_create("u0", user_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread failed\n");
+    }
     sched_go();
     schedule();
     while (kthread_alive() > 0) {

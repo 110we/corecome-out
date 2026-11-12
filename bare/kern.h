@@ -52,6 +52,9 @@ void sched_tick(void);
 u64 kthread_alive(void);
 const char *kthread_cur(void);
 
+/* ---- 用户态（EL0） ---- */
+void user_thread(void *arg);
+
 /* ---- VFS / ramfs / 设备 ---- */
 #define VFS_PATH_MAX 96
 void vfs_init(void);
