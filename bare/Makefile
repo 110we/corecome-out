@@ -9,7 +9,8 @@ LD := $(CROSS)ld
 
 BUILD := build
 OBJS := $(BUILD)/boot.o $(BUILD)/vectors.o $(BUILD)/switch.o $(BUILD)/kernel.o \
-        $(BUILD)/heap.o $(BUILD)/mm.o $(BUILD)/sched.o $(BUILD)/vfs.o $(BUILD)/syscall.o
+        $(BUILD)/heap.o $(BUILD)/mm.o $(BUILD)/paging.o $(BUILD)/sched.o \
+        $(BUILD)/vfs.o $(BUILD)/syscall.o
 
 CFLAGS := -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin \
           -nostdlib -mgeneral-regs-only -O2 -Wall -Wextra -Werror -g
@@ -53,6 +54,7 @@ test: $(BUILD)/kernel.elf
 > @grep -q "\[sys\] syscall ok" $(BUILD)/serial.log || (echo "FAIL: syscall"; exit 1)
 > @grep -q "\[kern\] mm: pages=128" $(BUILD)/serial.log || (echo "FAIL: mm"; exit 1)
 > @grep -q "\[kern\] slab ok" $(BUILD)/serial.log || (echo "FAIL: slab"; exit 1)
+> @grep -q "\[kern\] paging: 4K aspace ok" $(BUILD)/serial.log || (echo "FAIL: paging"; exit 1)
 > @grep -q "\[kern\] vfs: hello from ramfs" $(BUILD)/serial.log || (echo "FAIL: vfs"; exit 1)
 > @grep -q "\[kern\] rootfs:" $(BUILD)/serial.log || (echo "FAIL: rootfs"; exit 1)
 > @grep -q "\[thr\] A 0" $(BUILD)/serial.log || (echo "FAIL: thread A"; exit 1)

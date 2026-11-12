@@ -44,6 +44,35 @@ void mm_init(void)
     }
 }
 
+/* 整页出口：页表要的是“干净的一页”，拿旧数据去填 L3 等于埋雷。 */
+void *mm_page_alloc(void)
+{
+    u8 *p = (u8 *)page_alloc();
+    u64 i;
+
+    if (p == (u8 *)0) {
+        return (void *)0;
+    }
+    for (i = 0; i < PAGE_SIZE; i++) {
+        p[i] = 0;
+    }
+    return (void *)p;
+}
+
+void mm_page_free(void *p)
+{
+    u64 i;
+
+    if (p == (void *)0) {
+        return;
+    }
+    if ((u8 *)p < &pool[0] || (u8 *)p >= &pool[POOL_PAGES * PAGE_SIZE]) {
+        return; /* 不是池里的页，宁可泄漏也不改位图 */
+    }
+    i = (u64)((u8 *)p - &pool[0]) / PAGE_SIZE;
+    bitmap[i / 64] &= ~(1UL << (i % 64));
+}
+
 u64 mm_pages_total(void)
 {
     return POOL_PAGES;

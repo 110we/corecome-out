@@ -24,6 +24,22 @@ void *kmalloc(u64 n);
 void kfree(void *p);
 u64 mm_pages_free(void);
 u64 mm_pages_total(void);
+void *mm_page_alloc(void);   /* 4K，已清零；页表/用户页都从这里出 */
+void mm_page_free(void *p);
+
+/* ---- 分页：4K 粒度 + 用户地址空间 ---- */
+#define PG_USER_RW  1UL
+#define PG_USER_RO  2UL
+#define PG_USER_RX  3UL
+#define USER_WIN_BASE 0x10000000UL
+#define USER_WIN_TOP  0x10200000UL
+void pg_init(void);
+u64 *pg_template(void);
+u64 *pg_aspace_new(void);
+int pg_map_user(u64 *l1, u64 va, u64 pa, u64 attr);
+u64 pg_user_pa(u64 *l1, u64 va);
+void pg_activate(u64 *l1);
+int pg_selftest(void);
 
 /* ---- 调度：内核线程 ---- */
 #define KTHREAD_MAX 8

@@ -157,7 +157,7 @@ void do_sync(u64 *f)
         f[32] += 4; /* 帧里 ELR 在 256 字节处 = f[32] */
     }
 
-    printk("[exc] sync ec=%x elr=%x far=%x\n", (u64)ec, elr, far);
+    printk("[exc] sync esr=%x elr=%x far=%x\n", esr, elr, far);
 
     if (ec != 0x15 && ec != 0x24 && ec != 0x25) {
         panic("unhandled synchronous exception");
@@ -223,18 +223,14 @@ static void timer_init(void)
     __asm__ volatile("msr cntp_ctl_el0, %0" ::"r"(1UL));
 }
 
-/* ---- MMU：39-bit VA，1GB block 恒等映射 ---- */
-static u64 l1[512] __attribute__((aligned(4096)));
-
+/* ---- MMU：39-bit VA，开机模板在 paging.c ---- */
 static void mmu_init(void)
 {
-    l1[0] = 0x60000000000401UL; /* 0x00000000-0x3FFFFFFF：Device-nGnRnE，不可执行 */
-    l1[1] = 0x40000000UL | 0x705UL; /* 0x40000000-0x7FFFFFFF：Normal WB，可执行 */
+    pg_init();
 
     __asm__ volatile("msr mair_el1, %0" ::"r"(0xFF00UL));
     __asm__ volatile("msr tcr_el1, %0" ::"r"(0x20000000003519UL));
-    __asm__ volatile("msr ttbr0_el1, %0" ::"r"((u64)l1));
-    __asm__ volatile("isb; tlbi vmalle1; dsb sy; isb");
+    pg_activate((u64 *)0);
 
     {
         u64 s;
@@ -515,6 +511,12 @@ int kmain(u64 dtb)
         } else {
             puts_("[kern] slab FAIL\n");
         }
+    }
+
+    if (pg_selftest()) {
+        printk("[kern] paging: 4K aspace ok free=%u\n", mm_pages_free());
+    } else {
+        puts_("[kern] paging FAIL\n");
     }
 
     {
