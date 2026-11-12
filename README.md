@@ -86,6 +86,6 @@ Kernel 装配
 - 加固必留自救出口；不可恢复不是安全特性。
 ## 裸机（bare/）
 
-aarch64 裸机内核，现在是一个 EL1 **大内核**骨架：异常向量、GICv2、100 Hz 定时器、MMU，加上页分配/slab、内核线程调度、ramfs + VFS、11 号系统调用，全部编进同一个镜像、同一张页表，彼此是函数调用。执行只在仓库内做：`make bare-test`，结果落 `bare/.ci/local-verify.log`。CI 暂未配置。
+aarch64 裸机内核，现在是一个 EL1 **大内核**骨架：异常向量、GICv2、100 Hz 定时器、MMU，加上页分配/slab、内核线程调度、ramfs + VFS、11 号系统调用，全部编进同一个镜像、同一张页表，彼此是函数调用。执行只在仓库内做：`make bare-test`，结果落 `bare/.ci/local-verify.log`。CI 见 `.github/workflows/kernel.yml`：Java 四套自检 + 裸机 QEMU P0；裸机固定 `ubuntu-24.04`（QEMU 8.2 / GCC 13），避免新版 QEMU 下无串口输出。
 
     tools/ci_result.sh
