@@ -155,6 +155,8 @@ void do_sync(u64 *f)
             if (from_el0 && f[8] == 9) { /* SYS_EXIT */
                 printk("[kern] user: exit ok code=%u\n", (u32)f[0]);
                 pg_activate((u64 *)0);
+                /* EL0 入口屏蔽过 IRQ，且 switch_to 不存 DAIF：这里必须还原 */
+                __asm__ volatile("msr daifclr, #2");
                 kthread_exit();
             }
             {
@@ -174,6 +176,7 @@ void do_sync(u64 *f)
         if ((f[33] & 0xFUL) == 0) {
             printk("[kern] user: fault esr=%x far=%x\n", esr, far);
             pg_activate((u64 *)0);
+            __asm__ volatile("msr daifclr, #2"); /* 入口屏蔽过 IRQ，出口还原 */
             kthread_exit();
         }
         fault_seen++;
