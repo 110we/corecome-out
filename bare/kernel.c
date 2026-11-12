@@ -246,6 +246,16 @@ static void mmu_init(void)
 
 /* ---- UART 接收 ---- */
 #define RINGSZ 128
+
+/* 串口线格式/FIFO 必须在“可能收字节”之前配好。
+ * 写 LCR_H 的 FEN 位会复位收发 FIFO，放到开机末尾做，
+ * 会把手快于内核的输入（管道里已经躺着的字节）直接冲掉。 */
+static void uart_init(void)
+{
+    uart[0x2C / 4] = 0x70;      /* LCR_H: FEN + 8bit + 1stop + no parity */
+    uart[0x34 / 4] = 0;         /* IFLS: FIFO 1/8 触发 */
+    uart[UART_IMSC / 4] = (1u << 4); /* RXIM */
+}
 static volatile char ring[RINGSZ];
 static volatile u32 rhead;
 static volatile u32 rtail;
@@ -406,6 +416,7 @@ int kmain(u64 dtb)
     u32 magic = 0;
 
     puts_("\n[bare] aarch64 virt, PL011 UART up\n");
+    uart_init(); /* 先配 FIFO/线格式，再谈收字节 */
 
     __asm__ volatile("mov %0, sp" : "=r"(sp));
     __asm__ volatile("mrs %0, currentel" : "=r"(sctlr));
@@ -543,9 +554,6 @@ int kmain(u64 dtb)
     puts_("[kern] subsystems: mm sched vfs dev syscall\n");
     puts_("[kern] BIG_KERNEL_OK\n");
 
-    uart[0x2C / 4] = 0x70; /* LCR_H: FEN + 8bit */
-    uart[0x34 / 4] = 0; /* IFLS: FIFO 1/8 触发 */
-    uart[UART_IMSC / 4] = (1u << 4); /* RXIM */
     puts_("[bare] uart: rx irq on\n");
     puts_("[bare] ALL_OK\n");
     puts_("bare> ");
