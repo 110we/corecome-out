@@ -57,6 +57,7 @@ test: $(BUILD)/kernel.elf
 > @grep -q "\[kern\] paging: 4K aspace ok" $(BUILD)/serial.log || (echo "FAIL: paging"; exit 1)
 > @grep -q "hello from EL0" $(BUILD)/serial.log || (echo "FAIL: el0 puts"; exit 1)
 > @grep -q "user: exit ok code=0" $(BUILD)/serial.log || (echo "FAIL: el0 exit"; exit 1)
+> @grep -q "user: fault" $(BUILD)/serial.log || (echo "FAIL: el0 isolation"; exit 1)
 > @grep -q "\[kern\] vfs: hello from ramfs" $(BUILD)/serial.log || (echo "FAIL: vfs"; exit 1)
 > @grep -q "\[kern\] rootfs:" $(BUILD)/serial.log || (echo "FAIL: rootfs"; exit 1)
 > @grep -q "\[thr\] A 0" $(BUILD)/serial.log || (echo "FAIL: thread A"; exit 1)

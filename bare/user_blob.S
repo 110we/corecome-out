@@ -27,3 +27,17 @@ user_blob_start:
     .asciz "hello from EL0\n"
     .balign 8
 user_blob_end:
+
+/* 故意越界伸手去摸内核镜像（0x40000000）。
+ * EL0 的页表里那一块是 EL1-only，必须 abort —— 这是隔离的证据。 */
+    .balign 8
+    .global user_bad_start
+    .global user_bad_end
+user_bad_start:
+    mov x1, #0x40000000
+    ldr x0, [x1]
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+user_bad_end:

@@ -167,7 +167,15 @@ void do_sync(u64 *f)
         if (!from_el0) {
             svc_seen++;
         }
-    } else if (ec == 0x24 || ec == 0x25) { /* data abort：ELR 指向故障指令，+4 跳过 */
+    } else if (ec == 0x24 || ec == 0x25) { /* data abort */
+        /* 从 EL0 撞上来就没得“跳过指令”了：那等于让用户态静默越过保护。
+         * 直接判这个线程死刑，并把 TTBR0 切回模板；内核自己的探测仍按老规矩
+         * +4 继续，因为那是自检故意踩的。 */
+        if ((f[33] & 0xFUL) == 0) {
+            printk("[kern] user: fault esr=%x far=%x\n", esr, far);
+            pg_activate((u64 *)0);
+            kthread_exit();
+        }
         fault_seen++;
         f[32] += 4; /* 帧里 ELR 在 256 字节处 = f[32] */
     }
@@ -566,6 +574,10 @@ int kmain(u64 dtb)
     /* EL0 自检放在这条断言之后：threads 的数字不变，用户线程单独算一笔。 */
     if (kthread_create("u0", user_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread failed\n");
+    }
+    /* 第二个用户线程故意越界，验证 EL0 的访问被拦、且只死它自己。 */
+    if (kthread_create("u1", user_bad_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread u1 failed\n");
     }
     sched_go();
     schedule();
