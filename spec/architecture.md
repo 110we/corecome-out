@@ -38,9 +38,12 @@ netos.Main            启动参数、配置装载、装配、注册表、退出�
 
 - [x] `netos.http.HttpService`（已实现：1MB 上限、真实 IP 覆盖、Guard 注入）
 - [x] `netos.sides.LifeSide` 样例面（含写面 `POST /api/life/poke`）
-- [x] `security` 面：open / guarded / sealed 三档 + 双头令牌 + 自指豁免（14 项实测通过）
-- [~] `runtime` 面：本仓库已实现可观测版（服务表 / JVM 堆·线程·GC / 60 拍历史）；上游 `ProcessTable` 与服务总线仍待并入（源码在 `kernel/runtime/`）
-- [x] build.sh + 自检脚本（起服务、打 7 条路由、收摊；另有三档安全自检）
+- [x] `security` 面：open / readonly / sealed 三档（`guarded` 为兼容别名）+ 双头令牌 + 自指豁免
+      （17 项实测通过，含 fail-closed 与别名回归）
+- [~] `runtime` 面：本仓库已实现可观测版（服务表 / JVM 堆·线程·GC / 60 拍历史）；
+      上游 `ProcessTable` 与服务总线**不在本仓库**（旧 `runtime/` 快照已移出，
+      见 README；需服务器源码或可编译桩）
+- [x] build.sh + 自检（19 项内核 / 17 项安全 / 22 项契约冒烟 / 24 项失败路径）
 
 ## 安全面的三条硬规矩（写在这儿，防止以后被"优化"掉）
 

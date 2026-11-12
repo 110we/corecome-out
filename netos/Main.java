@@ -56,7 +56,7 @@ public final class Main {
 
         // 闸门在入口处装配：传输层只负责调用，不认识模式与令牌。
         Policy policy = new Policy(
-                Policy.parse(config.str("security.mode", "guarded")),
+                Policy.parse(config.str("security.mode", "readonly")),
                 config.str("security.token", ""));
         kernel.route("GET", "/api/security", req -> Response.ok(policy.describe()));
 

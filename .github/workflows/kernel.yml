@@ -41,6 +41,14 @@ jobs:
         timeout-minutes: 5
         run: timeout 180 python3 tools/security_test.py 18211
 
+      - name: 服务器契约冒烟（面/路由/信封）
+        timeout-minutes: 5
+        run: timeout 120 python3 tools/server_smoke.py
+
+      - name: 失败路径（端口竞态/空令牌/强杀残留）
+        timeout-minutes: 6
+        run: timeout 240 python3 tools/failure_test.py
+
       - name: Astra 能力总线
         timeout-minutes: 5
         run: timeout 180 python3 tools/astra_selftest.py 18411

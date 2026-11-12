@@ -91,8 +91,10 @@ def run_case(mode, token, expects):
     log = open(f"/tmp/netos-sec-{mode}.log", "w+")
     proc = subprocess.Popen(args, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
     try:
-        for _ in range(80):
-            if busy():
+        # 不能只看端口通：bind 成功到 handler 可用之间有一个窗口，
+        # 这期间打进去会拿到连接错误，把「服务没起完」误判成「策略拒绝」。
+        for _ in range(120):
+            if call("127.0.0.1", "/api/kernel") == 200:
                 break
             if proc.poll() is not None:
                 log.seek(0)
@@ -129,14 +131,21 @@ def main():
         ("远端 POST 放行", lambda: call(ip, "/api/life/poke", "POST") == 200),
     ])
 
-    # guarded：远端读放行、写需令牌
-    run_case("guarded", TOKEN, [
+    # readonly：远端读放行、写需令牌
+    run_case("readonly", TOKEN, [
         ("远端 GET 放行", lambda: call(ip, "/api/life") == 200),
         ("远端 POST 无令牌 401", lambda: call(ip, "/api/life/poke", "POST") == 401),
         ("远端 POST 错令牌 401", lambda: call(ip, "/api/life/poke", "POST", token="wrong") == 401),
         ("远端 POST 正确令牌 200", lambda: call(ip, "/api/life/poke", "POST", token=TOKEN) == 200),
         ("观测面免闸", lambda: call(ip, "/api/kernel") == 200),
         ("本机 POST 豁免", lambda: call("127.0.0.1", "/api/life/poke", "POST") == 200),
+    ])
+
+    # 旧配置名 guarded 必须仍然可用（等价 readonly），否则升级即断服
+    run_case("guarded", TOKEN, [
+        ("别名 guarded 等价 readonly：远端 GET 放行", lambda: call(ip, "/api/life") == 200),
+        ("别名 guarded：远端 POST 无令牌 401", lambda: call(ip, "/api/life/poke", "POST") == 401),
+        ("别名 guarded：正确令牌 200", lambda: call(ip, "/api/life/poke", "POST", token=TOKEN) == 200),
     ])
 
     # sealed + 空令牌：不是"无密码"，是全拒

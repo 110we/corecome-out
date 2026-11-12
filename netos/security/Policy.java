@@ -11,13 +11,18 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 三档策略：open / guarded / sealed。
+ * 三档策略：open / readonly / sealed。
  *
- *   观测面   本机    open    读   写
+ *   观测面   本机    open    读    写
  *   ---------------------------------------------------------
- *   open     放行   放行    放行  放行
- *   guarded  放行   放行    放行  需令牌
- *   sealed   放行   放行    需令牌 需令牌
+ *   open     放行   放行     放行  放行
+ *   readonly 放行   放行     放行  需令牌
+ *   sealed   放行   放行     需令牌 需令牌
+ *
+ * 为什么叫 readonly 而不是 guarded：
+ *   这一档做的是「读公开、写验令牌」，不是「减弱版防护」。
+ *   叫 guarded 会让人以为它比实际更严，反而容易把写接口当安全区。
+ *   guarded 作为兼容别名保留（旧配置、服务器版），语义完全等同 readonly。
  *
  * 三条不可让步的规矩：
  *   1. 观测面白名单硬编码、逐条列举，绝不做前缀匹配。
@@ -26,10 +31,14 @@ import java.util.Set;
  *      这里曾经写成「拿不到就当本机」，等于把 root 交出去。
  *   3. 令牌为空时不是「无密码」，是「一律不放行」。
  *      空串放行是最常见的一种后门，只是长得像配置失误。
+ *
+ * 明确不做的：令牌过期、撤销、并发会话。当前令牌是静态配置，
+ * 轮换 = 重启。需要这些能力时应在传输层前加真正的会话层，而不是
+ * 往这里塞字符串比较。
  */
 public final class Policy implements Guard {
 
-    public enum Mode { OPEN, GUARDED, SEALED }
+    public enum Mode { OPEN, READONLY, SEALED }
 
     private static final Set<String> OBSERVE = Set.of(
             "/", "/api/kernel", "/api/kernel/routes", "/api/kernel/config", "/api/security");
@@ -45,14 +54,22 @@ public final class Policy implements Guard {
         }
     }
 
+    /**
+     * 解析配置。为兼容旧的 guarded，它映射到 READONLY；
+     * 未知值一律落到 READONLY —— 打错一个字母不应该变成 open。
+     */
     public static Mode parse(String raw) {
         if (raw == null || raw.isBlank()) {
-            return Mode.GUARDED;
+            return Mode.READONLY;
         }
         return switch (raw.trim().toLowerCase()) {
             case "open" -> Mode.OPEN;
             case "sealed" -> Mode.SEALED;
-            default -> Mode.GUARDED;
+            case "readonly", "guarded" -> Mode.READONLY;   // guarded = 已弃用别名
+            default -> {
+                Log.warn("security", "未知安全档位 %s，按 readonly 处理", raw);
+                yield Mode.READONLY;
+            }
         };
     }
 
@@ -81,8 +98,8 @@ public final class Policy implements Guard {
             return null;
         }
 
-        // 5. guarded 下的读放行
-        if (mode == Mode.GUARDED && read) {
+        // 5. readonly 下的读放行
+        if (mode == Mode.READONLY && read) {
             return null;
         }
 
@@ -118,6 +135,7 @@ public final class Policy implements Guard {
         m.put("tokenConfigured", !token.isEmpty());
         m.put("observeWhitelist", OBSERVE.stream().sorted().toList());
         m.put("localExempt", java.util.List.of("127.0.0.1", "::1"));
+        m.put("deprecatedAliases", java.util.List.of("guarded → readonly"));
         return m;
     }
 }
