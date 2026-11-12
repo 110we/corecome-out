@@ -17,6 +17,11 @@ switch_to:                       /* x0 = prev, x1 = next */
     str x30,      [x0, #88]
     mov x9, sp
     str x9,       [x0, #96]
+    /* DAIF 是线程私有状态：EL0 线程被抢占时 PRIMASK 是干净的，
+     * 内核线程则可能是屏蔽的。不存它，抢占一次就会把某个线程的中断
+     * 状态永久写死。 */
+    mrs x10, daif
+    str x10,      [x0, #144]
 
     ldp x19, x20, [x1, #0]
     ldp x21, x22, [x1, #16]
@@ -27,6 +32,8 @@ switch_to:                       /* x0 = prev, x1 = next */
     ldr x30,      [x1, #88]
     ldr x9,       [x1, #96]
     mov sp, x9
+    ldr x10,      [x1, #144]
+    msr daif, x10
     ret
 
 /* 新线程第一次被切到：sp 指向伪造的 trap frame，这里把它 eret 出去。 */

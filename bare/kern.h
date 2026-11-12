@@ -55,6 +55,12 @@ const char *kthread_cur(void);
 /* ---- 用户态（EL0） ---- */
 void user_thread(void *arg);
 void user_bad_thread(void *arg);
+void user_bad2_thread(void *arg);
+u64 user_enter_ticks(void);
+u64 *sched_get_l1(void);
+void sched_set_l1(u64 *l1);
+u64 tick_count(void);
+extern volatile int g_from_el0;
 
 /* ---- VFS / ramfs / 设备 ---- */
 #define VFS_PATH_MAX 96

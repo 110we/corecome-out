@@ -14,16 +14,22 @@
     .global user_blob_end
 
 user_blob_start:
-    adr x0, 1f
+    /* 先空转一段：这段时间里没有任何 svc，只能靠时钟中断进来抢占。
+     * 退出时 preempt 计数 > 0，才证明 EL0 是真的可抢占。 */
+    mov x2, #0x4000000
+1:
+    subs x2, x2, #1
+    b.ne 1b
+
+    adr x0, 2f
     mov x8, #1
     svc #0x80
 
     mov x0, #0
     mov x8, #9
     svc #0x80
-
     b .
-1:
+2:
     .asciz "hello from EL0\n"
     .balign 8
 user_blob_end:
@@ -41,3 +47,20 @@ user_bad_start:
     svc #0x80
     b .
 user_bad_end:
+
+/* 第三层的靶子：不越界访存，而是**把内核地址当参数递进去**。
+ * 页表拦不住这种（EL1 读用户 VA 合法），只有 syscall 层的 u_ok()
+ * 能挡。期望：puts 返回 -2，随后 exit 1。 */
+    .balign 8
+    .global user_bad2_start
+    .global user_bad2_end
+user_bad2_start:
+    mov x0, #0x40000000
+    mov x8, #1
+    svc #0x80
+
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+user_bad2_end:

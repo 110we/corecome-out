@@ -15,6 +15,8 @@ extern const u8 user_blob_start[];
 extern const u8 user_blob_end[];
 extern const u8 user_bad_start[];
 extern const u8 user_bad_end[];
+extern const u8 user_bad2_start[];
+extern const u8 user_bad2_end[];
 
 /* 进 EL0。返回只可能发生在异常没处理好时——正常路径是 exit 掉。 */
 static void user_enter(u64 entry, u64 sp)
@@ -24,7 +26,14 @@ static void user_enter(u64 entry, u64 sp)
         "msr elr_el1, %1\n"
         "msr spsr_el1, %2\n"
         "eret\n" ::"r"(sp),
-        "r"(entry), "r"(0x3C0UL)); /* EL0t + DAIF 全掩 */
+        "r"(entry), "r"(0UL)); /* EL0t，I=0：用户态可被时钟抢占 */
+}
+
+static u64 t0;
+
+u64 user_enter_ticks(void)
+{
+    return t0;
 }
 
 static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
@@ -67,18 +76,20 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     printk("[kern] user: enter el0 tag=%s pc=%x sp=%x bytes=%u\n",
            tag, (u32)USER_WIN_BASE, (u32)(USER_WIN_BASE + 0x2000), (u32)n);
 
-/* pg_activate + eret 必须是一段不可被抢占的临界区：
- * 中途被定时器切走的话，另一个用户线程会改掉 TTBR0/ELR/SPSR，
- * 回来再 eret 就落进别人的地址空间（表现为 hello 消失，或 EL0
- * 取指撞在没映射的 0x10000000 上 panic）。
- * 注意 switch_to 不保存 DAIF，所以每个回内核的出口都要 daifclr。 */
-    __asm__ volatile("msr daifset, #2");
+/* 地址空间登记到线程上：从这以后，抢占/恢复由调度器负责切 TTBR0，
+ * 所以 EL0 可以放心开着中断跑。 */
+    sched_set_l1(l1);
     pg_activate(l1);
+
+    /* 临界区只剩 eret 前的三条 msr：ELR/SPSR/SP_EL0 是系统寄存器，
+     * 跨抢占点就会被别人覆盖。出去之后 EL0 用自己的中断状态（SPSR.I=0）。 */
+    __asm__ volatile("msr daifset, #2");
+    t0 = tick_count();
     user_enter(USER_WIN_BASE, USER_WIN_BASE + 0x2000);
 
     /* 走到这里说明 eret 之后又回到了 EL1 —— exit 没生效，是 bug。 */
     kputs("[kern] user: eret returned (BUG)\n");
-    __asm__ volatile("msr daifclr, #2");
+    sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
 }
@@ -95,4 +106,11 @@ void user_bad_thread(void *arg)
 {
     (void)arg;
     user_spawn(user_bad_start, user_bad_end, "bad");
+}
+
+/* 第三层的靶子：参数是内核地址，必须被 syscall 层拒绝。 */
+void user_bad2_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_bad2_start, user_bad2_end, "deny");
 }

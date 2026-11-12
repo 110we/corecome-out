@@ -134,6 +134,10 @@ void kputs(const char *s)
 static void timer_arm(void);
 static void uart_rx_isr(void);
 
+/* 当前系统调用是不是从 EL0 进来的——syscall 层要靠它决定是否校验用户指针。
+ * 内核线程自己 svc 时传的是内核指针，不能套用户窗口那套规则。 */
+volatile int g_from_el0;
+
 void do_sync(u64 *f)
 {
     u64 esr, elr, far;
@@ -153,16 +157,20 @@ void do_sync(u64 *f)
             /* exit 只对 EL0 特殊处理：注销线程，并且把 TTBR0 切回模板，
              * 免得下一个内核线程沿用一份已经作废的用户地址空间。 */
             if (from_el0 && f[8] == 9) { /* SYS_EXIT */
-                printk("[kern] user: exit ok code=%u\n", (u32)f[0]);
+                /* preempt = 用户态跑这段时间里时钟走了几拍。>0 才说明
+                 * EL0 真的开着 IRQ、真被抢占过，而不是靠屏蔽混过去的。 */
+                printk("[kern] user: exit ok code=%u preempt=%u\n",
+                       (u32)f[0], (u32)(tick_count() - user_enter_ticks()));
+                sched_set_l1((u64 *)0);
                 pg_activate((u64 *)0);
-                /* EL0 入口屏蔽过 IRQ，且 switch_to 不存 DAIF：这里必须还原 */
-                __asm__ volatile("msr daifclr, #2");
                 kthread_exit();
             }
+            g_from_el0 = from_el0;
             {
                 u64 r = syscall_dispatch(f[8], f[0], f[1], f[2]);
                 f[0] = r; /* 返回值走 x0 */
             }
+            g_from_el0 = 0;
         }
         /* 统计 EL1 自己的 svc（含 svc #0 这种立即数自检）：
          * EL0 的 puts/exit 不该污染 "svc handled, count=N" 这条数字。 */
@@ -175,8 +183,8 @@ void do_sync(u64 *f)
          * +4 继续，因为那是自检故意踩的。 */
         if ((f[33] & 0xFUL) == 0) {
             printk("[kern] user: fault esr=%x far=%x\n", esr, far);
+            sched_set_l1((u64 *)0);
             pg_activate((u64 *)0);
-            __asm__ volatile("msr daifclr, #2"); /* 入口屏蔽过 IRQ，出口还原 */
             kthread_exit();
         }
         fault_seen++;
@@ -581,6 +589,10 @@ int kmain(u64 dtb)
     /* 第二个用户线程故意越界，验证 EL0 的访问被拦、且只死它自己。 */
     if (kthread_create("u1", user_bad_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread u1 failed\n");
+    }
+    /* 第三个：参数递内核地址，只看 syscall 层能不能挡住。 */
+    if (kthread_create("u2", user_bad2_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread u2 failed\n");
     }
     sched_go();
     schedule();

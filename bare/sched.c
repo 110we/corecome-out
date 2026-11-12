@@ -23,6 +23,8 @@ typedef struct tcb {
     char name[16];
     int state;
     u64 slice;
+    u64 daif;               /* 线程私有的中断屏蔽状态 */
+    u64 *l1;                /* TTBR0：0 = 内核模板页表 */
 } tcb_t;
 
 extern void switch_to(tcb_t *prev, tcb_t *next);
@@ -50,6 +52,8 @@ void sched_init(void)
     for (i = 0; i < KTHREAD_MAX; i++) {
         tcbs[i].state = ST_FREE;
         tcbs[i].slice = SLICE;
+        tcbs[i].l1 = (u64 *)0;
+        tcbs[i].daif = 0;
     }
     nth = 1;
     tcbs[0].idx = 0;
@@ -127,6 +131,13 @@ void schedule(void)
     }
     prev->slice = SLICE;
     cur = next;
+    /* 地址空间也跟着线程走：两个用户线程互相抢占时，TTBR0 必须是
+
+     * 即将运行的那个人的。内核在所有 aspace 里都恒等映射，所以
+     * 在切换的栈上改 TTBR0 是安全的。 */
+    if (next->l1 != prev->l1) {
+        pg_activate(next->l1);
+    }
     switch_to(prev, next);
 }
 
@@ -165,4 +176,16 @@ u64 kthread_alive(void)
 const char *kthread_cur(void)
 {
     return cur == (tcb_t *)0 ? "none" : cur->name;
+}
+/* ---- 地址空间归属：供 user.c / syscall.c 查询当前线程 ---- */
+u64 *sched_get_l1(void)
+{
+    return cur == (tcb_t *)0 ? (u64 *)0 : cur->l1;
+}
+
+void sched_set_l1(u64 *l1)
+{
+    if (cur != (tcb_t *)0) {
+        cur->l1 = l1;
+    }
 }
