@@ -27,6 +27,8 @@ extern const u8 user_thr_start[];
 extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
+extern const u8 user_m4_init_start[];
+extern const u8 user_m4_init_end[];
 
 /* 进 EL0。返回只可能发生在异常没处理好时——正常路径是 exit 掉。 */
 static void user_enter(u64 entry, u64 sp)
@@ -130,6 +132,16 @@ void user_bad3_thread(void *arg)
 {
     (void)arg;
     user_spawn(user_bad3_start, user_bad3_end, "nx");
+}
+
+/* ---- M4：init 拉起 shell ----
+ * init 是 EL0 程序：fork 后孩子 exec(1)=shell，父亲 wait 到 shell 退出。
+ * g_shell_mode 让内核命令行把串口让给 shell；init0 退出时在 kthread_exit 里清。 */
+void user_m4_thread(void *arg)
+{
+    (void)arg;
+    g_shell_mode = 1;
+    user_spawn(user_m4_init_start, user_m4_init_end, "m4init");
 }
 
 /* ---- 进程语义的靶子：fork -> 孩子 exec -> 父亲 wait ---- */

@@ -235,7 +235,18 @@ i64 vfs_read(int fd, void *buf, u64 n)
     }
     f = &fds[fd];
     if (f->ino->type == T_DEV) {
-        return 0; /* 控制台暂无输入路径，收字节走 UART 环形缓冲 */
+        /* 控制台读：从 UART 环形缓冲取，非阻塞。shell 用 read(0,…,1)
+         * 轮询；没数据返回 0，调用方 yield 后再试。 */
+        u64 got = 0;
+        u8 *d = (u8 *)buf;
+        while (got < n) {
+            int c = uart_tryget();
+            if (c < 0) {
+                break;
+            }
+            d[got++] = (u8)c;
+        }
+        return (i64)got;
     }
     if (f->ino->type != T_FILE) {
         return -1;

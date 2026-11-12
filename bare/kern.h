@@ -51,6 +51,9 @@ int pg_selftest(void);
 /* ---- 调度：内核线程 ---- */
 #define KTHREAD_MAX 24
 int kthread_create(const char *name, void (*fn)(void *), void *arg);
+int uart_tryget(void);
+extern volatile int g_shell_mode;
+void user_m4_thread(void *arg);
 void sched_init(void);
 void sched_go(void);
 void schedule(void);

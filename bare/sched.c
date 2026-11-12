@@ -179,8 +179,15 @@ void sched_tick(void)
     }
 }
 
+extern volatile int g_shell_mode;
+
 void kthread_exit(void)
 {
+    /* init0 退出 = EL0 的 init 收摊，把串口还给内核命令行。 */
+    if (cur != (tcb_t *)0 && cur->name[0] == 'i' && cur->name[1] == 'n' &&
+        cur->name[2] == 'i' && cur->name[3] == 't' && cur->name[4] == '0') {
+        g_shell_mode = 0;
+    }
     cur->state = ST_EXIT;
     schedule();
     panic("sched: exit returned");

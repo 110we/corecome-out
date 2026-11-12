@@ -26,7 +26,7 @@
 
 | 位置 | 内容 |
 |---|---|
-| `bare/` | **内核主线**：AArch64 EL0/EL1、4K 页表、COW fork、clone 线程、信号、ramfs + ext2、virtio-blk。M0–M3 已通，M4/M5 未做 |
+| `bare/` | **内核主线**：AArch64 EL0/EL1、4K 页表、COW fork、clone 线程、信号、ramfs + ext2、virtio-blk；`make test-m4` 跑通 EL0 init + shell（ls/cat）。M0–M4 已通，M5（DTB/驱动模型）未做 |
 | `netos/` | **用户态服务层实验**（不是内核）：`core`（Kernel / Side / SideState / Config）、`security`（Guard / Policy 三档）、`http`、`sides`、`Main` |
 | `astra/` | **用户态服务层实验**（不是内核）：能力总线（`Cap` / `Message` / `Module` / `Bus` / `Astra` / `Edge`），鉴权在总线上而不是 HTTP 层 |
 | `tools/` | 五套自检 + 两个专项：`selftest.py`（NetOS 19 项）、`security_test.py`（三档，真从非回环地址打）、`astra_selftest.py`（能力总线 15 项）、`server_smoke.py`（面/路由/信封契约快照）、`failure_test.py`（失败路径 24 项） |

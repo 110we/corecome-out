@@ -11,6 +11,8 @@
 
 extern const u8 user_exec_start[];
 extern const u8 user_exec_end[];
+extern const u8 user_shell_start[];
+extern const u8 user_shell_end[];
 
 static void proc_name(char *d, int pid)
 {
@@ -79,10 +81,17 @@ void proc_exec(u64 *f, u64 id)
     u64 *l1;
     u8 *code;
     u8 *stk;
+    const u8 *blob = user_exec_start;
+    const u8 *bend = user_exec_end;
     u64 n;
     u64 i;
 
-    (void)id;
+    /* M4：exec 还不认 ELF，只按 id 选内置镜像。
+     * 0 = 旧的自检程序，1 = shell。 */
+    if (id == 1) {
+        blob = user_shell_start;
+        bend = user_shell_end;
+    }
     l1 = pg_aspace_new();
     code = (u8 *)mm_page_alloc();
     stk = (u8 *)mm_page_alloc();
@@ -90,12 +99,12 @@ void proc_exec(u64 *f, u64 id)
         printk("[kern] proc: exec failed (mem)\n");
         return;
     }
-    n = (u64)(user_exec_end - user_exec_start);
+    n = (u64)(bend - blob);
     if (n > 4096) {
         n = 4096;
     }
     for (i = 0; i < n; i++) {
-        code[i] = user_exec_start[i];
+        code[i] = blob[i];
     }
     if (pg_map_user(l1, USER_WIN_BASE, (u64)code, PG_USER_RX) != 0 ||
         pg_map_user(l1, USER_WIN_BASE + 0x1000, (u64)stk, PG_USER_RW) != 0) {

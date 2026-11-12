@@ -133,11 +133,27 @@ void kputs(const char *s)
 }
 
 static void timer_arm(void);
+static int ring_pop(char *c);   /* 定义在 UART 段，先声明：console 读要用 */
+/* 给 VFS 的 /dev/console 读路径用：没有数据返回 -1。
+ * 主循环和 EL0 shell 是同一个环的消费者，所以 shell 活跃时主循环必须让位
+ * （见 g_shell_mode），否则两边各抢一半字符。 */
+volatile int g_shell_mode = 0;
+
+int uart_tryget(void)
+{
+    char c;
+    if (!ring_pop(&c)) {
+        return -1;
+    }
+    return (int)(u8)c;
+}
+
 static void uart_rx_isr(void);
 
 /* 当前系统调用是不是从 EL0 进来的——syscall 层要靠它决定是否校验用户指针。
  * 内核线程自己 svc 时传的是内核指针，不能套用户窗口那套规则。 */
 volatile int g_from_el0;
+static volatile int g_svc_trace = 0;  /* 调试用：1 = 连 SVC 也逐条打印 */
 
 void do_sync(u64 *f)
 {
@@ -242,7 +258,11 @@ void do_sync(u64 *f)
         f[32] += 4; /* 帧里 ELR 在 256 字节处 = f[32] */
     }
 
-    printk("[exc] sync esr=%x elr=%x far=%x\n", esr, elr, far);
+    /* SVC（ec=0x15）每次都打会把 shell 刷死；只有异常/故障才逐条打。
+     * 需要看全量 svc 时把 g_svc_trace 打开。 */
+    if (ec != 0x15 || g_svc_trace) {
+        printk("[exc] sync esr=%x elr=%x far=%x\n", esr, elr, far);
+    }
 
     if (ec != 0x15 && ec != 0x24 && ec != 0x25) {
         panic("unhandled synchronous exception");
@@ -400,7 +420,7 @@ static void run_cmd(const char *s)
         return;
     }
     if (streq(s, "help")) {
-        puts_("cmds: help ticks mmu exc fault kstruct ps\n");
+        puts_("cmds: help ticks mmu exc fault kstruct ps init\n");
     } else if (streq(s, "kstruct")) {
         kernel_structure();
     } else if (streq(s, "ps")) {
@@ -415,6 +435,10 @@ static void run_cmd(const char *s)
     } else if (streq(s, "exc")) {
         __asm__ volatile("svc #0x42");
         printk("svc handled, count=%u\n", svc_seen);
+    } else if (streq(s, "init")) {
+        if (kthread_create("init0", user_m4_thread, (void *)0) < 0) {
+            printk("init: spawn failed\n");
+        }
     } else if (streq(s, "fault")) {
         (void)*(volatile u64 *)0x80000000UL;
         printk("fault handled, count=%u\n", fault_seen);
@@ -721,8 +745,10 @@ int kmain(u64 dtb)
         /* 收字节只有一个主人：uart_rx_isr。
          * 主循环再去轮询 DR 会和中段抢 FIFO——某一边读到空 FIFO 就拿到 0x00，
          * 于是命令行里会冒出 "hel\0p" 这种脏字节。这里只消费环形缓冲。 */
-        while (ring_pop(&c)) {
-            feed(c);
+        if (!g_shell_mode) {
+            while (ring_pop(&c)) {
+                feed(c);
+            }
         }
         __asm__ volatile("wfe");
     }

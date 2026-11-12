@@ -307,3 +307,166 @@ user_exec_start:
     .asciz "exec: hello from child\n"
     .balign 8
 user_exec_end:
+
+/* ---- M4 shell：读控制台、ls /、cat /hello.txt、exit ----
+ * 4=write 5=open 6=read 7=close 8=yield 9=exit 10=list
+ * 输入：read(0, sp-8, 1) 非阻塞；没数据就 yield。
+ * 缓冲区全在栈页（RW）：代码页是 RX，往 .data 写会 fault。 */
+    .balign 8
+    .global user_shell_start
+    .global user_shell_end
+user_shell_start:
+    mov x19, #0                 /* 行长度 */
+1:
+    adr x0, 20f
+    mov x8, #1
+    svc #0x80                   /* write("sh> ") */
+2:
+    mov x0, #0
+    sub x1, sp, #8
+    mov x2, #1
+    mov x8, #6
+    svc #0x80                   /* read(0, sp-8, 1) */
+    cmp x0, #1
+    b.lt 3f
+
+    mov x0, #1
+    sub x1, sp, #8
+    mov x2, #1
+    mov x8, #4
+    svc #0x80                   /* echo */
+    ldrb w9, [sp, #-8]
+    cmp w9, #13
+    b.eq 4f
+    cmp w9, #10
+    b.eq 4f
+    cmp x19, #31
+    b.hs 2b
+    sub x10, sp, #64
+    add x10, x10, x19
+    strb w9, [x10]
+    add x19, x19, #1
+    b 2b
+3:
+    mov x8, #8
+    svc #0x80                   /* yield：没有输入就别空转 */
+    b 2b
+4:
+    adr x0, 21f
+    mov x8, #1
+    svc #0x80                   /* 换行 */
+    cbz x19, 1b
+    sub x0, sp, #64
+    ldrb w9, [x0]
+    mov w10, #'l'
+    cmp w9, w10
+    b.eq 5f
+    mov w10, #'c'
+    cmp w9, w10
+    b.eq 6f
+    mov w10, #'e'
+    cmp w9, w10
+    b.eq 7f
+    adr x0, 22f
+    mov x8, #1
+    svc #0x80
+    b 8f
+5:                              /* ls / */
+    adr x0, 23f
+    sub x1, sp, #320
+    mov x2, #128
+    mov x8, #10
+    svc #0x80
+    cmp x0, #0
+    b.le 8f
+    mov x2, x0
+    mov x0, #1
+    sub x1, sp, #320
+    mov x8, #4
+    svc #0x80
+    b 8f
+6:                              /* cat /hello.txt */
+    adr x0, 24f
+    mov x1, #0
+    mov x8, #5
+    svc #0x80
+    mov x20, x0
+    cmp x20, #0
+    b.lt 9f
+    mov x0, x20
+    sub x1, sp, #320
+    mov x2, #128
+    mov x8, #6
+    svc #0x80
+    cmp x0, #0
+    b.le 10f
+    mov x2, x0
+    mov x0, #1
+    sub x1, sp, #320
+    mov x8, #4
+    svc #0x80
+10:
+    mov x0, x20
+    mov x8, #7
+    svc #0x80
+    b 8f
+9:
+    adr x0, 25f
+    mov x8, #1
+    svc #0x80
+    b 8f
+7:
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+8:
+    mov x19, #0
+    b 1b
+20:
+    .asciz "sh> "
+21:
+    .asciz "\n"
+22:
+    .asciz "?\n"
+23:
+    .asciz "/"
+24:
+    .asciz "/hello.txt"
+25:
+    .asciz "no file\n"
+    .balign 8
+user_shell_end:
+
+/* ---- M4 init：EL0 的第一号进程 ----
+ * 11=fork 12=exec 13=wait 9=exit
+ * 孩子 exec(1) 进 shell；父亲 wait，shell 退出后打印并 exit。 */
+    .balign 8
+    .global user_m4_init_start
+    .global user_m4_init_end
+user_m4_init_start:
+    adr x0, 1f
+    mov x8, #1
+    svc #0x80                   /* write("init: up...") */
+    mov x8, #11
+    svc #0x80
+    cbnz x0, 2f
+    mov x0, #1                  /* id=1：shell 镜像 */
+    mov x8, #12
+    svc #0x80
+    b .
+2:
+    mov x8, #13
+    svc #0x80                   /* wait(child) -> code */
+    adr x0, 3f
+    mov x8, #1
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+1:
+    .asciz "init: up, starting shell\n"
+3:
+    .asciz "init: shell exited\n"
+    .balign 8
+user_m4_init_end:

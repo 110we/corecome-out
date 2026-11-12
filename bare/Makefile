@@ -29,7 +29,7 @@ QEMU := qemu-system-aarch64
 QEMUFLAGS := -M virt,gic-version=2 -cpu cortex-a53 -display none -monitor none
 QEMU_EXTRA ?=
 
-.PHONY: all run test test-cmd clean
+.PHONY: all run test test-cmd test-m4 clean
 
 all: $(BUILD)/kernel.elf
 
@@ -106,6 +106,11 @@ test: $(BUILD)/kernel.elf $(DISK)
 test-cmd: $(BUILD)/kernel.elf
 > @sh tools/serial_cmd.sh "$(QEMU)" "$<" "$(BUILD)/cmd.log"
 > @echo "BARE_CMD_OK"
+
+# M4 验收：EL0 init -> shell -> ls / cat
+test-m4: $(BUILD)/kernel.elf
+> @sh tools/serial_m4.sh "$(QEMU)" "$<" "$(BUILD)/m4.log"
+> @echo "BARE_M4_OK"
 
 clean:
 > rm -rf $(BUILD)

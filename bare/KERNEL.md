@@ -42,12 +42,13 @@
 | **M1 每进程地址空间** | aspace 创建/销毁、切 TTBR0、fork/exec | **已验证**（exec 见差距） | `pg_aspace_clone`、COW、`cow: parent intact`；exec 只换内置 blob |
 | **M2 VFS + fd 表** | 每进程 fd、open/read/write/close、ramfs root、ext2 只读挂载点、/dev 字符设备 | **部分** | fd/ramfs/`/dev/console` 已有；ext2 只能按块读，**没有挂载点** |
 | **M3 调度器重写** | 用户进程调度、就绪队列、时间片、抢占、切换含页表 | **部分** | 切页表与时间片已有；**无就绪队列/优先级**，内核不可抢占 |
-| **M4 init + shell** | 内核加载 init，init 拉起 shell，`ls /`、`cat` 一个文件 | **未开始** | 没有 init/shell；现在靠内核线程跑自检 |
+| **M4 init + shell** | 内核加载 init，init 拉起 shell，`ls /`、`cat` 一个文件 | **已验证** | `init: up` → `sh> ls` 出 `hello.txt` → `cat` 出 `big kernel vfs works` → `wait pid=16 code=0`；边界见下 |
 | **M5 驱动模型 + DTB** | DTB 解析、驱动注册表、virtio-blk 改走模型 | **未开始** | 设备地址写死；无 FDT 解析 |
 
-**下一个动手项是 M4**，因为它同时压 M0–M3 的边界：init 必须由内核以 EL0 启动，
-shell 必须用 fd/open/read/write，`cat` 必须走 VFS。M4 跑通之前，
-不接受任何“宏内核闭环完成”的说法。
+**下一个动手项是 M5**（DTB + 驱动注册表）。M4 已经跑通，但它**不是**
+“Linux 用户态”：exec 只按 id 选内置 blob，shell 只认首字母命令，
+`/dev/console` 读是非阻塞轮询。M4 的价值在于把 M0–M3 串成一条真实路径：
+init 由内核以 EL0 启动，shell 的每个字符都过 `read(0)`，`cat` 过 VFS。
 
 ## Non-goals（与路线图同级，不是免责声明）
 
@@ -57,6 +58,49 @@ shell 必须用 fd/open/read/write，`cat` 必须走 VFS。M4 跑通之前，
 - 不做 `/proc`、`/sys`、udev、systemd 兼容；没有用户/权限模型。
 - 不承诺稳定驱动接口；M5 的“驱动模型”是教学级注册表，不是 Linux bus/driver 模型。
 - 不承诺 SMP、实时性、安全隔离（见下表技术债）。
+
+## M4：EL0 init + shell（已验证）
+
+```
+bare> init
+[kern] user: enter el0 tag=m4init ...
+init: up, starting shell
+[kern] proc: fork pid=16 ppid=15
+[kern] proc: exec pid=16 pc=0x10000000 ...
+sh> ls
+dev/
+etc/
+tmp/
+hello.txt
+sh> cat
+big kernel vfs works
+sh> e
+[kern] proc: wait pid=16 code=0
+init: shell exited
+```
+
+跑法：`make test-m4`（断言上面四段都在同一份串口日志里）。
+
+实现路径：
+
+- 内核命令行 `init` 创建内核线程 `init0`，由它 `user_spawn` 内置 init 镜像进 EL0；
+  不是内核直接调用 shell。
+- init：`fork` → 孩子 `exec(1)` 选 shell 镜像 → 父亲 `wait`；退回码 0 才打印
+  `init: shell exited`。
+- shell：`read(0, sp-8, 1)` 每个字符都走 `vfs_read` → `/dev/console` →
+  `uart_tryget()`（非阻塞，无数据返回 0，shell `yield` 后再试）。
+- `ls` 用 `SYS_LIST("/")`，`cat` 用 `open/read/write/close`；两者都过
+  `u_ok()` 的用户指针校验。
+- `g_shell_mode`：shell 活跃期间内核命令行不再消费 UART 环，避免两边抢字符；
+  `init0` 退出时在 `kthread_exit` 清掉。
+- SVC（EC=0x15）不再逐条打印，只有异常/故障打印，否则 shell 会被日志刷死。
+
+**M4 的边界，别读成 Linux 用户态**：
+
+- `exec` 仍按 id 选内置 blob（0=旧自检程序，1=shell），**不是 ELF 加载器**。
+- shell 只认首字符（`l`/`c`/`e`），不解析参数；没有管道、重定向、环境变量。
+- 控制台读是非阻塞轮询，不是 tty 行规程；没有作业控制、没有信号到 shell。
+- 没有 `init` 的 PID=1 语义，它只是第一个被内核拉起的 EL0 进程。
 
 ## P1 补上的东西（COW / 线程 / 信号 / 块设备 + ext2）
 
