@@ -1,7 +1,13 @@
 # kernel · 代码空间
 
-两套内核：`netos/`（在用的那套，接口与纪律可编译验证）与 `astra/`（全新的，能力总线）。
-能编译、能读、能改、能验。
+**主线只有一条：`bare/` —— AArch64 宏内核（EL0/EL1）。**
+`netos/` 与 `astra/` 是**用户态服务层实验**（Side 契约、能力总线、HTTP 闸门），
+它们能编译、能自检，但**不参与内核能力宣称**，也不要拿它们跟 Linux 比。
+
+内核目标写死：**能跑自己编译的静态 EL0 程序**的教学级宏内核，
+按 M0–M5 推进（见 [`bare/KERNEL.md`](bare/KERNEL.md#路线图m0m5)）。
+**不追求 Linux ABI 兼容**：不跑 glibc、不跑现成 Linux 二进制、不承诺 POSIX 全量。
+“语义对齐”指机制角色对得上，不是“能替换 Linux”。
 
 ## 环境（代码空间）
 
@@ -20,8 +26,9 @@
 
 | 位置 | 内容 |
 |---|---|
-| `netos/` | **在用的那套**：`core`（Kernel / Side / SideState / Config）、`security`（Guard / Policy 三档）、`util`（Log）、`http`（Request / Response / Handler / HttpService）、`sides`（LifeSide / RuntimeSide）、`Main` |
-| `astra/` | **全新内核**：能力总线（`Cap` / `Message` / `Module` / `Bus` / `Astra` / `Edge` / `DemoModule` / `Main`），鉴权在总线上而不是 HTTP 层 |
+| `bare/` | **内核主线**：AArch64 EL0/EL1、4K 页表、COW fork、clone 线程、信号、ramfs + ext2、virtio-blk。M0–M3 已通，M4/M5 未做 |
+| `netos/` | **用户态服务层实验**（不是内核）：`core`（Kernel / Side / SideState / Config）、`security`（Guard / Policy 三档）、`http`、`sides`、`Main` |
+| `astra/` | **用户态服务层实验**（不是内核）：能力总线（`Cap` / `Message` / `Module` / `Bus` / `Astra` / `Edge`），鉴权在总线上而不是 HTTP 层 |
 | `tools/` | 五套自检 + 两个专项：`selftest.py`（NetOS 19 项）、`security_test.py`（三档，真从非回环地址打）、`astra_selftest.py`（能力总线 15 项）、`server_smoke.py`（面/路由/信封契约快照）、`failure_test.py`（失败路径 24 项） |
 | `spec/` | 一页纸规格 |
 | `Makefile` | `make build / test / clean` |
@@ -172,6 +179,9 @@ Kernel 装配
 
 ## Non-goals（明确不承诺）
 
+- **不追求 Linux ABI**：不跑 glibc、不跑现成 Linux 二进制、不承诺 POSIX 全量；
+  目标是“能跑自己编译的静态 EL0 程序”的教学级宏内核。
+- 内核主线只认 `bare/`；`netos/`、`astra/` 是用户态服务层实验，不算内核能力。
 - 不支持 x86/ARM32/Windows；只承诺 AArch64 + Linux + JDK 17。
 - 不承诺跨版本 ABI；`Side`/路由随时可能因补面而变，以 `server_smoke.py` 的快照为准。
 - **墓碑满时的策略未定义**（拒绝新进程 / 丢最旧 / 阻塞），仓库版未实现，不在本文件承诺。

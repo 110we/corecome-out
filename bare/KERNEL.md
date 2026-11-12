@@ -1,35 +1,62 @@
-# 与 Linux 的对照表（以及“起平”到底指什么）
+# bare/ 能力状态与路线图（不做“和 Linux 起平”的宣称）
 
-先把话说直：**行数、驱动数量、生态、SMP 规模上不可能起平**，Linux 是 3000 万行、
-几十年、上千人。任何声称“几天写出一个 Linux”的说法都是假的。
+这张表回答两个问题：**哪一格有真实证据？哪一格只是计划？**
+不回答“能不能替代 Linux”。
 
-这里追的“起平”只有一件事：**核心机制的语义对齐**——同样的角色分工、同样的
-隔离边界、同样的进程语义。也就是说：能指着这张表说“这一格我实现了，
-它和 Linux 做的是同一件事”，而不是“我有一个名字很像的函数”。
+状态定义（只有三种）：
 
-| 维度 | Linux | 本内核 | 状态 |
+- **已验证**：`make test` 里有断言或串口输出，失败会红。
+- **部分**：有实现，但缺口写在“差距”列，别按 Linux 语义理解。
+- **计划中**：没有实现，不代表有半成品。
+
+| 维度 | Linux 语义 | 本内核现状 | 状态 | 差距 / 证据 |
+|---|---|---|---|---|
+| 内核形态 | monolithic | 同镜像直调 | 已验证 | 调度/内存/VFS/设备/syscall 同 EL1 |
+| 特权级 | EL0 / EL1 | 同 | 已验证 | 用户程序跑在 EL0，异常回 EL1 |
+| 页表 | 4K 多级、每进程 TTBR0 | 4K，L1/L2/L3，每进程 aspace | 已验证 | `pg_activate` 切 TTBR0 |
+| 隔离 | PTE U/AP/UXN + 故障杀进程 | 同三层 | 已验证 | `insn-fault` / `data-fault` 杀线程；边界见技术债 |
+| 进程创建 | fork + COW | fork 共享页 + 引用计数 | 已验证 | `cow: parent intact` |
+| 程序装载 | execve 换 mm、加载 ELF | `SYS_EXEC` 换 aspace，**只装内置 blob** | 部分 | **不是 ELF 加载器**，没有 argv/envp |
+| 退出/回收 | 僵尸 + wait4 | 僵尸 + `SYS_WAIT` | 已验证 | `wait pid=… code=7/-15`；wait 是让出轮询，非睡眠队列 |
+| 调度 | CFS/EEVDF、多核、就绪队列 | 100 Hz 固定片轮转、单核、数组表 | 部分 | **无就绪队列/优先级/负载均衡**；仅用户态可抢占 |
+| 抢占 | 内核可抢占 | 用户态可抢占，内核靠关中断 | 部分 | 长 syscall 拖拍 |
+| 文件 | VFS + 页缓存 + 多 FS | VFS + ramfs root + `/dev/console` + ext2 只读 | 部分 | **ext2 无挂载点**、无页缓存、无写、无日志 |
+| fd | 每进程 files_struct | 每进程 filetable | 已验证 | fork 深拷贝，clone 共享 |
+| 设备 | 驱动模型 + DT/ACPI | PL011/GICv2/timer/virtio-mmio blk 手写 | 部分 | 无设备树、无驱动注册表（M5） |
+| 网络 | TCP/IP + netfilter | 无 | 计划中 | — |
+| 信号 | 完整、可注册 handler | 仅 KILL/TERM/SEGV 默认动作 | 部分 | 无 handler / sigreturn |
+| 线程 | clone(CLONE_VM) + futex/TLS | clone 共享 mm/fd | 部分 | 无 futex、无 TLS |
+| SMP | 成熟 | 单核 CPU0 | 计划中 | 无 per-CPU/自旋锁/IPI |
+| 模块/安全 | LSM/namespace/cgroup | 无 | 计划中 | — |
+| 代码量 | ~30,000,000 行 | ~4,000 行 | 事实 | 差 4 个数量级 |
+
+**结论只有一句**：标“已验证”的格子是“机制角色对得上、有断言”；
+标“部分”的是“能跑但不完整”，缺口写在同行；标“计划中”的是“没有”。
+不要把这三种读成“差不多都行”。
+
+## 路线图（M0–M5）
+
+| 里程碑 | 验收物 | 状态 | 现有证据 / 缺口 |
 |---|---|---|---|
-| 内核形态 | monolithic，全在一个 EL1 镜像 | 同：调度/内存/VFS/设备/系统调用同镜像直调 | ✅ 语义对齐 |
-| 特权级 | EL0 / EL1 | 同 | ✅ |
-| 页表 | 4K 粒度、多级、每进程 TTBR0 | 4K，L1/L2/L3，每进程 aspace | ✅ |
-| 隔离 | PTE 的 U/AP/UXN + 故障杀进程 | 三层：页表 U/UXN、EL0 故障杀线程、syscall 指针校验 | ✅ |
-| 进程 | fork 复制地址空间（COW） | fork 共享页 + 引用计数，写故障分页 | ✅ 语义对齐 |
-| 程序装载 | execve 换 mm | `SYS_EXEC` 换 aspace 后 eret | ✅ 语义对齐 |
-| 退出/回收 | 僵尸 + wait4 收尸 | 僵尸 + `SYS_WAIT` 取 code 并清槽 | ✅（wait 是让出轮询，非睡眠队列） |
-| 调度 | CFS/EEVDF，多核 | 100 Hz 时间片轮转，单核 | ◐ 单核可用 |
-| 抢占 | 内核可抢占（PREEMPT） | 用户态可抢占；内核临界区靠 daif 关中断 | ◐ |
-| 文件 | VFS + 页缓存 + 块设备 + 十几种 FS | VFS + ramfs + virtio-blk + ext2（只读） | ◐ 无页缓存/无写/单一 FS |
-| fd | 每进程 files_struct，fd 表 | 每进程 filetable，fork 深拷贝，clone 共享 | ✅ 语义对齐 |
-| 设备 | 驱动模型 + DT/ACPI | PL011、GICv2、timer、virtio-mmio blk，手写探测 | ◐ |
-| 网络 | 完整 TCP/IP + netfilter | 无 | ❌ |
-| 信号 | 完整 | 默认动作（KILL/TERM/SEGV），无 handler/sigreturn | ◐ 能被打断，不能接管 |
-| 线程 | clone(CLONE_VM) | clone(CLONE_VM)：共享 mm/fd，单核；无 futex/TLS | ◐ 语义对，缺同步原语 |
-| SMP | 成熟 | 单核 | ❌ |
-| 模块/安全 | LSM、namespace、cgroup、seccomp | 无 | ❌ |
-| 代码量 | ~30,000,000 行 | ~4,000 行 | 差 4 个数量级 |
-结论：**“起平”在这张表的 ✅ 行里成立，在 ❌ 行里不成立。**
-COW、块设备 + 真文件系统这一轮已经补上；下一步能真正缩小差距的是
-SMP、内核可抢占、页缓存与可写文件系统；网络栈是另一个量级。
+| **M0 EL0 闭环** | 静态 EL0 程序 `svc` 陷入 → 表分发 → `eret` 回 EL0 | **已验证** | `hello from EL0`；write/exit 及 18 号表；UXN 越权 `insn-fault` 杀线程 |
+| **M1 每进程地址空间** | aspace 创建/销毁、切 TTBR0、fork/exec | **已验证**（exec 见差距） | `pg_aspace_clone`、COW、`cow: parent intact`；exec 只换内置 blob |
+| **M2 VFS + fd 表** | 每进程 fd、open/read/write/close、ramfs root、ext2 只读挂载点、/dev 字符设备 | **部分** | fd/ramfs/`/dev/console` 已有；ext2 只能按块读，**没有挂载点** |
+| **M3 调度器重写** | 用户进程调度、就绪队列、时间片、抢占、切换含页表 | **部分** | 切页表与时间片已有；**无就绪队列/优先级**，内核不可抢占 |
+| **M4 init + shell** | 内核加载 init，init 拉起 shell，`ls /`、`cat` 一个文件 | **未开始** | 没有 init/shell；现在靠内核线程跑自检 |
+| **M5 驱动模型 + DTB** | DTB 解析、驱动注册表、virtio-blk 改走模型 | **未开始** | 设备地址写死；无 FDT 解析 |
+
+**下一个动手项是 M4**，因为它同时压 M0–M3 的边界：init 必须由内核以 EL0 启动，
+shell 必须用 fd/open/read/write，`cat` 必须走 VFS。M4 跑通之前，
+不接受任何“宏内核闭环完成”的说法。
+
+## Non-goals（与路线图同级，不是免责声明）
+
+- **不追求 Linux ABI**：不跑 glibc、不跑现成 Linux 二进制、不实现完整 POSIX。
+  系统调用号只是内部约定，随时可变。
+- **不做动态链接/ELF 解释器**；M4 的程序是内核内置或简单静态镜像。
+- 不做 `/proc`、`/sys`、udev、systemd 兼容；没有用户/权限模型。
+- 不承诺稳定驱动接口；M5 的“驱动模型”是教学级注册表，不是 Linux bus/driver 模型。
+- 不承诺 SMP、实时性、安全隔离（见下表技术债）。
 
 ## P1 补上的东西（COW / 线程 / 信号 / 块设备 + ext2）
 
