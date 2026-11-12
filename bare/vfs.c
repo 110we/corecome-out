@@ -34,7 +34,18 @@ typedef struct {
     int used;
 } file_t;
 
-static file_t fds[MAX_FD];
+/* 每个进程一份 fd 表：fork 时深拷贝，互不影响。
+ * 内核线程没有 ftab，回退到 boot_ft（0/1/2 接控制台）。 */
+struct filetable {
+    file_t f[MAX_FD];
+};
+static struct filetable boot_ft;
+static struct filetable *ftab(void)
+{
+    struct filetable *t = (struct filetable *)sched_get_ftab();
+    return t != (struct filetable *)0 ? t : &boot_ft;
+}
+#define fds (ftab()->f)
 
 static void str_copy(char *d, const char *s, u64 cap)
 {
@@ -326,4 +337,42 @@ i64 vfs_list(const char *path, char *out, u64 cap)
     }
     out[used] = '\0';
     return (i64)used;
+}
+/* ---- 每进程 fd 表：新建 / fork 时深拷贝 ---- */
+struct filetable *vfs_ftab_new(void)
+{
+    struct filetable *t = (struct filetable *)kmalloc(sizeof(struct filetable));
+    ino_t *con;
+    int i;
+
+    if (t == (struct filetable *)0) {
+        return (struct filetable *)0;
+    }
+    for (i = 0; i < MAX_FD; i++) {
+        t->f[i].used = 0;
+        t->f[i].ino = (ino_t *)0;
+        t->f[i].off = 0;
+    }
+    con = walk("/dev/console");
+    for (i = 0; i < 3 && con != (ino_t *)0; i++) {
+        t->f[i].ino = con;
+        t->f[i].used = 1;
+        t->f[i].off = 0;
+    }
+    return t;
+}
+
+struct filetable *vfs_ftab_clone(void)
+{
+    struct filetable *src = ftab();
+    struct filetable *dst = vfs_ftab_new();
+    int i;
+
+    if (dst == (struct filetable *)0) {
+        return (struct filetable *)0;
+    }
+    for (i = 0; i < MAX_FD; i++) {
+        dst->f[i] = src->f[i];
+    }
+    return dst;
 }

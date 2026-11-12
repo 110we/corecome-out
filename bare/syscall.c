@@ -23,6 +23,11 @@
 #define SYS_YIELD   8
 #define SYS_EXIT    9
 #define SYS_LIST   10
+#define SYS_FORK   11
+#define SYS_EXEC   12
+#define SYS_WAIT   13
+#define SYS_PID    14
+#define SYS_PPID   15
 
 extern u64 heap_used(void);
 
@@ -136,6 +141,10 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
             return deny(nr, a0);
         }
         return (u64)vfs_list((const char *)a0, (char *)a1, a2);
+    case SYS_PID:
+        return (u64)(i64)sched_pid();
+    case SYS_PPID:
+        return (u64)(i64)sched_ppid();
     default:
         return (u64)-1; /* ENOSYS */
     }
@@ -145,12 +154,13 @@ void syscall_dump(void)
 {
     static const char *names[] = {
         "puts", "ticks", "heap", "write", "open",
-        "read", "close", "yield", "exit", "list"
+        "read", "close", "yield", "exit", "list",
+        "fork", "exec", "wait", "pid", "ppid"
     };
     u64 nr;
 
     printk("[syscall] svc #0x80, x8=nr; EL0 ptr -> u_ok/u_str\n");
-    for (nr = 1; nr <= 10; nr++) {
+    for (nr = 1; nr <= 15; nr++) {
         int guarded = (nr == SYS_PUTS || nr == SYS_WRITE || nr == SYS_OPEN ||
                        nr == SYS_READ || nr == SYS_LIST);
         printk("  %u %s%s\n", (u32)nr, names[nr - 1],

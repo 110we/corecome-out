@@ -79,3 +79,40 @@ user_bad3_start:
     svc #0x80
     b .
 user_bad3_end:
+/* ---- init：fork 一个孩子，孩子 exec，父亲 wait 拿退出码 ----
+ * 11=fork 12=exec 13=wait 9=exit */
+    .balign 8
+    .global user_init_start
+    .global user_init_end
+user_init_start:
+    mov x8, #11
+    svc #0x80              /* x0 = pid（父）或 0（子） */
+    cbz x0, 1f
+    mov x8, #13
+    svc #0x80              /* wait(pid) -> code */
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+1:
+    mov x0, #0
+    mov x8, #12
+    svc #0x80              /* exec(0) */
+    b .
+user_init_end:
+
+/* ---- exec 装载进去的那个程序 ---- */
+    .balign 8
+    .global user_exec_start
+    .global user_exec_end
+user_exec_start:
+    adr x0, 1f
+    mov x8, #1
+    svc #0x80              /* puts("exec: hello from child") */
+    mov x0, #7
+    mov x8, #9
+    svc #0x80              /* exit(7) */
+    b .
+1:
+    .asciz "exec: hello from child\n"
+    .balign 8
+user_exec_end:

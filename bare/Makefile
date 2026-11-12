@@ -11,7 +11,7 @@ BUILD := build
 OBJS := $(BUILD)/boot.o $(BUILD)/vectors.o $(BUILD)/switch.o $(BUILD)/kernel.o \
         $(BUILD)/heap.o $(BUILD)/mm.o $(BUILD)/paging.o $(BUILD)/sched.o \
         $(BUILD)/vfs.o $(BUILD)/syscall.o $(BUILD)/user.o $(BUILD)/user_blob.o \
-        $(BUILD)/kinfo.o
+        $(BUILD)/kinfo.o $(BUILD)/proc.o
 
 CFLAGS := -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin \
           -nostdlib -mgeneral-regs-only -O2 -Wall -Wextra -Werror -g
@@ -61,6 +61,9 @@ test: $(BUILD)/kernel.elf
 > @grep -q "user: syscall denied" $(BUILD)/serial.log || (echo "FAIL: syscall guard"; exit 1)
 > @grep -q "user: fault" $(BUILD)/serial.log || (echo "FAIL: el0 isolation"; exit 1)
 > @grep -q "user: insn-fault" $(BUILD)/serial.log || (echo "FAIL: el0 UXN"; exit 1)
+> @grep -q "proc: fork pid=" $(BUILD)/serial.log || (echo "FAIL: fork"; exit 1)
+> @grep -q "exec: hello from child" $(BUILD)/serial.log || (echo "FAIL: exec"; exit 1)
+> @grep -q "proc: wait pid=.* code=7" $(BUILD)/serial.log || (echo "FAIL: wait code"; exit 1)
 > @grep -q "\[kern\] vfs: hello from ramfs" $(BUILD)/serial.log || (echo "FAIL: vfs"; exit 1)
 > @grep -q "\[kern\] rootfs:" $(BUILD)/serial.log || (echo "FAIL: rootfs"; exit 1)
 > @grep -q "\[thr\] A 0" $(BUILD)/serial.log || (echo "FAIL: thread A"; exit 1)

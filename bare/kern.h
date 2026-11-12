@@ -42,7 +42,7 @@ void pg_activate(u64 *l1);
 int pg_selftest(void);
 
 /* ---- 调度：内核线程 ---- */
-#define KTHREAD_MAX 8
+#define KTHREAD_MAX 16
 int kthread_create(const char *name, void (*fn)(void *), void *arg);
 void sched_init(void);
 void sched_go(void);
@@ -57,6 +57,10 @@ void user_thread(void *arg);
 void user_bad_thread(void *arg);
 void user_bad2_thread(void *arg);
 void user_bad3_thread(void *arg);
+void user_init_thread(void *arg);
+int proc_fork(u64 *f);
+void proc_exec(u64 *f, u64 id);
+u64 proc_wait(u64 *f);
 u64 user_enter_ticks(void);
 u64 *sched_get_l1(void);
 void sched_set_l1(u64 *l1);
@@ -64,7 +68,21 @@ u64 tick_count(void);
 extern volatile int g_from_el0;
 void kernel_structure(void);
 void sched_dump(void);
+void ps_dump(void);
 void pg_dump(u64 *l1);
+u64 *pg_aspace_clone(u64 *src);
+/* ---- 进程：fork / 僵尸 / wait / 每进程 fd 表 ---- */
+int sched_fork_from(u64 *f, u64 *child_l1, u64 ftab, const char *nm);
+void sched_exit_zombie(int code);
+int sched_wait_child(int pid, int *code);
+int sched_has_child(void);
+int sched_pid(void);
+int sched_ppid(void);
+u64 sched_get_ftab(void);
+void sched_set_ftab(u64 ftab);
+struct filetable;
+struct filetable *vfs_ftab_new(void);
+struct filetable *vfs_ftab_clone(void);
 void syscall_dump(void);
 u64 heap_size(void);
 u64 heap_used(void);

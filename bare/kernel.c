@@ -156,7 +156,18 @@ void do_sync(u64 *f)
         if (imm == 0x80) { /* S0：系统调用门 */
             /* exit 只对 EL0 特殊处理：注销线程，并且把 TTBR0 切回模板，
              * 免得下一个内核线程沿用一份已经作废的用户地址空间。 */
-            if (from_el0 && f[8] == 9) { /* SYS_EXIT */
+            if (from_el0 && f[8] == 12) { /* SYS_EXEC：换掉地址空间，返回路径直接 eret 进新程序 */
+                proc_exec(f, f[0]);
+            } else if (from_el0 && f[8] == 11) { /* SYS_FORK */
+                f[0] = (u64)(i64)proc_fork(f);
+            } else if (from_el0 && f[8] == 13) { /* SYS_WAIT */
+                f[0] = proc_wait(f);
+            } else if (from_el0 && f[8] == 9) { /* SYS_EXIT */
+                /* 有父进程的（fork 出来的）先变僵尸，把退出码留给 wait；
+                 * 内核线程（ppid=0）和自检用的用户线程仍按老路径注销。 */
+                if (sched_ppid() > 0) {
+                    sched_exit_zombie((int)f[0]);
+                }
                 /* preempt = 用户态跑这段时间里时钟走了几拍。>0 才说明
                  * EL0 真的开着 IRQ、真被抢占过，而不是靠屏蔽混过去的。 */
                 printk("[kern] user: exit ok code=%u preempt=%u\n",
@@ -349,9 +360,11 @@ static void run_cmd(const char *s)
         return;
     }
     if (streq(s, "help")) {
-        puts_("cmds: help ticks mmu exc fault kstruct\n");
+        puts_("cmds: help ticks mmu exc fault kstruct ps\n");
     } else if (streq(s, "kstruct")) {
         kernel_structure();
+    } else if (streq(s, "ps")) {
+        ps_dump();
     } else if (streq(s, "ticks")) {
         printk("ticks=%u\n", ticks);
     } else if (streq(s, "mmu")) {
@@ -610,6 +623,10 @@ int kmain(u64 dtb)
     /* 第四个：跳到栈上执行，只看 UXN 能不能把执行权也关掉。 */
     if (kthread_create("u3", user_bad3_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread u3 failed\n");
+    }
+    /* 第五个：进程语义主靶子 —— fork/exec/wait/退出码。 */
+    if (kthread_create("u4", user_init_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread u4 failed\n");
     }
     sched_go();
     schedule();

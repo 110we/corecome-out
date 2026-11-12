@@ -13,6 +13,7 @@
 #define ST_READY  1
 #define ST_RUN     2
 #define ST_EXIT   3
+#define ST_ZOMBIE 4      /* 已退出，等父进程 wait 收尸 */
 
 typedef struct tcb {
     u64 x19, x20, x21, x22, x23, x24, x25, x26, x27, x28;
@@ -25,6 +26,10 @@ typedef struct tcb {
     u64 slice;
     u64 daif;               /* 线程私有的中断屏蔽状态 */
     u64 *l1;                /* TTBR0：0 = 内核模板页表 */
+    u64 ftab;               /* 进程私有 fd 表（vfs.c 的 struct filetable） */
+    int pid;
+    int ppid;
+    u64 code;               /* 退出码：僵尸态留给父进程收 */
 } tcb_t;
 
 extern void switch_to(tcb_t *prev, tcb_t *next);
@@ -33,6 +38,7 @@ extern void thread_boot(void);
 static tcb_t tcbs[KTHREAD_MAX];
 static u8 stacks[KTHREAD_MAX][STACK_SZ] __attribute__((aligned(16)));
 static int nth;
+static int next_pid = 1;   /* 0 号是 kmain，用户进程从 1 开始发号 */
 static tcb_t *cur;
 static int sched_on;
 
@@ -54,9 +60,15 @@ void sched_init(void)
         tcbs[i].slice = SLICE;
         tcbs[i].l1 = (u64 *)0;
         tcbs[i].daif = 0;
+        tcbs[i].ftab = 0;
+        tcbs[i].pid = -1;
+        tcbs[i].ppid = -1;
+        tcbs[i].code = 0;
     }
     nth = 1;
     tcbs[0].idx = 0;
+    tcbs[0].pid = 0;
+    tcbs[0].ppid = -1;
     name_copy(tcbs[0].name, "kmain");
     tcbs[0].state = ST_RUN;
     cur = &tcbs[0];
@@ -77,6 +89,12 @@ int kthread_create(const char *name, void (*fn)(void *), void *arg)
     name_copy(t->name, name);
     t->state = ST_READY;
     t->slice = SLICE;
+    t->pid = next_pid++;
+    t->ppid = 0;
+    t->code = 0;
+    t->ftab = 0;
+    t->l1 = (u64 *)0;
+    t->daif = 0;
     t->fp = 0;
     t->lr = (u64)&thread_boot;
 
@@ -190,10 +208,135 @@ void sched_set_l1(u64 *l1)
     }
 }
 
-/* ---- kstruct：把线程表原样倒出来 ---- */
+/* ---- 进程原语：fork / 僵尸 / wait / 每进程 fd 表 ---- */
+
+/* 从父进程的 trap frame 造一个孩子：frame 原样抄，x0=0（fork 在孩子里返回 0）。
+ * 孩子的内核栈是新的，所以第一次被切到会走 thread_boot 的 eret 路径。 */
+int sched_fork_from(u64 *f, u64 *child_l1, u64 ftab, const char *nm)
+{
+    tcb_t *t;
+    u64 *frame;
+    int i;
+
+    if (nth >= KTHREAD_MAX || cur == (tcb_t *)0) {
+        return -1;
+    }
+    t = &tcbs[nth];
+    t->idx = (u64)nth;
+    name_copy(t->name, nm);
+    t->state = ST_READY;
+    t->slice = SLICE;
+    t->pid = next_pid++;
+    t->ppid = (int)cur->pid;
+    t->code = 0;
+    t->ftab = ftab;
+    t->l1 = child_l1;
+    t->daif = 0;
+    t->fp = f[29];
+    /* 关键：第一次被切到必须走 thread_boot（它负责 eret 进 EL0）。
+     * 这里若照抄用户的 x30，ret 会跳回调用者的返回路径，
+     * 子进程就会借父进程的 eret 回到程序开头 —— fork 变成“无限分身”。 */
+    t->lr = (u64)&thread_boot;
+    frame = (u64 *)((u8 *)&stacks[nth][0] + STACK_SZ - 288);
+    for (i = 0; i < 36; i++) {
+        frame[i] = f[i];
+    }
+    frame[0] = 0;          /* 孩子的 fork() 返回 0 */
+    t->sp = (u64)frame;
+    nth++;
+    return t->pid;
+}
+
+/* 用户态 exit：变成僵尸，把退出码留在 tcb 上，等父进程来收。 */
+void sched_exit_zombie(int code)
+{
+    cur->code = (u64)code;
+    cur->state = ST_ZOMBIE;
+    schedule();
+    panic("sched: zombie returned");
+}
+
+/* 收尸：只收自己的孩子（pid==-1 收任意）。返回 pid，0 表示还没有僵尸。 */
+int sched_wait_child(int pid, int *code)
+{
+    int i;
+
+    if (cur == (tcb_t *)0) {
+        return 0;
+    }
+    for (i = 0; i < nth; i++) {
+        tcb_t *t = &tcbs[i];
+
+        if (t->state != ST_ZOMBIE || t->ppid != (int)cur->pid) {
+            continue;
+        }
+        if (pid >= 0 && t->pid != pid) {
+            continue;
+        }
+        *code = (int)t->code;
+        t->state = ST_FREE;
+        t->ppid = -1;
+        return t->pid;
+    }
+    return 0;
+}
+
+int sched_has_child(void)
+{
+    int i;
+
+    for (i = 0; i < nth; i++) {
+        if (tcbs[i].ppid == (int)cur->pid && tcbs[i].state != ST_FREE) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int sched_pid(void)
+{
+    return cur == (tcb_t *)0 ? -1 : (int)cur->pid;
+}
+
+int sched_ppid(void)
+{
+    return cur == (tcb_t *)0 ? -1 : (int)cur->ppid;
+}
+
+u64 sched_get_ftab(void)
+{
+    return cur == (tcb_t *)0 ? 0 : cur->ftab;
+}
+
+void sched_set_ftab(u64 ftab)
+{
+    if (cur != (tcb_t *)0) {
+        cur->ftab = ftab;
+    }
+}
+
+/* ps：进程视角的一行一条 */
+void ps_dump(void)
+{
+    static const char *st[5] = { "free", "ready", "run", "exit", "zombie" };
+    int i;
+
+    printk("PID PPID STATE  CODE NAME\n");
+    for (i = 0; i < nth; i++) {
+        tcb_t *t = &tcbs[i];
+
+        if (t->pid < 0) {
+            continue;
+        }
+        printk("%u %u %s %u %s\n", (u32)t->pid,
+               (u32)(t->ppid < 0 ? 0 : t->ppid),
+               (t->state >= 0 && t->state <= 4) ? st[t->state] : "?",
+               (u32)t->code, t->name);
+    }
+}
 void sched_dump(void)
 {
-    static const char *st[4] = { "free", "ready", "run", "exit" };
+    static const char *st[5] = { "free", "ready", "run", "exit", "zombie" };
     u64 live = 0;
     u64 created = 0;
     int i;
@@ -210,7 +353,9 @@ void sched_dump(void)
            kthread_cur());
     for (i = 0; i < nth; i++) {
         printk("  #%u %s state=%s slice=%u sp=%x l1=%x\n", (u32)i,
-               tcbs[i].name, st[tcbs[i].state & 3], (u32)tcbs[i].slice,
-               (u32)tcbs[i].sp, (u32)(u64)tcbs[i].l1);
+               tcbs[i].name,
+               (tcbs[i].state >= 0 && tcbs[i].state <= 4) ? st[tcbs[i].state]
+                                                          : "?",
+               (u32)tcbs[i].slice, (u32)tcbs[i].sp, (u32)(u64)tcbs[i].l1);
     }
 }

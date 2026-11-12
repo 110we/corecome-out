@@ -217,6 +217,55 @@ int pg_selftest(void)
     return ok;
 }
 
+/* 深拷贝一份地址空间：每个已映射的用户页都分到新物理页并复制内容。
+ * fork 的语义就在这里——父子从此各走各的，改一个不会串到另一个。 */
+u64 *pg_aspace_clone(u64 *src)
+{
+    u64 *dst = pg_aspace_new();
+    u64 *ls;
+    u64 *ld;
+    u64 i;
+
+    if (dst == (u64 *)0) {
+        return (u64 *)0;
+    }
+    ls = win_l3(src);
+    ld = win_l3(dst);
+    if (ls == (u64 *)0 || ld == (u64 *)0) {
+        return dst; /* 父进程没有用户窗，空壳即可 */
+    }
+    for (i = 0; i < 512; i++) {
+        u64 e = ls[i];
+        u8 *np;
+        u8 *sp;
+        u64 j;
+        u64 attr;
+
+        if ((e & 1UL) == 0) {
+            continue;
+        }
+        np = (u8 *)mm_page_alloc();
+        if (np == (u8 *)0) {
+            return (u64 *)0;
+        }
+        sp = (u8 *)(e & PA_MASK);
+        for (j = 0; j < 4096; j++) {
+            np[j] = sp[j];
+        }
+        if ((e & UXN) == 0) {
+            attr = PG_USER_RX;
+        } else if ((e & (1UL << 7)) != 0) {
+            attr = PG_USER_RO;
+        } else {
+            attr = PG_USER_RW;
+        }
+        if (pg_map_user(dst, USER_WIN_BASE + i * 4096, (u64)np, attr) != 0) {
+            return (u64 *)0;
+        }
+    }
+    return dst;
+}
+
 /* 给 kstruct 看的解码：用户窗里到底映射了什么、什么权限 */
 void pg_dump(u64 *l1)
 {

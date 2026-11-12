@@ -19,6 +19,8 @@ extern const u8 user_bad2_start[];
 extern const u8 user_bad2_end[];
 extern const u8 user_bad3_start[];
 extern const u8 user_bad3_end[];
+extern const u8 user_init_start[];
+extern const u8 user_init_end[];
 
 /* 进 EL0。返回只可能发生在异常没处理好时——正常路径是 exit 掉。 */
 static void user_enter(u64 entry, u64 sp)
@@ -122,4 +124,11 @@ void user_bad3_thread(void *arg)
 {
     (void)arg;
     user_spawn(user_bad3_start, user_bad3_end, "nx");
+}
+
+/* ---- 进程语义的靶子：fork -> 孩子 exec -> 父亲 wait ---- */
+void user_init_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_init_start, user_init_end, "init");
 }

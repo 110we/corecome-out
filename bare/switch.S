@@ -43,6 +43,8 @@ thread_boot:
     msr elr_el1, x9
     ldr x9, [sp, #264]
     msr spsr_el1, x9
+    ldr x9, [sp, #272]
+    msr sp_el0, x9
     ldp x0,  x1,  [sp, #0]
     ldp x2,  x3,  [sp, #16]
     ldp x4,  x5,  [sp, #32]
