@@ -13,23 +13,43 @@
 | 特权级 | EL0 / EL1 | 同 | ✅ |
 | 页表 | 4K 粒度、多级、每进程 TTBR0 | 4K，L1/L2/L3，每进程 aspace | ✅ |
 | 隔离 | PTE 的 U/AP/UXN + 故障杀进程 | 三层：页表 U/UXN、EL0 故障杀线程、syscall 指针校验 | ✅ |
-| 进程 | fork 复制地址空间（COW） | fork 逐页深拷贝（**无 COW**） | ◐ 语义对，实现更笨 |
+| 进程 | fork 复制地址空间（COW） | fork 共享页 + 引用计数，写故障分页 | ✅ 语义对齐 |
 | 程序装载 | execve 换 mm | `SYS_EXEC` 换 aspace 后 eret | ✅ 语义对齐 |
 | 退出/回收 | 僵尸 + wait4 收尸 | 僵尸 + `SYS_WAIT` 取 code 并清槽 | ✅（wait 是让出轮询，非睡眠队列） |
 | 调度 | CFS/EEVDF，多核 | 100 Hz 时间片轮转，单核 | ◐ 单核可用 |
 | 抢占 | 内核可抢占（PREEMPT） | 用户态可抢占；内核临界区靠 daif 关中断 | ◐ |
-| 文件 | VFS + 页缓存 + 块设备 + 十几种 FS | VFS + ramfs（内存 inode），无块设备 | ◐ |
-| fd | 每进程 files_struct，fd 表 | 每进程 filetable，fork 深拷贝 | ✅ 语义对齐 |
-| 设备 | 驱动模型 + DT/ACPI | PL011、GICv2、ARM generic timer，手写探测 | ◐ |
+| 文件 | VFS + 页缓存 + 块设备 + 十几种 FS | VFS + ramfs + virtio-blk + ext2（只读） | ◐ 无页缓存/无写/单一 FS |
+| fd | 每进程 files_struct，fd 表 | 每进程 filetable，fork 深拷贝，clone 共享 | ✅ 语义对齐 |
+| 设备 | 驱动模型 + DT/ACPI | PL011、GICv2、timer、virtio-mmio blk，手写探测 | ◐ |
 | 网络 | 完整 TCP/IP + netfilter | 无 | ❌ |
-| 信号 | 完整 | 无 | ❌ |
-| 线程 | clone(CLONE_VM) | 无（进程即线程，无共享 mm） | ❌ |
+| 信号 | 完整 | 默认动作（KILL/TERM/SEGV），无 handler/sigreturn | ◐ 能被打断，不能接管 |
+| 线程 | clone(CLONE_VM) | clone(CLONE_VM)：共享 mm/fd，单核；无 futex/TLS | ◐ 语义对，缺同步原语 |
 | SMP | 成熟 | 单核 | ❌ |
 | 模块/安全 | LSM、namespace、cgroup、seccomp | 无 | ❌ |
-| 代码量 | ~30,000,000 行 | ~5,400 行 | 差 4 个数量级 |
-
+| 代码量 | ~30,000,000 行 | ~4,000 行 | 差 4 个数量级 |
 结论：**“起平”在这张表的 ✅ 行里成立，在 ❌ 行里不成立。**
-下一步能真正缩小差距的是 COW、块设备 + 真实文件系统、SMP；网络栈是另一个量级。
+COW、块设备 + 真文件系统这一轮已经补上；下一步能真正缩小差距的是
+SMP、内核可抢占、页缓存与可写文件系统；网络栈是另一个量级。
+
+## P1 补上的东西（COW / 线程 / 信号 / 块设备 + ext2）
+
+| 项 | 落点 | 验证输出 |
+|---|---|---|
+| 写时复制 | `paging.c` 的 `pg_aspace_clone` / `pg_cow_fault`、`mm.c` 的页引用计数 | `cow: child wrote` / `cow: parent intact` / `cow: pid=… copy ok` |
+| 线程 | `SYS_CLONE`、`sched_clone_thread`、aspace 引用计数 | `proc: clone tid=… tgid=…` / `thread: shared ok`（共享计数器 = 6） |
+| 信号 | `SYS_KILL`、投递点 = 时钟中断回来 + syscall 返回前 | `sign: kill pid=… sig=15` / `wait … code=-15` |
+| 块设备 | `virtio_blk.c`：virtio-mmio legacy、三描述符链、轮询 used | `blk: virtio-mmio sectors=1024` |
+| 文件系统 | `ext2.c`：超级块、组描述符、inode、目录项、直接块 + 一级间接 | `ext2: hello from ext2`（镜像由 `mke2fs` 生成） |
+
+两个必须记住的坑：
+
+1. **legacy virtio-mmio 的寄存器表和 modern 不是同一张。** 0x028 是
+   GuestPageSize 而不是 QueueSel，QueueNotify/Status 在 0x050/0x070。
+   照 modern 的表写，现象是“写进去读回来全是 0”，而且 poll 永远超时。
+2. **fork/wait 的返回值曾经被 dispatch 覆盖。** 这些号在 `do_sync`
+   里用整份 trap frame 处理，处理完又走了一遍通用 dispatch，
+   对没有实现的号返回 -1，把 x0 上的 pid/code 当场冲掉。
+   不崩、不报错，只是“父进程拿到 -1”——这类错只能靠断言抓。
 
 ## 这一轮补上的东西
 

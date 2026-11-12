@@ -7,11 +7,19 @@ cd "$(dirname "$0")/../../bare" || exit 1
 make || exit 1
 rm -f build/serial.log build/qemu.log
 
+# 块设备镜像：有 e2fsprogs 就造真 ext2，没有就退化成无盘启动
+DISK_ARGS=()
+if command -v mke2fs >/dev/null 2>&1 && make build/disk.img >/dev/null 2>&1; then
+  DISK_ARGS=(-drive file=build/disk.img,if=none,format=raw,id=hd0
+             -device virtio-blk-device,drive=hd0)
+fi
+
 qemu-system-aarch64 \
   -M virt,gic-version=2 -cpu cortex-a53 \
   -display none -monitor none -no-reboot \
   -serial file:build/serial.log \
   -D build/qemu.log -d guest_errors \
+  "${DISK_ARGS[@]}" \
   -kernel build/kernel.elf 2>build/qemu.err &
 qpid=$!
 
@@ -69,6 +77,20 @@ require '\[kern\] vfs: hello from ramfs' 'vfs'
 require '\[kern\] rootfs:' 'rootfs'
 require '\[thr\] A 0' 'thread A'
 require '\[thr\] B 0' 'thread B'
+require 'proc: fork pid=' 'fork'
+require 'exec: hello from child' 'exec'
+require 'proc: wait pid=.* code=7' 'wait code'
+require 'cow: child wrote' 'cow child'
+require 'cow: parent intact' 'cow isolation'
+require '\[kern\] cow: pid=.* copy ok' 'cow fault'
+require 'proc: clone tid=.* tgid=' 'clone'
+require 'thread: shared ok' 'clone shared mm'
+require 'sign: kill pid=.* sig=15' 'kill'
+require 'sign: killed ok' 'signal exit'
+if [ ${#DISK_ARGS[@]} -gt 0 ]; then
+  require '\[kern\] blk: virtio-mmio sectors=' 'virtio-blk'
+  require 'ext2: hello from ext2' 'ext2 read'
+fi
 require '\[kern\] sched: done' 'sched'
 require 'BIG_KERNEL_OK' 'big kernel'
 require 'ALL_OK' 'all'

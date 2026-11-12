@@ -10,7 +10,8 @@
 - 构建：`./build.sh`
 - 自检：`make test`
 - 裸机：`make bare-test`
-- 大内核（AArch64 裸机，EL0/EL1、4K 页表、fork/exec/wait）：`cd bare && make && make test`，
+- 大内核（AArch64 裸机，EL0/EL1、4K 页表、COW fork、clone 线程、kill/信号、
+  virtio-blk + 只读 ext2）：`cd bare && make && make test`，
   与 Linux 的能力对照见 [`bare/KERNEL.md`](bare/KERNEL.md)
 
 ## 现状
