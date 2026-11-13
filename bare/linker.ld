@@ -1,6 +1,8 @@
 /* linker.ld —— 告诉链接器：代码放哪、bss 从哪到哪、栈立在哪。
  *
- * QEMU virt 板的 RAM 从 0x40000000 开始，-kernel 加载的 ELF 也按这个入口跳。
+ * RAM 从 0x40000000 开始，但 QEMU 把 arm64 Image 固定加载到 +0x80000，
+ * 也就是 0x40080000（Linux arm64 的惯例）。链接基址必须跟它一致，
+ * 否则 -kernel 一个 ELF 能跑、换成 Image 就整段偏移 512K。
  */
 
 ENTRY(_start)
@@ -14,7 +16,7 @@ PHDRS
 
 SECTIONS
 {
-    . = 0x40000000;
+    . = 0x40080000;
 
     .text : {
         KEEP(*(.text.boot))   /* 必须在最前：入口不能跑到别处去 */

@@ -18,9 +18,11 @@
 #define FR_TXFF (1u << 5)
 #define FR_RXFE (1u << 4)
 
-static volatile u32 *const uart = (volatile u32 *)UART0_BASE;
-static volatile u32 *const gicd = (volatile u32 *)GICD_BASE;
-static volatile u32 *const gicc = (volatile u32 *)GICC_BASE;
+/* 编译期默认地址：仅在 DTB 解析失败时兜底。
+ * 能解析就一律用 DTB 给出的地址（见 fdt_init）。 */
+static volatile u32 *uart = (volatile u32 *)UART0_BASE;
+static volatile u32 *gicd = (volatile u32 *)GICD_BASE;
+static volatile u32 *gicc = (volatile u32 *)GICC_BASE;
 
 static void uart_putc(char c)
 {
@@ -420,11 +422,13 @@ static void run_cmd(const char *s)
         return;
     }
     if (streq(s, "help")) {
-        puts_("cmds: help ticks mmu exc fault kstruct ps init\n");
+        puts_("cmds: help ticks mmu exc fault kstruct ps init dtb\n");
     } else if (streq(s, "kstruct")) {
         kernel_structure();
     } else if (streq(s, "ps")) {
         ps_dump();
+    } else if (streq(s, "dtb")) {
+        fdt_dump();
     } else if (streq(s, "ticks")) {
         printk("ticks=%u\n", ticks);
     } else if (streq(s, "mmu")) {
@@ -534,7 +538,19 @@ int kmain(u64 dtb)
     u64 sp;
     u64 vbar;
     u64 sctlr;
-    u32 magic = 0;
+
+    /* M5：先把 DTB 读出来，UART 基址由它决定。
+     * 解析失败就用编译期地址继续，但日志里必须留下原因。 */
+    (void)fdt_init(dtb);
+    {
+        const struct dtb_info *dti = dtb_info();
+
+        if (dti->ok) {
+            uart = (volatile u32 *)dti->uart_base;
+            gicd = (volatile u32 *)dti->gicd_base;
+            gicc = (volatile u32 *)dti->gicc_base;
+        }
+    }
 
     puts_("\n[bare] aarch64 virt, PL011 UART up\n");
     uart_init(); /* 先配 FIFO/线格式，再谈收字节 */
@@ -543,11 +559,7 @@ int kmain(u64 dtb)
     __asm__ volatile("mrs %0, currentel" : "=r"(sctlr));
     printk("[bare] el=%u  sp=%x\n", (sctlr >> 2) & 3, sp);
     printk("[bare] entry=%x  dtb=%x\n", (u64)(void *)kmain, dtb);
-
-    if (dtb >= 0x40000000UL && dtb < 0x80000000UL) {
-        magic = *(volatile u32 *)dtb;
-    }
-    printk("[bare] dtb magic=%x %s\n", (u64)magic, magic == 0xd00dfeedUL ? "ok" : "BAD");
+    fdt_dump();
 
     puts_("[bare] check: sp ");
     if (sp > (u64)__stack_bottom && sp <= (u64)__stack_top) {

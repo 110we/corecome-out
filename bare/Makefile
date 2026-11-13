@@ -11,7 +11,8 @@ BUILD := build
 OBJS := $(BUILD)/boot.o $(BUILD)/vectors.o $(BUILD)/switch.o $(BUILD)/kernel.o \
         $(BUILD)/heap.o $(BUILD)/mm.o $(BUILD)/paging.o $(BUILD)/sched.o \
         $(BUILD)/vfs.o $(BUILD)/syscall.o $(BUILD)/user.o $(BUILD)/user_blob.o \
-        $(BUILD)/kinfo.o $(BUILD)/proc.o $(BUILD)/virtio_blk.o $(BUILD)/ext2.o
+        $(BUILD)/kinfo.o $(BUILD)/proc.o $(BUILD)/virtio_blk.o $(BUILD)/ext2.o \
+        $(BUILD)/fdt.o
 
 CFLAGS := -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin \
           -nostdlib -mgeneral-regs-only -O2 -Wall -Wextra -Werror -g
@@ -31,7 +32,7 @@ QEMU_EXTRA ?=
 
 .PHONY: all run test test-cmd test-m4 clean
 
-all: $(BUILD)/kernel.elf
+all: $(BUILD)/kernel.bin
 
 $(BUILD):
 > mkdir -p $@
@@ -45,6 +46,11 @@ $(BUILD)/%.o: %.c | $(BUILD)
 $(BUILD)/kernel.elf: $(OBJS) linker.ld
 > $(LD) $(LDFLAGS) -o $@ $(OBJS)
 
+# QEMU 只在认出 arm64 Image 头时才生成 FDT 并把地址放进 x0；
+# 直接给 ELF 的话 x0=0、也没有 DTB（boot.S 里有 Image 头）。
+$(BUILD)/kernel.bin: $(BUILD)/kernel.elf
+> $(CROSS)objcopy -O binary $< $@
+
 $(STAGE)/hello.txt:
 > mkdir -p $(STAGE)
 > printf 'hello from ext2\n' > $@
@@ -55,15 +61,18 @@ $(DISK): $(STAGE)/hello.txt
     mke2fs -q -F -t ext2 -b 1024 -O ^extent -d $(STAGE) $@ 512; \
   else : > $@; fi
 
-run: $(BUILD)/kernel.elf $(DISK)
+run: $(BUILD)/kernel.bin $(DISK)
 > $(QEMU) $(QEMUFLAGS) $(DISKFLAGS) -serial stdio -kernel $<
 
-test: $(BUILD)/kernel.elf $(DISK)
+test: $(BUILD)/kernel.bin $(DISK)
 > @rm -f $(BUILD)/serial.log
 > @timeout 10 $(QEMU) $(QEMUFLAGS) $(DISKFLAGS) $(QEMU_EXTRA) -serial file:$(BUILD)/serial.log -kernel $< || true
 > @cat $(BUILD)/serial.log
 > @grep -q "\[bare\] aarch64 virt" $(BUILD)/serial.log || (echo "FAIL: boot"; exit 1)
 > @grep -q "vec: vbar=0x" $(BUILD)/serial.log || (echo "FAIL: vec"; exit 1)
+> @grep -q "dtb: magic=0x00000000d00dfeed ok" $(BUILD)/serial.log || (echo "FAIL: dtb magic"; exit 1)
+> @grep -q "dtb: mem=0x0000000040000000+0x0000000008000000" $(BUILD)/serial.log || (echo "FAIL: dtb memory"; exit 1)
+> @grep -q "dtb: uart=0x0000000009000000+0x0000000000001000 gicd=0x0000000008000000 gicc=0x0000000008010000" $(BUILD)/serial.log || (echo "FAIL: dtb devices"; exit 1)
 > @grep -q "gic: ready" $(BUILD)/serial.log || (echo "FAIL: gic"; exit 1)
 > @grep -q "irq: ticks=.* ok" $(BUILD)/serial.log || (echo "FAIL: timer"; exit 1)
 > @grep -q "mmu: sctlr=0x.* on" $(BUILD)/serial.log || (echo "FAIL: mmu"; exit 1)
@@ -103,12 +112,12 @@ test: $(BUILD)/kernel.elf $(DISK)
 > @echo "BARE_P0_OK"
 > @$(MAKE) -s test-cmd
 
-test-cmd: $(BUILD)/kernel.elf
+test-cmd: $(BUILD)/kernel.bin
 > @sh tools/serial_cmd.sh "$(QEMU)" "$<" "$(BUILD)/cmd.log"
 > @echo "BARE_CMD_OK"
 
 # M4 验收：EL0 init -> shell -> ls / cat
-test-m4: $(BUILD)/kernel.elf
+test-m4: $(BUILD)/kernel.bin
 > @sh tools/serial_m4.sh "$(QEMU)" "$<" "$(BUILD)/m4.log"
 > @echo "BARE_M4_OK"
 

@@ -3,7 +3,7 @@
 QEMU `virt` 板真的开机。不是"能编译"，也不是"跑起来了"——每一项都有断言，
 失败会指出是哪一层：boot / vec / gic / timer / mmu / fault / svc / mm / slab / vfs / sched / cmd。
 
-## 十三个文件
+## 十四个文件
 
 | 文件 | 职责 |
 |---|---|
@@ -11,13 +11,14 @@ QEMU `virt` 板真的开机。不是"能编译"，也不是"跑起来了"——�
 | `vectors.S` | 16 个异常入口 ×0x80，`SAVE_ALL` 建 **288B** trap frame（x0–x29、x30、ELR、SPSR） |
 | `switch.S` | 上下文切换：`switch_to` 存 x19–x30/sp；`thread_boot` 给新线程伪造返回 |
 | `kernel.c` | 主体：PL011、printk、异常解释、GICv2、CNTP、MMU、UART 收、命令栈 |
+| `fdt.c` | M5：DTB 只读解析，UART/GIC 基址从设备树取，坏 DTB 只降级不 panic |
 | `kern.h` | 大内核的公共边界：所有子系统只认这一份类型与声明 |
 | `mm.c` | 页分配（128×4K）+ slab（7 档），大内核对象都从这里出 |
 | `sched.c` | 内核线程、轮转、100 Hz 抢占 |
 | `vfs.c` | inode 树、fd 表、ramfs、`/dev/console` |
 | `heap.c` | S1：bump 分配器（64KB，16B 对齐），留作对照 |
 | `syscall.c` | S0：`svc #0x80` 分派，11 个号 |
-| `linker.ld` | 加载到 `0x40000000`，`.text.boot` 置首，代码只读 |
+| `linker.ld` | 加载到 `0x40080000`（RAM+`0x80000`），`.text.boot` 置首，代码只读 |
 | `Makefile` | `make` / `run` / `test` / `test-cmd`，`-Werror`，出 `.map` |
 | `README.md` | 这份 |
 
@@ -133,7 +134,13 @@ bare> exc
 svc handled, count=2
 ```
 
-`dtb magic=0x0 BAD` 不是缺陷：QEMU 用 `-kernel` 加载 ELF 时 x0 传 0，DTB 解析留到 P1。
+启动走的是 **arm64 Image 协议**，不是“随便一个 ELF”：
+`boot.S` 开头有一份 64 字节 Image 头（`0x38` 处是 `ARM\x64` 魔数），
+`make` 因此先用 `objcopy -O binary` 出 `build/kernel.bin` 再交给 QEMU。
+只有 QEMU 认出 Image 时才生成 FDT、并把 DTB 地址放进 `x0`——
+直接 `-kernel build/kernel.elf` 的话 `x0=0`、也没有 DTB，内核会打印
+`dtb: magic=0x0 BAD reason=dtb pointer outside RAM window` 并回落到写死地址。
+这条路径保留着，是为了让“没有 DTB”也看得见，而不是悄悄换址。
 
 ## 跑
 

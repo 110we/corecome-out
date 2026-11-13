@@ -22,7 +22,7 @@
 | 抢占 | 内核可抢占 | 用户态可抢占，内核靠关中断 | 部分 | 长 syscall 拖拍 |
 | 文件 | VFS + 页缓存 + 多 FS | VFS + ramfs root + `/dev/console` + ext2 只读 | 部分 | **ext2 无挂载点**、无页缓存、无写、无日志 |
 | fd | 每进程 files_struct | 每进程 filetable | 已验证 | fork 深拷贝，clone 共享 |
-| 设备 | 驱动模型 + DT/ACPI | PL011/GICv2/timer/virtio-mmio blk 手写 | 部分 | 无设备树、无驱动注册表（M5） |
+| 设备 | 驱动模型 + DT/ACPI | DTB 只读解析 + PL011/GICv2/timer/virtio-mmio blk 手写 | 部分 | 地址已来自 DTB；无驱动注册表，virtio-blk 仍是手写扫描（M5） |
 | 网络 | TCP/IP + netfilter | 无 | 计划中 | — |
 | 信号 | 完整、可注册 handler | 仅 KILL/TERM/SEGV 默认动作 | 部分 | 无 handler / sigreturn |
 | 线程 | clone(CLONE_VM) + futex/TLS | clone 共享 mm/fd | 部分 | 无 futex、无 TLS |
@@ -43,9 +43,9 @@
 | **M2 VFS + fd 表** | 每进程 fd、open/read/write/close、ramfs root、ext2 只读挂载点、/dev 字符设备 | **部分** | fd/ramfs/`/dev/console` 已有；ext2 只能按块读，**没有挂载点** |
 | **M3 调度器重写** | 用户进程调度、就绪队列、时间片、抢占、切换含页表 | **部分** | 切页表与时间片已有；**无就绪队列/优先级**，内核不可抢占 |
 | **M4 init + shell** | 内核加载 init，init 拉起 shell，`ls /`、`cat` 一个文件 | **已验证** | `init: up` → `sh> ls` 出 `hello.txt` → `cat` 出 `big kernel vfs works` → `wait pid=16 code=0`；边界见下 |
-| **M5 驱动模型 + DTB** | DTB 解析、驱动注册表、virtio-blk 改走模型 | **未开始** | 设备地址写死；无 FDT 解析 |
+| **M5 驱动模型 + DTB** | DTB 解析、驱动注册表、virtio-blk 改走模型 | **部分** | `fdt.c` 解析根/`/chosen`/memory/PL011/GICv2，UART+GIC 基址改由 DTB 提供；**无驱动注册表**，virtio-blk 仍手写扫描 |
 
-**下一个动手项是 M5**（DTB + 驱动注册表）。M4 已经跑通，但它**不是**
+**下一个动手项仍是 M5**：DTB 那一半已落地，剩下的是一张真正被使用的驱动注册表。M4 已经跑通，但它**不是**
 “Linux 用户态”：exec 只按 id 选内置 blob，shell 只认首字母命令，
 `/dev/console` 读是非阻塞轮询。M4 的价值在于把 M0–M3 串成一条真实路径：
 init 由内核以 EL0 启动，shell 的每个字符都过 `read(0)`，`cat` 过 VFS。
@@ -101,6 +101,45 @@ init: shell exited
 - shell 只认首字符（`l`/`c`/`e`），不解析参数；没有管道、重定向、环境变量。
 - 控制台读是非阻塞轮询，不是 tty 行规程；没有作业控制、没有信号到 shell。
 - 没有 `init` 的 PID=1 语义，它只是第一个被内核拉起的 EL0 进程。
+
+## M5：DTB 解析（部分落地）
+
+QEMU 启动时把 DTB 指针放在 `x0`，`boot.S` 已经原样传给 `kmain`。
+前提是**按 arm64 Image 启动**：`boot.S` 开头带 64 字节 Image 头，
+`make` 出 `build/kernel.bin` 再交给 QEMU；直接 `-kernel` 一个 ELF 时
+QEMU 既不给 DTB 也不设 `x0`（这正是之前 `dtb magic=0x0 BAD` 的原因）。
+`bare/fdt.c` 现在真的把它读开，而不是只看一眼 magic：
+
+```
+[bare] dtb: magic=0x00000000d00dfeed ok size=1048576 ver=17 nodes=56 props=219
+[bare] dtb: model=linux,dummy-virt
+[bare] dtb: mem=0x0000000040000000+0x0000000008000000
+[bare] dtb: uart=0x0000000009000000+0x0000000000001000 gicd=0x0000000008000000 gicc=0x0000000008010000
+```
+
+做了什么：
+
+- 校验 `magic`、`totalsize`、结构块/字符串块的偏移与长度、版本；
+- 线性遍历结构块（`BEGIN_NODE`/`PROP`/`END_NODE`/`NOP`/`END`），
+  节点名、属性名、属性值全部带 `end` 边界检查，遇到截断就报错返回；
+- 从根节点取 `#address-cells`/`#size-cells`/`model`，从 `/chosen` 取 `bootargs`，
+  从 `memory` 取物理内存区间，从 `arm,pl011` 取串口基址，
+  从 `arm,cortex-a15-gic` 取 GICD/GICC；
+- UART 与 GIC 的基址**改由 DTB 决定**，`kernel.c` 里那两个常量只在
+  解析失败时兜底；`/chosen` 的 bootargs 已经存下来但还没有解析器用。
+
+明确的边界（别当成 Linux 的驱动模型）：
+
+- 没有驱动注册表、没有 probe/bind、没有 `phandle` 与中断映射；
+- `reg` 只认一到两段，`#address-cells` 只支持 1/2；
+- 设备地址必须落在页表已映射的 0–10MB 设备窗内，否则判 DTB 不可用
+  （现在的页表不会为了一个节点去补映射）；
+- virtio-blk 仍然自己扫 `virtio_mmio.device=` 的固定地址，没有走 DTB；
+- DTB 解析失败**不 panic**：回落到编译期地址继续启动，串口打
+  `[bare] dtb: magic=... BAD reason=...`，让问题可见。
+
+串口命令 `dtb` 可随时重打印上面这几行。`make test` 里已经断言
+magic / memory / uart+gic 三行，坏了会红。
 
 ## P1 补上的东西（COW / 线程 / 信号 / 块设备 + ext2）
 

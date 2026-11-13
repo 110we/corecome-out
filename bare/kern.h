@@ -110,6 +110,34 @@ void syscall_dump(void);
 u64 heap_size(void);
 u64 heap_used(void);
 
+/* ---- 设备树（M5） ---- */
+/* 只读解析结果。ok=0 时 err 是一句能打出来的原因，
+ * 调用方必须回落到编译期地址，不能拿半成品字段去访问硬件。 */
+struct dtb_info {
+    int ok;
+    const char *err;
+    u32 magic;
+    u32 totalsize;
+    u32 version;
+    u32 nodes;
+    u32 props;
+    u32 addr_cells;
+    u32 size_cells;
+    u64 mem_base;
+    u64 mem_size;
+    u64 uart_base;
+    u64 uart_size;
+    u64 gicd_base;
+    u64 gicd_size;
+    u64 gicc_base;
+    u64 gicc_size;
+    char model[40];
+    char bootargs[64];
+};
+int fdt_init(u64 dtb);
+const struct dtb_info *dtb_info(void);
+void fdt_dump(void);
+
 /* ---- VFS / ramfs / 设备 ---- */
 #define VFS_PATH_MAX 96
 void vfs_init(void);
