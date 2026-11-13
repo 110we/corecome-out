@@ -87,13 +87,13 @@ u_str(p,dst,cap) // 逐字节 copyin，页边界处重新校验，绝不跟着�
 线程表、当前/最近的 aspace L3、系统调用表），可以用来当断言看：
 
 ```
-[image] 0x40000000..0x40005768 .text/.rodata/.data
-[image] 0x40005768..0x400abe40 .bss (681688 bytes)
-[stack] 0x400abe40..0x400cbe40 (128K)
-[mem] heap 164/65536 B, pages free 102/128
-[cpu] sctlr=0x85183f ttbr0=0x4009a000 (4K granule, MMU on)
-[sched] live=1 created=7 cur=kmain
-  #0 kmain state=run ... #6 u3 state=exit
+[image] 0x0000000040080000..0x0000000040089c2c .text/.rodata/.data
+[image] 0x0000000040089c2c..0x0000000040156550 .bss (837924 bytes)
+[stack] 0x0000000040156550..0x0000000040176550 (128K)
+[mem] heap 164/65536 B, pages free 78/128
+[cpu] sctlr=0x000000000085183f ttbr0=0x000000004011e000 (4K granule, MMU on)
+[sched] live=1 created=11 cur=kmain
+  #0 kmain state=run ... #10 u7 state=exit
 [paging] ttbr0=0x4002d000 win=[0x10000000,0x10200000) 4K
   0x10000000 -> 0x40030000 RX U=1
   0x10001000 -> 0x40031000 RW U=1
