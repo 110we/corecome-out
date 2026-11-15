@@ -6,7 +6,7 @@ CFLAGS  := -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -m
 ASFLAGS := -ffreestanding -mcpu=cortex-a53 -Iinclude
 LDFLAGS := -nostdlib -static -T linker.ld -Wl,--build-id=none
 
-C_SRCS := src/kernel.c src/uart.c src/security.c
+C_SRCS := src/kernel.c src/uart.c src/security.c src/security_plugin.c
 S_SRCS := arch/aarch64/boot.S
 OBJS   := $(C_SRCS:.c=.o) $(S_SRCS:.S=.o)
 
