@@ -87,10 +87,13 @@ u64 *pg_aspace_new(void)
     }
     l2 = (u64 *)mm_page_alloc();
     if (l2 == (u64 *)0) {
+        mm_page_free(l1);
         return (u64 *)0;
     }
     l3 = (u64 *)mm_page_alloc();
     if (l3 == (u64 *)0) {
+        mm_page_free(l2);
+        mm_page_free(l1);
         return (u64 *)0;
     }
 
@@ -269,6 +272,7 @@ u64 *pg_aspace_clone(u64 *src)
         if ((e & UXN) == 0) {          /* 代码页：只读可执行，共享 */
             mm_page_ref((void *)pa);
             if (pg_map_user(dst, va, pa, PG_USER_RX) != 0) {
+                pg_aspace_unref(dst);
                 return (u64 *)0;
             }
             cow_shared++;
@@ -279,6 +283,8 @@ u64 *pg_aspace_clone(u64 *src)
         mm_page_set_cow((void *)pa, 1);
         mm_page_ref((void *)pa);
         if (pg_map_user(dst, va, pa, PG_USER_RO) != 0) {
+            /* 父页保持只读是安全的（COW 标记仍有效）；回收子空间已接管的引用。 */
+            pg_aspace_unref(dst);
             return (u64 *)0;
         }
         cow_shared++;
