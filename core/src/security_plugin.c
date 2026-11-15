@@ -51,10 +51,7 @@ bool security_plugin_user_decision(uint64_t id, bool approved, uint64_t now)
 bool security_plugin_authorize(uint64_t grant, uint64_t requester,
                               uint64_t target, uint32_t op, uint64_t now)
 {
-    /* Always reach the kernel monitor so rejected attempts are audited there. */
-    if (state != SECURITY_PLUGIN_APPROVED || grant != pending.request_id) {
-        return security_authorize(grant, requester, target, op, now);
-    }
+    /* All attempts pass through the kernel monitor, including broker-state failures. */
     return security_authorize(grant, requester, target, op, now);
 }
 
