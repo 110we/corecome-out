@@ -14,7 +14,7 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu qemu-system-arm
+          sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu qemu-system-arm device-tree-compiler
       - name: Host FDT parser tests
         run: make test-host
       - name: Build kernel
@@ -34,10 +34,16 @@ jobs:
           aarch64-linux-gnu-nm -n build/coxvbn.elf
           aarch64-linux-gnu-objdump -d --start-address=0x40080400 --stop-address=0x40080480 build/coxvbn.elf
           aarch64-linux-gnu-readelf -lS build/coxvbn.elf
+      - name: Verify QEMU GICv2 device tree
+        run: |
+          qemu-system-aarch64 -M virt,gic-version=2,dumpdtb=build/virt-gicv2.dtb -cpu cortex-a57 -display none
+          dtc -I dtb -O dts build/virt-gicv2.dtb > build/virt-gicv2.dts
+          grep -q 'arm,cortex-a15-gic' build/virt-gicv2.dts
+          grep -q 'interrupt-controller' build/virt-gicv2.dts
       - name: QEMU serial boot test
         run: |
           set +e
-          timeout 15s qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel build/coxvbn.bin -d int -D qemu-int.log > qemu.log 2>&1
+          timeout 15s qemu-system-aarch64 -M virt,gic-version=2 -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel build/coxvbn.bin -d int -D qemu-int.log > qemu.log 2>&1
           status=$?
           set -e
           cat qemu.log
