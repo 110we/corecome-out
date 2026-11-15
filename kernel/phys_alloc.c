@@ -9,9 +9,16 @@ static uint64_t up(uint64_t v){return (v+4095U)&~(uint64_t)4095U;}
 static void reserve(uint64_t b,uint64_t s){uint64_t e,f,l,p;if(!s||b>UINT64_MAX-s)return;e=b+s;f=b/4096U;l=e/4096U;if(e&4095U)++l;if(l>limit_pages)l=limit_pages;if(f>l)return;for(p=f;p<l;++p)unavailable((uint32_t)p);}
 int phys_allocator_init(const struct fdt_info *f,uintptr_t ks,uintptr_t ke,uintptr_t fs,uintptr_t fe){
  uint32_t i;if(!f||!f->memory_count||f->memory_count>COXVBN_FDT_MAX_RANGES||f->reserved_count>COXVBN_FDT_MAX_RANGES||ks>=ke||fs>=fe)return -1;
- for(i=0;i<BITMAP_BYTES;++i)bitmap[i]=0xffU;limit_pages=managed_pages=free_pages=0;ready=0;
+ for (i = 0; i < BITMAP_BYTES; ++i) {
+  bitmap[i] = 0xffU;
+ }
+ limit_pages = 0U;
+ managed_pages = 0U;
+ free_pages = 0U;
+ ready = 0;
  for(i=0;i<f->memory_count;++i){uint64_t b=f->memory[i].base,s=f->memory[i].size,e,first,last,p;if(!s||b>UINT64_MAX-s)return -2;e=b+s;first=up(b)/4096U;last=e/4096U;if(first>=COXVBN_PHYS_MAX_PAGES)continue;if(last>COXVBN_PHYS_MAX_PAGES)last=COXVBN_PHYS_MAX_PAGES;if(first>last)continue;if(last>limit_pages)limit_pages=(uint32_t)last;for(p=first;p<last;++p)available((uint32_t)p);}
- if(!limit_pages||!free_pages)return -3;managed_pages=free_pages;
+ if (!limit_pages || !free_pages) return -3;
+ managed_pages = free_pages;
  for(i=0;i<f->reserved_count;++i)reserve(f->reserved[i].base,f->reserved[i].size);
  reserve(ks,(uint64_t)(ke-ks));reserve(fs,(uint64_t)(fe-fs));unavailable(0);ready=1;return 0;
 }
