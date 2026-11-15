@@ -33,53 +33,78 @@ _start:
 
 /*
  * AArch64 vector table: 16 entries, each 128 bytes; base is 2 KiB aligned.
- * All entries enter the same register-preserving diagnostic path.
+ * Each entry records its architectural slot before entering the common saver.
  */
 .section .text.vectors, "ax"
 .balign 2048
 .global __exception_vectors
 .type __exception_vectors, %function
 __exception_vectors:
-    b exception_unhandled
+    b exception_vector_0
     .balign 128
-    b exception_unhandled
+    b exception_vector_1
     .balign 128
-    b exception_unhandled
+    b exception_vector_2
     .balign 128
-    b exception_unhandled
+    b exception_vector_3
     .balign 128
-    b exception_unhandled
+    b exception_vector_4
     .balign 128
-    b exception_unhandled
+    b exception_vector_5
     .balign 128
-    b exception_unhandled
+    b exception_vector_6
     .balign 128
-    b exception_unhandled
+    b exception_vector_7
     .balign 128
-    b exception_unhandled
+    b exception_vector_8
     .balign 128
-    b exception_unhandled
+    b exception_vector_9
     .balign 128
-    b exception_unhandled
+    b exception_vector_10
     .balign 128
-    b exception_unhandled
+    b exception_vector_11
     .balign 128
-    b exception_unhandled
+    b exception_vector_12
     .balign 128
-    b exception_unhandled
+    b exception_vector_13
     .balign 128
-    b exception_unhandled
+    b exception_vector_14
+    .balign 128
+    b exception_vector_15
 .size __exception_vectors, . - __exception_vectors
 
 /*
- * struct exception_frame layout:
- * x[0..30] at offsets 0..240, then ELR/SPSR/ESR/FAR at 248..272.
- * 288 bytes keeps SP 16-byte aligned at the C ABI boundary.
+ * struct exception_frame:
+ * x[0..30] at 0..240, ELR/SPSR/ESR/FAR at 248..272, vector at 280.
+ * 304-byte allocation preserves the 16-byte stack alignment at the C ABI.
  */
-exception_unhandled:
-    msr     daifset, #0xf
-    sub     sp, sp, #288
+.macro VECTOR_ENTRY number
+exception_vector_\number:
+    sub     sp, sp, #304
     stp     x0, x1, [sp, #0]
+    mov     x0, #\number
+    str     x0, [sp, #280]
+    b       exception_save_rest
+.endm
+
+VECTOR_ENTRY 0
+VECTOR_ENTRY 1
+VECTOR_ENTRY 2
+VECTOR_ENTRY 3
+VECTOR_ENTRY 4
+VECTOR_ENTRY 5
+VECTOR_ENTRY 6
+VECTOR_ENTRY 7
+VECTOR_ENTRY 8
+VECTOR_ENTRY 9
+VECTOR_ENTRY 10
+VECTOR_ENTRY 11
+VECTOR_ENTRY 12
+VECTOR_ENTRY 13
+VECTOR_ENTRY 14
+VECTOR_ENTRY 15
+
+exception_save_rest:
     stp     x2, x3, [sp, #16]
     stp     x4, x5, [sp, #32]
     stp     x6, x7, [sp, #48]
