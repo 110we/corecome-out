@@ -15,6 +15,22 @@
 #define FDT_END 9U
 #define FDT_MAX_DEPTH 32U
 
+#ifdef COXVBN_FDT_DEBUG
+static void fdt_debug_hex(uint32_t value)
+{
+    static const char digits[] = "0123456789abcdef";
+    char out[8];
+    int i;
+    for (i = 7; i >= 0; --i) {
+        out[i] = digits[value & 0xfU];
+        value >>= 4;
+    }
+    for (i = 0; i < 8; ++i) uart_putc(out[i]);
+}
+#else
+#define fdt_debug_hex(value) ((void)(value))
+#endif
+
 struct node_state {
     uint32_t address_cells;
     uint32_t size_cells;
@@ -210,11 +226,11 @@ int fdt_parse(const void *blob, struct fdt_info *info)
     FDT_TRACE("FDTDBG: reserve ok\n");
 
     FDT_TRACE("FDTDBG: structure start\n");
-    FDT_TRACE("FDTDBG: structure pointer "); uart_write_hex_debug((uint32_t)(uintptr_t)structure); FDT_TRACE(" offset "); uart_write_hex_debug(so); FDT_TRACE(" size "); uart_write_hex_debug(ss); FDT_TRACE("\n");
+    FDT_TRACE("FDTDBG: structure pointer "); fdt_debug_hex((uint32_t)(uintptr_t)structure); FDT_TRACE(" offset "); fdt_debug_hex(so); FDT_TRACE(" size "); fdt_debug_hex(ss); FDT_TRACE("\n");
     FDT_TRACE("FDTDBG: before first token read\n");
     while (pos <= ss && ss - pos >= 4U) {
         uint32_t token;
-        FDT_TRACE("FDTDBG: token address "); uart_write_hex_debug((uint32_t)(uintptr_t)(structure + pos)); FDT_TRACE("\n");
+        FDT_TRACE("FDTDBG: token address "); fdt_debug_hex((uint32_t)(uintptr_t)(structure + pos)); FDT_TRACE("\n");
         token = be32(structure + pos);
         FDT_TRACE("FDTDBG: first token read\n");
         pos += 4U;
