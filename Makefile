@@ -13,7 +13,7 @@ LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 
 SOURCES_C := kernel/main.c kernel/uart.c kernel/fdt.c kernel/key_vault.c \
              kernel/information_store.c kernel/emergency_recovery.c \
-             kernel/phys_alloc.c
+             kernel/phys_alloc.c kernel/mmu.c
 SOURCES_S := $(ARCH)/boot.S
 OBJECTS   := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES_C)) \
              $(patsubst %.S,$(BUILD)/%.o,$(SOURCES_S))

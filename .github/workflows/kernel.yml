@@ -45,6 +45,8 @@ jobs:
           grep -q "COXVBN: UART READY" qemu.log
           grep -q "COXVBN: FDT PARSED" qemu.log
           grep -q "COXVBN: MEMORY DISCOVERY READY" qemu.log
+          grep -q "COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS" qemu.log
+          grep -q "COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE" qemu.log
           grep -q "COXVBN: BOOT COMPLETE" qemu.log
           grep -Eq "COXVBN: RAM regions 0x0*[1-9a-f][0-9a-f]*" qemu.log
           if grep -q "ELR 0x200" qemu-int.log; then

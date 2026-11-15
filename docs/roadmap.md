@@ -15,6 +15,8 @@
 - [ ] Validate reserved-memory child nodes and all parent cell-width combinations
 - [x] Add a bounded bitmap physical page allocator with reservation handling
 - [ ] Add checked physical/virtual address types
+- [x] Add initial AArch64 EL1 identity mappings for QEMU virt RAM, GIC, and PL011
+- [ ] Generalize MMU mappings for arbitrary FDT-described RAM/device ranges
 - [ ] Keep the MMU disabled until page tables and device mappings are tested
 
 ## Milestone 3 — exceptions and interrupts
@@ -42,9 +44,9 @@
 - [ ] Network stack and authenticated TCP 3000 listener
 - [ ] Explicitly confirmed storage target for destructive reset/format
 
+A checkbox is checked only when implementation and automated evidence exist.
+
 ## Milestone 7 — userspace and compatibility
 - [ ] Minimal init process and shell
 - [ ] Native system-call ABI
 - [ ] POSIX compatibility as a separately tested layer
-
-A checkbox is checked only when implementation and automated evidence exist.

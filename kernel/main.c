@@ -1,6 +1,7 @@
 #include "fdt.h"
 #include "uart.h"
 #include "phys_alloc.h"
+#include "mmu.h"
 extern char __kernel_start[];
 extern char __kernel_end[];
 
@@ -56,6 +57,16 @@ void kernel_main(const void *boot_fdt)
     rc = phys_allocator_init(&fdt, (uintptr_t)__kernel_start, (uintptr_t)__kernel_end, (uintptr_t)boot_fdt, (uintptr_t)boot_fdt + fdt.total_size);
     if (rc != 0) { uart_write("COXVBN: PHYSICAL ALLOCATOR INIT FAILED\n"); for (;;) __asm__ volatile("wfe"); }
     { struct phys_allocator_stats stats; uintptr_t page; phys_allocator_get_stats(&stats); uart_write("COXVBN: PHYSICAL ALLOCATOR READY; free pages "); uart_write_hex(stats.free_pages); uart_write("\n"); page=phys_alloc_page(); if (!page || phys_free_page(page)!=0) { uart_write("COXVBN: PHYSICAL ALLOCATOR SELFTEST FAILED\n"); for (;;) __asm__ volatile("wfe"); } uart_write("COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS\n"); }
+
+    rc = mmu_enable(&fdt, (uintptr_t)__kernel_start,
+                    (uintptr_t)__kernel_end, (uintptr_t)boot_fdt);
+    if (rc != 0) {
+        uart_write("COXVBN: MMU SETUP FAILED; error ");
+        uart_write_hex((uintptr_t)(uint32_t)(-rc));
+        uart_write("\n");
+        for (;;) __asm__ volatile("wfe");
+    }
+    uart_write("COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE\n");
     uart_write("COXVBN: BOOT COMPLETE\n");
     for (;;) __asm__ volatile("wfe");
 }
