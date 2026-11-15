@@ -26,16 +26,6 @@ enum security_audit_event {
     SECURITY_AUDIT_STOP,
 };
 
-struct security_scope {
-    uint64_t scope_id;
-    uint64_t target_id;
-    uint64_t expires_at;
-    uint32_t allowed_operations;
-    uint32_t action_limit;
-    uint32_t actions_used;
-    bool active;
-};
-
 struct security_audit_record {
     uint64_t sequence;
     uint64_t scope_id;
@@ -46,12 +36,12 @@ struct security_audit_record {
 };
 
 void security_init(void);
-bool security_scope_grant(uint64_t scope_id, uint64_t target_id,
-                          uint32_t allowed_operations,
-                          uint64_t expires_at, uint32_t action_limit,
-                          uint64_t now);
-bool security_authorize(uint64_t scope_id, uint64_t target_id,
-                        uint32_t operation, uint64_t now);
+bool security_monitor_install_grant(uint64_t grant_id, uint64_t requester_id,
+                                    uint64_t target_id, uint32_t operations,
+                                    uint64_t expires_at, uint32_t action_limit,
+                                    uint64_t now);
+bool security_authorize(uint64_t grant_id, uint64_t requester_id,
+                        uint64_t target_id, uint32_t operation, uint64_t now);
 void security_scope_revoke(uint64_t now);
 void security_emergency_stop(uint64_t now);
 bool security_is_stopped(void);
