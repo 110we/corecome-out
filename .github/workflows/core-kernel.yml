@@ -1,0 +1,38 @@
+name: CORECOME standalone kernel
+
+on:
+  pull_request:
+    paths:
+      - "core/**"
+      - ".github/workflows/core-kernel.yml"
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - ".github/workflows/core-kernel.yml"
+
+jobs:
+  aarch64-qemu-boot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install AArch64 toolchain and QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu qemu-system-arm
+      - name: Build standalone kernel
+        run: make -C core CROSS_COMPILE=aarch64-linux-gnu-
+      - name: Boot under QEMU
+        shell: bash
+        run: |
+          set +e
+          timeout 8s qemu-system-aarch64 -machine virt -cpu cortex-a53 -m 512M -nographic -kernel core/build/corecome.elf > qemu.log 2>&1
+          status=$?
+          set -e
+          cat qemu.log
+          if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then
+            echo "QEMU exited unexpectedly: $status"
+            exit 1
+          fi
+          grep -q "CORECOME standalone security kernel" qemu.log
+          grep -q "boot: PASS" qemu.log
