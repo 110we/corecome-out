@@ -110,7 +110,8 @@ int mmu_enable(const struct fdt_info *fdt, uintptr_t kernel_start,
     {
         uint64_t mair = 0x00000000000000ffULL;
         uint64_t tcr = 25ULL | (1ULL << 8) | (1ULL << 10) |
-                       (3ULL << 12) | (2ULL << 32);
+                       (3ULL << 12) | (25ULL << 16) | (1ULL << 23) |
+                       (2ULL << 32);
         uint64_t ttbr = (uint64_t)(uintptr_t)l1;
         uint64_t sctlr;
         __asm__ volatile("dsb ishst" ::: "memory");
