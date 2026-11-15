@@ -2,62 +2,62 @@
 
 ## Product direction
 
-CORECOME is a standalone, general-purpose operating system with a **modular monolithic kernel**. It is not a microkernel, a Linux distribution, or merely a collection of security tools. The kernel is independently designed and bootable; Linux compatibility is provided by implementing compatible interfaces and runtime services rather than depending on the Linux kernel.
+CORECOME is a standalone general-purpose operating system with a **modular monolithic kernel**. Its long-term goal is system-replacement-level compatibility with mainstream non-Apple operating systems, while retaining its own kernel, native user space, desktop, driver model and security architecture.
 
-The architecture deliberately keeps performance-critical operating-system facilities in privileged kernel space while maintaining strict internal subsystem boundaries.
+The compatibility target includes Linux/POSIX, Windows, Android, selected BSD families and Linux-based environments such as ChromeOS. This is a long-term engineering goal, not a claim of current support. Compatibility is tracked by architecture, ABI/API version, runtime, device class and repeatable application tests.
 
-## Non-negotiable design
+## Kernel design
 
-1. **Modular monolithic kernel.** Scheduler, virtual memory, syscall dispatch, VFS core, networking core, IPC primitives, security reference monitor, and driver framework run in kernel space. Drivers and kernel facilities may be built in or loaded as kernel modules where safe and practical.
-2. **Standalone boot.** CORECOME boots and operates without a Linux kernel or Linux user space. AArch64 is the first-class architecture and QEMU virt is the first validation platform.
-3. **Linux compatibility as a first-class project.** Implement a documented Linux-compatible syscall/ABI layer, ELF loading, process and thread semantics, signals, file descriptors, virtual filesystem behavior, sockets, and common device interfaces in stages. Compatibility must be measured with test suites, not claimed from superficial API resemblance.
-4. **Native system identity.** CORECOME has its own init/system manager, shell, service model, package format, security policy, and eventually a native desktop. Linux applications may run through compatibility interfaces; native operation must not depend on them.
-5. **Capability-based authority.** Kernel objects and privileged operations are protected by explicit rights and policy checks. Compatibility interfaces must not silently bypass CORECOME security policy.
-6. **Authorized security testing.** Active assessment jobs require explicit, bounded authorization scopes with target identities, permitted operations, rate/resource limits, expiry, and revocation. Out-of-scope actions are denied by default.
-7. **Audit and emergency stop.** Authority grants, scope decisions, launches, and stop events are auditable. The stop path must revoke assessment capabilities and terminate associated jobs.
+1. Scheduler, virtual memory, syscall dispatch, VFS core, networking core, IPC primitives, security reference monitor and driver framework run in kernel space.
+2. Subsystems have explicit interfaces, ownership rules, locking contracts and tests. Drivers and kernel facilities may be built in or loaded as modules where safe.
+3. CORECOME boots and operates without a Linux kernel or Linux user space.
+4. Native init, service manager, shell, package system and desktop are first-party components.
+5. ABI personalities translate foreign OS behavior into shared kernel primitives; they cannot bypass CORECOME capabilities, policy, audit, quotas or emergency stop.
+6. Active security assessments require explicit bounded authorization scopes. Out-of-scope operations are denied by default.
 
 ## Kernel subsystem map
 
 - Architecture/boot: EL transitions, exception vectors, interrupt controller, timer, SMP startup, context switching
-- Memory management: physical page allocator, virtual memory, address spaces, memory mapping, copy-on-write, kernel heap
-- Process core: tasks, threads, scheduler, signals, process lifecycle, credentials
-- Syscall and ABI: native CORECOME ABI plus Linux-compatible syscall personality
-- VFS: vnode/inode layer, mount namespace, file descriptors, permissions, filesystem drivers
-- Networking: socket API, Ethernet, ARP/ND, IPv4/IPv6, UDP, TCP, routing, packet filtering
-- Drivers: bus/device model, driver registration, DMA, interrupt handling, virtio and platform drivers
-- Security: capability/object-rights model, policy engine, scope validator, audit ring, emergency-stop controller
-- Compatibility: ELF loader, Linux syscall translation, Linux process semantics, ioctl and device compatibility, runtime/library support
-- User space: native init, service manager, shell, package manager, authorization console, assessment workers
-- Desktop: graphics, input, compositor, window manager, accessibility, and native applications
+- Memory: physical page allocator, virtual memory, address spaces, mappings, copy-on-write, kernel heap
+- Process: tasks, threads, scheduler, signals, process lifecycle, credentials and handles
+- ABI: native CORECOME ABI and versioned foreign ABI dispatch
+- VFS: vnode/inode layer, mount namespaces, file descriptors, permissions, filesystem drivers
+- Networking: socket API, Ethernet, ARP/ND, IPv4/IPv6, UDP/TCP, routing and packet policy
+- Drivers: bus/device model, DMA, interrupt handling, VirtIO and platform drivers
+- Security: capability/object-rights model, policy engine, scope validator, audit ring and emergency stop
+- Compatibility runtimes: ELF and PE loaders, Linux/POSIX syscall personality, Win32 API runtime, Android ART/Bionic/Binder, selected BSD personalities
+- User space: native init, service manager, shell, package manager, authorization console and isolated assessment workers
+- Desktop: graphics, input, compositor, window manager, accessibility and native applications
 
-## Compatibility strategy
+## Compatibility families and sequencing
 
-Compatibility is layered and incremental:
+1. Linux/POSIX: ELF, process/thread semantics, signals, file descriptors, memory mapping, futex, epoll, sockets, dynamic loader and common userland.
+2. Windows: PE32/PE32+ loading, x86_64 ABI, DLL loading, Win32 API families, NT handle/object semantics and graphics/audio integration.
+3. Android: APK lifecycle, ART, Bionic, JNI, Android NDK ABI, Binder and framework services.
+4. BSD: selected FreeBSD/OpenBSD/NetBSD ABI and system-call personalities, each tested separately.
+5. ChromeOS-related workflows: Linux application environment first; ChromeOS-specific services and Android support remain separate deliverables.
 
-1. **Executable foundation:** ELF64/AArch64 loading, process image setup, dynamic linking support, TLS, and a stable syscall ABI.
-2. **POSIX foundation:** file descriptors, pipes, process creation/exec/wait, signals, threads, clocks, memory mapping, and permissions.
-3. **Linux ABI:** Linux AArch64 syscall numbers and semantics, futexes, epoll, eventfd, timerfd, ioctl conventions, procfs/sysfs behavior, namespaces and cgroups where feasible.
-4. **Linux application environment:** compatible runtime libraries, loader behavior, package/application environment, and common service expectations.
-5. **Driver compatibility:** prioritize virtio and standard bus/device abstractions. Linux kernel module compatibility is a separate, very large undertaking and is not promised by syscall compatibility alone.
+AArch64 is the first native bring-up target. x86_64 is the next major native architecture for desktop breadth. Cross-ISA execution requires a separately tested emulator or dynamic binary translator. 32-bit execution is a separate compatibility milestone.
 
-A compatibility claim must name the supported architecture, ABI surface, test suite, and known gaps. Passing a few simple programs is not equivalent to general Linux application compatibility.
+Driver and hardware support is independent of application compatibility. CORECOME first owns its driver model and targets QEMU virt/VirtIO, then standard PC and mobile buses/devices. Foreign Linux or Windows kernel drivers are not assumed to be compatible.
 
-## Kernel/user-space boundary
-
-The kernel is monolithic for performance and compatibility, but subsystem interfaces remain explicit. User-space services are used for policy consoles, package management, desktop components, and isolated assessment workers. The kernel remains the final enforcement point for memory protection, capabilities, authorization scopes, resource limits, and emergency stop.
+See [compatibility.md](compatibility.md) for the detailed scope, architecture requirements, acceptance gates and delivery order.
 
 ## Milestones
 
 - M0: AArch64 boot and serial output
-- M1: exception vectors, timer, GIC, panic path, early console
-- M2: physical memory allocator, kernel heap, MMU, address spaces
-- M3: scheduler, process/thread lifecycle, EL0 entry, native syscall ABI
-- M4: ELF64 loader, file descriptors, process operations, signals, POSIX baseline
+- M1: exception vectors, timer, GIC, panic path and early console
+- M2: physical memory allocator, kernel heap, MMU and address spaces
+- M3: scheduler, process/thread lifecycle, EL0 entry and native syscall ABI
+- M4: ELF64 loader, file descriptors, process operations, signals and POSIX baseline
 - M5: VFS, filesystem drivers, native init and shell
-- M6: Linux AArch64 syscall personality and compatibility test harness
-- M7: socket API and network stack; virtio network/block drivers
-- M8: capability/policy/audit/stop enforcement integrated with all privileged paths
-- M9: native package/service system and assessment workers
-- M10: native desktop and broader hardware support
+- M6: Linux AArch64 syscall personality and conformance harness
+- M7: socket API, network stack and VirtIO block/network drivers
+- M8: capability/policy/audit/stop enforcement across privileged paths
+- M9: graphics/input/audio foundations, native package/service system
+- M10: Windows PE/Win32 runtime foundation and x86_64 platform
+- M11: Android ART/Bionic/Binder compatibility
+- M12: selected BSD personalities and ChromeOS/Linux container workflows
+- M13: broad hardware support, power management, native desktop and application certification
 
-Each milestone requires reproducible builds, unit/integration tests, and QEMU boot tests. Compatibility is reported as a tested matrix, not as a blanket claim.
+Every milestone requires reproducible builds, tests and QEMU or hardware validation. Compatibility is reported as a tested matrix with known gaps, never as a blanket claim.
