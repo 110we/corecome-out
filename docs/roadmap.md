@@ -27,7 +27,7 @@
 - [x] Define and host-test the exception-frame field offsets and payload size
 - [ ] Define and test a complete exception entry/exit contract, including return semantics
 - [ ] Add safe recoverable synchronous-fault handling
-- [ ] Add GICv2 support for the selected QEMU machine
+- [ ] Implement a GICv2 driver for the explicitly selected QEMU `virt,gic-version=2` platform (CI verifies the generated DTB identifies the GICv2 controller)
 - [ ] Add a generic interrupt-controller interface and architectural timer driver
 - [ ] Add IRQ dispatch, interrupt acknowledgement/EOI, and interrupt-context rules
 
