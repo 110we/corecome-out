@@ -15,7 +15,7 @@ All vectors still take the fatal path: there is no IRQ dispatch, exception retur
 ## Current limitations
 
 - The supported boot/test target is QEMU `virt` with GICv2 selected explicitly; CI compiles the generated device tree and checks the GICv2 compatibility and interrupt-controller property. Arbitrary firmware handoff, EL3 transitions, and secondary CPUs are not supported.
-- Interrupts are masked at boot. GIC initialization, timer interrupts, and interrupt dispatch are not implemented.
+- Interrupts are masked at boot. A GICv2 quiescent-initialization routine accepts explicit distributor/CPU-interface bases, disables both interfaces, reads the implemented interrupt-line count, and prepares the priority mask. It deliberately does not enable either interface; timer interrupts, IRQ dispatch, acknowledgement/EOI, and exception return remain unimplemented.
 - There is no scheduler, kernel-thread context switch, user mode, syscall ABI, or process address-space isolation.
 - The physical allocator is a bounded bootstrap allocator; page-table allocation and dynamic virtual mappings are not implemented.
 - The Key Vault, Information Store, and Emergency Recovery are in-memory interfaces/contracts only. There is no persistent vault, audited cryptographic backend, watchdog takeover, network stack, or TCP listener. TCP port 3000 is not live.
