@@ -132,14 +132,20 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
     if (struct_end > total || strings_end > total) return -8;
     FDT_TRACE("FDTDBG: bounds ok\n");
 
+    FDT_TRACE("FDTDBG: info write start\\n");
     info->address = (uintptr_t)blob;
+    FDT_TRACE("FDTDBG: info address ok\\n");
     info->total_size = total;
+    FDT_TRACE("FDTDBG: info total ok\\n");
     info->structure_size = ss;
     info->strings_size = sts;
+    FDT_TRACE("FDTDBG: info sizes ok\\n");
     info->address_cells = 2;
     info->size_cells = 1;
+    FDT_TRACE("FDTDBG: info cells ok\\n");
     info->memory_count = 0;
     info->reserved_count = 0;
+    FDT_TRACE("FDTDBG: info counts ok\\n");
     return 0;
 }
 
