@@ -210,4 +210,4 @@ virtio-blk 与只读 ext2、**18 号系统调用**，全部编进同一个镜像
 （QEMU 8.2 / GCC 13）避免新版 QEMU 无串口。已知技术债与“接受什么、
 推迟什么”写在 [`docs/kernel/status.md`](docs/kernel/status.md) 的「技术债与推迟项」。
 
-    tools/ci_result.sh
+    tools/build/ci_result.sh
