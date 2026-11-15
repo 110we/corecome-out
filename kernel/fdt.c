@@ -111,20 +111,26 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
     FDT_TRACE("FDTDBG: header fields\n");
     sts = be32(b + 32); ss = be32(b + 36);
     FDT_TRACE("FDTDBG: header sizes\n");
+    FDT_TRACE("FDTDBG: validate basic\n");
     if (total < FDT_HEADER_SIZE || ver < FDT_VERSION_MIN ||
         compat > ver) return -4;
+    FDT_TRACE("FDTDBG: basic ok\n");
     if ((so & 3U) || (ro & 7U) || (ss & 3U) ||
         so < FDT_HEADER_SIZE || sto < FDT_HEADER_SIZE ||
         ro < FDT_HEADER_SIZE || so > total || ss > total - so ||
         sto > total || sts > total - sto ||
         ro > total || total - ro < 16U) return -5;
+    FDT_TRACE("FDTDBG: offsets ok\n");
     struct_end = so + ss;
     strings_end = sto + sts;
     if (ss == 0U || sts == 0U ||
         ranges_overlap(so, ss, sto, sts)) return -6;
+    FDT_TRACE("FDTDBG: blocks ok\n");
     /* The reservation map must precede both data blocks. */
     if (ro >= so || ro >= sto) return -7;
+    FDT_TRACE("FDTDBG: reserve offset ok\n");
     if (struct_end > total || strings_end > total) return -8;
+    FDT_TRACE("FDTDBG: bounds ok\n");
 
     info->address = (uintptr_t)blob;
     info->total_size = total;
