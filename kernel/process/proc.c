@@ -40,12 +40,20 @@ int proc_fork(u64 *f)
     int pid;
 
     if (l1 == (u64 *)0 || ft == (struct filetable *)0) {
+        if (l1 != (u64 *)0) {
+            pg_aspace_unref(l1);
+        }
+        if (ft != (struct filetable *)0) {
+            kfree(ft);
+        }
         printk("[kern] proc: fork failed (mem)\n");
         return -1;
     }
     proc_name(nm, sched_pid() + 1);
     pid = sched_fork_from(f, l1, (u64)ft, nm);
     if (pid < 0) {
+        pg_aspace_unref(l1);
+        kfree(ft);
         return -1;
     }
     printk("[kern] proc: fork pid=%u ppid=%u\n", (u32)pid, (u32)sched_pid());
@@ -79,6 +87,7 @@ int proc_clone(u64 *f)
 void proc_exec(u64 *f, u64 id)
 {
     u64 *l1;
+    u64 *old_l1;
     u8 *code;
     u8 *stk;
     const u8 *blob = user_exec_start;
@@ -92,10 +101,20 @@ void proc_exec(u64 *f, u64 id)
         blob = user_shell_start;
         bend = user_shell_end;
     }
+    old_l1 = sched_get_l1();
     l1 = pg_aspace_new();
     code = (u8 *)mm_page_alloc();
     stk = (u8 *)mm_page_alloc();
     if (l1 == (u64 *)0 || code == (u8 *)0 || stk == (u8 *)0) {
+        if (l1 != (u64 *)0) {
+            pg_aspace_unref(l1);
+        }
+        if (code != (u8 *)0) {
+            mm_page_free(code);
+        }
+        if (stk != (u8 *)0) {
+            mm_page_free(stk);
+        }
         printk("[kern] proc: exec failed (mem)\n");
         return;
     }
@@ -108,11 +127,17 @@ void proc_exec(u64 *f, u64 id)
     }
     if (pg_map_user(l1, USER_WIN_BASE, (u64)code, PG_USER_RX) != 0 ||
         pg_map_user(l1, USER_WIN_BASE + 0x1000, (u64)stk, PG_USER_RW) != 0) {
+        pg_aspace_unref(l1);
+        mm_page_free(code);
+        mm_page_free(stk);
         printk("[kern] proc: exec map failed\n");
         return;
     }
     sched_set_l1(l1);
     pg_activate(l1);
+    if (old_l1 != (u64 *)0 && old_l1 != l1) {
+        pg_aspace_unref(old_l1);
+    }
     for (i = 0; i < 36; i++) {
         f[i] = 0;
     }
