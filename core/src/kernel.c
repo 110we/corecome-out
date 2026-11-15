@@ -18,9 +18,12 @@ void kernel_main(void)
     struct security_plugin_request denied_req = {
         2, 0xA001, 0x1001, 1000, SECURITY_OP_CAPTURE, 2
     };
+    struct security_plugin_request expired_req = {
+        3, 0xA001, 0x1001, 13, SECURITY_OP_DISCOVER, 1
+    };
     bool submitted, denied_pending, approved, allowed, allowed_second;
-    bool wrong_tool, wrong_target, quota_denied, revoked, denied_by_user, expired_denied;
-    bool stopped, audit_present;
+    bool wrong_tool, wrong_target, quota_denied, revoked;
+    bool denied_by_user, expired_denied, stopped, audit_present;
 
     uart_init();
     uart_puts("\nCORECOME standalone security kernel\n");
@@ -46,7 +49,10 @@ void kernel_main(void)
 
     allowed = security_plugin_authorize(
         1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 4);
-    report_test("approved tool can use granted operation", allowed);
+    allowed_second = security_plugin_authorize(
+        1, 0xA001, 0x1001, SECURITY_OP_INSPECT, 5);
+    report_test("approved tool can use granted operations",
+                allowed && allowed_second);
 
     wrong_tool = !security_plugin_authorize(
         1, 0xB002, 0x1001, SECURITY_OP_INSPECT, 6);
@@ -56,18 +62,26 @@ void kernel_main(void)
         1, 0xA001, 0x2002, SECURITY_OP_DISCOVER, 7);
     report_test("grant cannot be reused on another target", wrong_target);
 
-    quota_denied = !security_plugin_authorize(\n        1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 8);\n    report_test("grant action quota is enforced", quota_denied);\n\n    security_plugin_revoke(9);
+    quota_denied = !security_plugin_authorize(
+        1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 8);
+    report_test("grant action quota is enforced", quota_denied);
+
+    security_plugin_revoke(9);
     revoked = !security_plugin_authorize(
         1, 0xA001, 0x1001, SECURITY_OP_INSPECT, 10);
     report_test("plugin revocation blocks further operations", revoked);
 
     denied_by_user = security_plugin_submit(&denied_req) &&
-        security_plugin_user_decision(2, false, 9) &&
+        security_plugin_user_decision(2, false, 11) &&
         !security_plugin_authorize(
             2, 0xA001, 0x1001, SECURITY_OP_CAPTURE, 12);
     report_test("user denial never creates a usable grant", denied_by_user);
 
-    {\n        struct security_plugin_request expired_req = {\n            3, 0xA001, 0x1001, 13, SECURITY_OP_DISCOVER, 1\n        };\n        expired_denied = security_plugin_submit(&expired_req) &&\n            !security_plugin_user_decision(3, true, 13);\n    }\n    report_test("expired request cannot receive a grant", expired_denied);\n\n    security_emergency_stop(14);
+    expired_denied = security_plugin_submit(&expired_req) &&
+        !security_plugin_user_decision(3, true, 13);
+    report_test("expired request cannot receive a grant", expired_denied);
+
+    security_emergency_stop(14);
     stopped = security_is_stopped() && !security_plugin_authorize(
         2, 0xA001, 0x1001, SECURITY_OP_INSPECT, 15);
     report_test("emergency stop blocks privileged operations", stopped);
@@ -76,8 +90,9 @@ void kernel_main(void)
     report_test("kernel records grants, allows, denials and revocation",
                 audit_present);
 
-    if (submitted && denied_pending && approved && allowed && wrong_tool &&
-        wrong_target && revoked && denied_by_user && stopped && audit_present) {
+    if (submitted && denied_pending && approved && allowed && allowed_second &&
+        wrong_tool && wrong_target && quota_denied && revoked &&
+        denied_by_user && expired_denied && stopped && audit_present) {
         uart_puts("security plugin integration: PASS\n");
         uart_puts("boot: PASS\n");
     } else {
