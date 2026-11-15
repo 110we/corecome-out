@@ -2,6 +2,11 @@
 
 #define SECURITY_AUDIT_CAPACITY 64u
 
+struct security_scope {
+    uint64_t scope_id, requester_id, target_id, expires_at;
+    uint32_t allowed_operations, action_limit, actions_used;
+    bool active;
+};
 static struct security_scope current_scope;
 static struct security_audit_record audit_log[SECURITY_AUDIT_CAPACITY];
 static uint64_t audit_sequence;
@@ -34,7 +39,7 @@ void security_init(void)
     uint32_t i;
 
     current_scope.scope_id = 0;
-    current_scope.target_id = 0;
+    current_scope.requester_id = 0;\n    current_scope.target_id = 0;
     current_scope.expires_at = 0;
     current_scope.allowed_operations = 0;
     current_scope.action_limit = 0;
@@ -61,7 +66,7 @@ bool security_scope_grant(uint64_t scope_id, uint64_t target_id,
                           uint64_t now)
 {
     if (emergency_stopped || current_scope.active ||
-        scope_id == 0 || target_id == 0 ||
+        scope_id == 0 || requester_id == 0 || target_id == 0 ||
         allowed_operations == 0 ||
         (allowed_operations & ~SECURITY_KNOWN_OPERATIONS) != 0 ||
         action_limit == 0 ||
@@ -71,7 +76,7 @@ bool security_scope_grant(uint64_t scope_id, uint64_t target_id,
     }
 
     current_scope.scope_id = scope_id;
-    current_scope.target_id = target_id;
+    current_scope.requester_id = requester_id;\n    current_scope.target_id = target_id;
     current_scope.expires_at = expires_at;
     current_scope.allowed_operations = allowed_operations;
     current_scope.action_limit = action_limit;
@@ -88,7 +93,7 @@ bool security_authorize(uint64_t scope_id, uint64_t target_id,
     bool permitted = !emergency_stopped &&
                      current_scope.active &&
                      scope_id == current_scope.scope_id &&
-                     target_id == current_scope.target_id &&
+                     requester_id == current_scope.requester_id &&\n                     target_id == current_scope.target_id &&
                      operation != 0 &&
                      (operation & (operation - 1u)) == 0 &&
                      (current_scope.allowed_operations & operation) == operation &&
