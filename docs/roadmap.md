@@ -23,8 +23,9 @@
 ## Milestone 3 — exceptions and interrupts
 - [x] Install an aligned 16-entry EL1 vector table
 - [x] Preserve general-purpose registers and capture ELR/SPSR/ESR/FAR for fatal diagnostics
-- [ ] Define and test the complete exception frame and vector entry/exit contract
-- [x] Decode common ESR_EL1 exception classes for fatal diagnostics
+- [x] Record and report the architectural vector index without clobbering the interrupted register state
+- [x] Define and host-test the exception-frame field offsets and payload size
+- [ ] Define and test a complete exception entry/exit contract, including return semantics
 - [ ] Add safe recoverable synchronous-fault handling
 - [ ] Add GICv2 support for the selected QEMU machine
 - [ ] Add a generic interrupt-controller interface and architectural timer driver
@@ -50,9 +51,9 @@
 - [ ] Network stack and authenticated TCP 3000 listener
 - [ ] Explicitly confirmed storage target for destructive reset/format
 
-A checkbox is checked only when implementation and automated evidence exist.
-
 ## Milestone 7 — userspace and compatibility
 - [ ] Minimal init process and shell
 - [ ] Native system-call ABI
 - [ ] POSIX compatibility as a separately tested layer
+
+A checkbox is checked only when implementation and automated evidence exist.
