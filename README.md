@@ -1,11 +1,11 @@
 # kernel · 代码空间
 
-**主线只有一条：`bare/` —— AArch64 宏内核（EL0/EL1）。**
-`netos/` 与 `astra/` 是**用户态服务层实验**（Side 契约、能力总线、HTTP 闸门），
+**主线只有一条：`kernel/` —— AArch64 宏内核（EL0/EL1）。**
+`services/` 是**用户态服务层实验**（Side 契约、能力总线、HTTP 闸门），
 它们能编译、能自检，但**不参与内核能力宣称**，也不要拿它们跟 Linux 比。
 
 内核目标写死：**能跑自己编译的静态 EL0 程序**的教学级宏内核，
-按 M0–M5 推进（见 [`bare/KERNEL.md`](bare/KERNEL.md#路线图m0m5)）。
+按 M0–M5 推进（见 [`docs/kernel/status.md`](docs/kernel/status.md)）。
 **不追求 Linux ABI 兼容**：不跑 glibc、不跑现成 Linux 二进制、不承诺 POSIX 全量。
 “语义对齐”指机制角色对得上，不是“能替换 Linux”。
 
@@ -15,24 +15,30 @@
 `aarch64-linux-gnu-gcc`、`qemu-system-aarch64`，以及可选的 `e2fsprogs`
 （有它才会生成 ext2 镜像并跑文件系统断言）。
 
-- 构建：`./build.sh`
+- 构建：`make build`（等价 `bash tools/build/build.sh`）
 - 自检：`make test`
-- 裸机：`make bare-test`
+- 裸机：`make kernel-test`
 - 大内核（AArch64 裸机，EL0/EL1、4K 页表、COW fork、clone 线程、kill/信号、
-  virtio-blk + 只读 ext2）：`cd bare && make && make test`，
-  与 Linux 的能力对照见 [`bare/KERNEL.md`](bare/KERNEL.md)
+  virtio-blk + 只读 ext2）：`cd kernel && make && make test`，
+  与 Linux 的能力对照见 [`docs/kernel/status.md`](docs/kernel/status.md)
 
 ## 现状
 
 | 位置 | 内容 |
 |---|---|
-| `bare/` | **内核主线**：AArch64 EL0/EL1、4K 页表、COW fork、clone 线程、信号、ramfs + ext2、virtio-blk、DTB 只读解析（UART/GIC 基址来自设备树）；`make test-m4` 跑通 EL0 init + shell（ls/cat）。M0–M4 已通，M5 进行中（DTB 已落地，驱动注册表未做） |
-| `netos/` | **用户态服务层实验**（不是内核）：`core`（Kernel / Side / SideState / Config）、`security`（Guard / Policy 三档）、`http`、`sides`、`Main` |
-| `astra/` | **用户态服务层实验**（不是内核）：能力总线（`Cap` / `Message` / `Module` / `Bus` / `Astra` / `Edge`），鉴权在总线上而不是 HTTP 层 |
-| `tools/` | 五套自检 + 两个专项：`selftest.py`（NetOS 19 项）、`security_test.py`（三档，真从非回环地址打）、`astra_selftest.py`（能力总线 15 项）、`server_smoke.py`（面/路由/信封契约快照）、`failure_test.py`（失败路径 24 项） |
-| `spec/` | 一页纸规格 |
-| `Makefile` | `make build / test / clean` |
-| 服务器原码 | `/home/yunhua/netos/src`（29–37 文件，4600–8600 行） |
+| `kernel/` | **内核主线**：AArch64 EL0/EL1、4K 页表、COW fork、clone 线程、信号、ramfs + ext2、virtio-blk、DTB 只读解析；`make test-m4` 跑通 EL0 init + shell（ls/cat）。M0–M4 已通，M5 进行中 |
+| `kernel/core/` | 入口 `system.c`、panic、运行时信息 |
+| `kernel/arch/aarch64/` | `boot/`（入口汇编 + 链接脚本）、`exception/`、`context/`、`mmu/` |
+| `drivers/` | `bus/fdt.c`、`storage/virtio_blk.c`；timer / interrupt 等仍在内核主体里，待拆 |
+| `filesystems/` | `ext2/`（只读）；ramfs 由 `kernel/vfs` 提供 |
+| `services/astra/` | 能力总线（`Cap` / `Message` / `Module` / `Bus` / `Edge`），鉴权在总线上而不是 HTTP 层 |
+| `services/init/` | 服务生命周期：`Kernel` / `Side` / `SideState` / `Config` / `Main` |
+| `services/security/` | `Guard` / `Policy` 三档 |
+| `services/network/` | HTTP 服务层（面/路由/信封） |
+| `userspace/runtime/` | 内置用户程序 blob（init / shell） |
+| `tests/` | `integration/`（NetOS、Astra、契约冒烟、失败路径）、`security/`（三档）、`qemu/`（串口驱动脚本） |
+| `docs/` | 架构总览、内核现状、权限模型 |
+| `boot/` `toolbridge/` `desktop/` | 目录已就位，代码尚未落地（各目录 README 写明了计划） |
 
 > 原 `runtime/`（第七面上游快照）已移出仓库：它依赖服务器全量源码、不可编译，
 > CI 也覆盖不到，留在主仓库只会制造“看起来能编”的错觉。需要时按 git 历史
@@ -41,19 +47,20 @@
 ## 构建与自检
 
 ```
-./build.sh                      # javac 17 → out/（netos + astra 一起编）
-make test                       # 全部自检
+make build                              # javac 17 → out/（services 一起编）
+make test                               # 全部自检
+make kernel-test                        # 裸机内核开机自检
 
 # 单跑
-python3 tools/selftest.py       # 起进程、打路由、验拍子、验收摊
-python3 tools/security_test.py  # open/readonly/sealed：真从非回环地址打
-python3 tools/astra_selftest.py # 能力签发、topic 覆盖、死信、撤销
-python3 tools/server_smoke.py   # 面/顺序/路由集合/信封：契约快照
-python3 tools/failure_test.py   # 端口占用、空令牌、强杀残留、拼错档位
+python3 tests/integration/selftest.py       # 起进程、打路由、验拍子、验收摊
+python3 tests/security/security_test.py     # open/readonly/sealed：真从非回环地址打
+python3 tests/integration/astra_selftest.py # 能力签发、topic 覆盖、死信、撤销
+python3 tests/integration/server_smoke.py   # 面/顺序/路由集合/信封：契约快照
+python3 tests/integration/failure_test.py   # 端口占用、空令牌、强杀残留、拼错档位
 
 # 无缝兼容验收：同一套断言原样打 Astra 内核
-KERNEL_MAIN=astra.compat.CompatMain python3 tools/selftest.py
-KERNEL_MAIN=astra.compat.CompatMain python3 tools/security_test.py
+KERNEL_MAIN=services.astra.compat.CompatMain python3 tests/integration/selftest.py
+KERNEL_MAIN=services.astra.compat.CompatMain python3 tests/security/security_test.py
 ```
 
 最近一次结果（本地，`make test`）：内核 `19/19`、安全 `17/17`
@@ -70,7 +77,7 @@ KERNEL_MAIN=astra.compat.CompatMain python3 tools/security_test.py
 - **服务器那份**：在生产里跑的完整体（八面、54 路由、模块热加载）。
 - 目标：面补齐后，两边只差「面」，不差「内核」。
 
-**两边靠 `tools/server_smoke.py` 防漂移。** 面的名字、order、状态、
+**两边靠 `tests/integration/server_smoke.py` 防漂移。** 面的名字、order、状态、
 路由集合、响应信封都写成常量快照；仓库版加/删一个路由，冒烟必须同步改，
 否则 CI 直接红。服务器版补面时，把 54 条路由的集合贴进来即可复用同一套脚本 ——
 现在它证明的是“仓库这 13 条没漂”，不是“服务器 54 条都对”。
@@ -136,8 +143,8 @@ Kernel 装配
 
 **AI 写的：**
 
-- 上述契约在 `netos/` 里的实现（Kernel / Side / HttpService / Policy / 两个面 / Main），
-  以及 `tools/` 下的全部自检脚本、`bare/` 下的 AArch64 内核与文档。
+- 上述契约在 `services/` 里的实现（Kernel / Side / HttpService / Policy / 两个面 / Main），
+  以及 `tests/` 下的全部自检脚本、`kernel/` 下的 AArch64 内核与文档。
 - 测试暴露问题后的修复：例如“拿不到来源地址就当本机”是历史漏洞，
   由安全自检抓出；`fork/wait` 返回值被 dispatch 覆盖，由裸机断言抓出。
 
@@ -181,7 +188,7 @@ Kernel 装配
 
 - **不追求 Linux ABI**：不跑 glibc、不跑现成 Linux 二进制、不承诺 POSIX 全量；
   目标是“能跑自己编译的静态 EL0 程序”的教学级宏内核。
-- 内核主线只认 `bare/`；`netos/`、`astra/` 是用户态服务层实验，不算内核能力。
+- 内核主线只认 `kernel/`；`services/` 是用户态服务层实验，不算内核能力。
 - 不支持 x86/ARM32/Windows；只承诺 AArch64 + Linux + JDK 17。
 - 不承诺跨版本 ABI；`Side`/路由随时可能因补面而变，以 `server_smoke.py` 的快照为准。
 - **墓碑满时的策略未定义**（拒绝新进程 / 丢最旧 / 阻塞），仓库版未实现，不在本文件承诺。
@@ -194,13 +201,13 @@ Kernel 装配
 **AGPL-3.0-only**（见 `LICENSE`，GNU Affero GPL v3；文件正文没有 “or later” 条款，
 所以按 only 处理）。网络分发修改版需提供对应源码。
 
-## 裸机（bare/）
+## 裸机（kernel/）
 
 aarch64 裸机内核，现在是 EL1 **大内核**：异常向量、GICv2、100 Hz 定时器、MMU，
 加上页分配/slab、COW fork、clone 线程、kill/信号、ramfs + VFS、
 virtio-blk 与只读 ext2、**18 号系统调用**，全部编进同一个镜像、同一张页表，
 彼此是函数调用。执行：`make bare-test`；CI 固定 `ubuntu-24.04`
 （QEMU 8.2 / GCC 13）避免新版 QEMU 无串口。已知技术债与“接受什么、
-推迟什么”写在 [`bare/KERNEL.md`](bare/KERNEL.md) 的「技术债与推迟项」。
+推迟什么”写在 [`docs/kernel/status.md`](docs/kernel/status.md) 的「技术债与推迟项」。
 
     tools/ci_result.sh

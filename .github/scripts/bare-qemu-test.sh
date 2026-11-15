@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # 裸机 P0：启动 QEMU，轮询串口直到 ALL_OK 或超时，再逐项断言。
-# 与 `make -C bare test` 的区别：不吞 QEMU 错误，不假定固定 10 秒足够。
+# 与 `make -C kernel test` 的区别：不吞 QEMU 错误，不假定固定 10 秒足够。
 set -uo pipefail
-cd "$(dirname "$0")/../../bare" || exit 1
+cd "$(dirname "$0")/../../kernel" || exit 1
 
 make || exit 1
 rm -f build/serial.log build/qemu.log
