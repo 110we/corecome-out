@@ -4,13 +4,26 @@
 static struct security_plugin_request pending;
 static enum security_plugin_request_state state;
 
-void security_plugin_init(void) { pending.request_id = 0; state = SECURITY_PLUGIN_EMPTY; }
+void security_plugin_init(void)
+{
+    /* Reinitialization must never leave a previously issued grant usable. */
+    security_scope_revoke(0);
+    pending.request_id = 0;
+    pending.requester_id = 0;
+    pending.target_id = 0;
+    pending.requested_expires_at = 0;
+    pending.requested_operations = 0;
+    pending.requested_action_limit = 0;
+    state = SECURITY_PLUGIN_EMPTY;
+}
 
 bool security_plugin_submit(const struct security_plugin_request *r)
 {
     if (!r || state == SECURITY_PLUGIN_PENDING || state == SECURITY_PLUGIN_APPROVED ||
         !r->request_id || !r->requester_id || !r->target_id ||
-        !r->requested_operations || !r->requested_action_limit) return false;
+        !r->requested_operations || !r->requested_action_limit) {
+        return false;
+    }
     pending = *r;
     state = SECURITY_PLUGIN_PENDING;
     return true;
@@ -18,7 +31,9 @@ bool security_plugin_submit(const struct security_plugin_request *r)
 
 bool security_plugin_user_decision(uint64_t id, bool approved, uint64_t now)
 {
-    if (state != SECURITY_PLUGIN_PENDING || id != pending.request_id) return false;
+    if (state != SECURITY_PLUGIN_PENDING || id != pending.request_id) {
+        return false;
+    }
     if (!approved || pending.requested_expires_at <= now) {
         state = SECURITY_PLUGIN_DENIED;
         return !approved;
@@ -36,7 +51,10 @@ bool security_plugin_user_decision(uint64_t id, bool approved, uint64_t now)
 bool security_plugin_authorize(uint64_t grant, uint64_t requester,
                               uint64_t target, uint32_t op, uint64_t now)
 {
-    if (state != SECURITY_PLUGIN_APPROVED || grant != pending.request_id) return false;
+    /* Always reach the kernel monitor so rejected attempts are audited there. */
+    if (state != SECURITY_PLUGIN_APPROVED || grant != pending.request_id) {
+        return security_authorize(grant, requester, target, op, now);
+    }
     return security_authorize(grant, requester, target, op, now);
 }
 
