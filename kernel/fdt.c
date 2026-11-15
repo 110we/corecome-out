@@ -38,6 +38,26 @@ static uint64_t be_cells(const uint8_t *p, uint32_t cells)
     return value;
 }
 
+static int string_is(const char *s, const char *expected)
+{
+    uint32_t i = 0;
+    while (expected[i] != 0) {
+        if (s[i] != expected[i]) return 0;
+        ++i;
+    }
+    return s[i] == 0;
+}
+
+static int string_prefix(const char *s, const char *prefix)
+{
+    uint32_t i = 0;
+    while (prefix[i] != 0) {
+        if (s[i] != prefix[i]) return 0;
+        ++i;
+    }
+    return 1;
+}
+
 static int bounded_string(const uint8_t *base, uint32_t size,
                           uint32_t offset, const char **out)
 {
@@ -166,20 +186,10 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                 stack[depth].is_memory = 0;
                 stack[depth].is_reserved_root = 0;
             }
-            if (len == 6U) {
-                const char *nm = (const char *)(structure + start);
-                if (nm[0]=='m' && nm[1]=='e' && nm[2]=='m' &&
-                    nm[3]=='o' && nm[4]=='r' && nm[5]=='y')
-                    stack[depth].is_memory = 1;
-            }
-            if (len == 14U &&
-                structure[start]=='r' && structure[start+1]=='e' &&
-                structure[start+2]=='s' && structure[start+3]=='e' &&
-                structure[start+4]=='r' && structure[start+5]=='v' &&
-                structure[start+6]=='e' && structure[start+7]=='d' &&
-                structure[start+8]=='-' && structure[start+9]=='m' &&
-                structure[start+10]=='e' && structure[start+11]=='m' &&
-                structure[start+12]=='o' && structure[start+13]=='r' &&
+            if (string_is((const char *)(structure + start), "memory") ||
+                string_prefix((const char *)(structure + start), "memory@"))
+                stack[depth].is_memory = 1;
+            if (string_is((const char *)(structure + start), "reserved-memory") &&
                 depth > 0) {
                 stack[depth].is_reserved_root = 1;
                 stack[depth].is_reserved = 1;
@@ -188,6 +198,10 @@ int fdt_parse(const void *blob, struct fdt_info *info)
         } else if (token == FDT_END_NODE) {
             if (depth == 0) return -10;
             if (collect_node(&stack[depth - 1U], info)) return -11;
+            if (depth == 1U) {
+                info->address_cells = stack[0].address_cells;
+                info->size_cells = stack[0].size_cells;
+            }
             --depth;
         } else if (token == FDT_PROP) {
             uint32_t len, nameoff;
@@ -202,28 +216,15 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                 return -13;
             value = structure + pos;
             n = &stack[depth - 1U];
-            if (name[0]=='#' && name[1]=='a' && name[2]=='d' &&
-                name[3]=='d' && name[4]=='r' && name[5]=='e' &&
-                name[6]=='s' && name[7]=='s' && name[8]=='-' &&
-                name[9]=='c' && name[10]=='e' && name[11]=='l' &&
-                name[12]=='l' && name[13]=='s' && len == 4U)
+            if (string_is(name, "#address-cells") && len == 4U)
                 n->address_cells = be32(value);
-            else if (name[0]=='#' && name[1]=='s' && name[2]=='i' &&
-                     name[3]=='z' && name[4]=='e' && name[5]=='-' &&
-                     name[6]=='c' && name[7]=='e' && name[8]=='l' &&
-                     name[9]=='l' && name[10]=='s' && len == 4U)
+            else if (string_is(name, "#size-cells") && len == 4U)
                 n->size_cells = be32(value);
-            else if (name[0]=='r' && name[1]=='e' && name[2]=='g' &&
-                     name[3]==0) {
+            else if (string_is(name, "reg")) {
                 n->reg = value;
                 n->reg_length = len;
-            } else if (name[0]=='d' && name[1]=='e' && name[2]=='v' &&
-                       name[3]=='i' && name[4]=='c' && name[5]=='e' &&
-                       name[6]=='_' && name[7]=='t' && name[8]=='y' &&
-                       name[9]=='p' && name[10]=='e' && name[11]==0 &&
-                       len >= 7U && value[0]=='m' && value[1]=='e' &&
-                       value[2]=='m' && value[3]=='o' && value[4]=='r' &&
-                       value[5]=='y' && value[6]==0)
+            } else if (string_is(name, "device_type") &&
+                       len == 7U && string_is((const char *)value, "memory"))
                 n->is_memory = 1;
             pos += len;
             pos = (pos + 3U) & ~3U;
