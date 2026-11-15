@@ -1,14 +1,11 @@
 name: COXVBN kernel
-
 on:
   push:
     branches: [main, "rewrite/**"]
   pull_request:
     branches: [main]
-
 permissions:
   contents: read
-
 jobs:
   aarch64-build:
     runs-on: ubuntu-latest
@@ -32,6 +29,6 @@ jobs:
           set -e
           cat qemu.log
           grep -q "COXVBN: kernel online" qemu.log
-          if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then
-            exit "$status"
-          fi
+          grep -q "COXVBN: FDT parsed" qemu.log
+          grep -q "COXVBN: RAM regions" qemu.log
+          if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then exit "$status"; fi
