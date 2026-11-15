@@ -1,12 +1,22 @@
 # Architecture baseline
 
-COXVBN is a new operating-system implementation, not a Linux distribution. The initial engineering target is AArch64 on the QEMU `virt` machine so that each low-level milestone can be reproduced in CI.
+COXVBN is a new operating-system implementation, not a Linux distribution. The current engineering target is AArch64 on the QEMU `virt` machine so that low-level milestones can be reproduced in CI.
 
-## Initial boot contract
+## Implemented boot path
 
-The first kernel image assumes the QEMU AArch64 direct-kernel boot environment and starts at the image entry point. The assembly entry masks interrupts, establishes a private bootstrap stack, clears BSS, and calls `kernel_main`. The C kernel writes a boot marker to the QEMU PL011 UART.
+The current image is linked for the QEMU AArch64 direct-kernel boot path at `0x40080000`. Its entry assembly masks interrupts, preserves the incoming FDT pointer, installs the EL1 vector-table base, establishes a bootstrap stack, clears BSS, and calls `kernel_main`. The C kernel initializes the PL011 console, parses the FDT, initializes the bounded physical page allocator, and enables an initial EL1 identity map.
 
-This is deliberately a narrow contract. It does not yet claim to support arbitrary firmware handoff, EL3 transitions, secondary CPUs, MMU activation, interrupt controllers, scheduling, or userspace.
+The initial translation regime is intentionally machine-specific: a 39-bit VA, 4-KiB granule, 2-MiB block mappings, QEMU virt RAM in the supported 0x40000000–0x80000000 window, and known GIC/PL011 device windows. It is not yet a general-purpose virtual-memory manager and does not provide per-process address spaces or EL0 isolation.
+
+An aligned 16-entry EL1 vector table is installed. The common entry preserves x0–x30 and captures ELR_EL1, SPSR_EL1, ESR_EL1, and FAR_EL1 for fatal diagnostics. Every vector currently takes the fatal path: there is no IRQ dispatch, exception return path, or recoverable fault handling yet.
+
+## Current limitations
+
+- The supported boot/test target is QEMU `virt`; arbitrary firmware handoff, EL3 transitions, and secondary CPUs are not supported.
+- Interrupts are masked at boot. GIC initialization, timer interrupts, and interrupt dispatch are not implemented.
+- There is no scheduler, kernel-thread context switch, user mode, syscall ABI, or process address-space isolation.
+- The physical allocator is a bounded bootstrap allocator; page-table allocation and dynamic virtual mappings are not implemented.
+- The Key Vault, Information Store, and Emergency Recovery are in-memory interfaces/contracts only. There is no persistent vault, audited cryptographic backend, watchdog takeover, network stack, or TCP listener. TCP port 3000 is not live.
 
 ## Design direction
 
