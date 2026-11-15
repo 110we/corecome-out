@@ -1,6 +1,6 @@
 # Architecture baseline
 
-COXVBN is a new operating-system implementation, not a Linux distribution. The current engineering target is AArch64 on the QEMU `virt` machine so that low-level milestones can be reproduced in CI.
+COXVBN is a new operating-system implementation, not a Linux distribution. The current engineering target is AArch64 on the QEMU `virt` machine with GICv2 explicitly selected (`gic-version=2`) so that low-level milestones can be reproduced in CI.
 
 ## Implemented boot path
 
@@ -14,7 +14,7 @@ All vectors still take the fatal path: there is no IRQ dispatch, exception retur
 
 ## Current limitations
 
-- The supported boot/test target is QEMU `virt`; arbitrary firmware handoff, EL3 transitions, and secondary CPUs are not supported.
+- The supported boot/test target is QEMU `virt` with GICv2 selected explicitly; CI compiles the generated device tree and checks the GICv2 compatibility and interrupt-controller property. Arbitrary firmware handoff, EL3 transitions, and secondary CPUs are not supported.
 - Interrupts are masked at boot. GIC initialization, timer interrupts, and interrupt dispatch are not implemented.
 - There is no scheduler, kernel-thread context switch, user mode, syscall ABI, or process address-space isolation.
 - The physical allocator is a bounded bootstrap allocator; page-table allocation and dynamic virtual mappings are not implemented.
