@@ -48,6 +48,8 @@ test-host:
 	$(BUILD)/exception_frame_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/exception_decode_test.c kernel/exception_decode.c -o $(BUILD)/exception_decode_test
 	$(BUILD)/exception_decode_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/gicv2_test.c kernel/gicv2.c -o $(BUILD)/gicv2_test
+	$(BUILD)/gicv2_test
 
 run: all
 	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/coxvbn.bin
