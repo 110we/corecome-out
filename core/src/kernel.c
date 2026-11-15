@@ -1,5 +1,5 @@
 #include "corecome/uart.h"
-#include "corecome/security.h"
+#include "corecome/security.h"\n#include "corecome/security_plugin.h"
 
 static void report_test(const char *name, bool passed)
 {
@@ -21,10 +21,10 @@ void kernel_main(void)
     uart_puts("\nCORECOME standalone security kernel\n");
     uart_puts("arch: AArch64 | privilege: EL1 | platform: QEMU virt\n");
 
-    security_init();
+    security_init();\n    security_plugin_init();
 
     denied_by_default =
-        !security_authorize(1, 0x1001, SECURITY_OP_DISCOVER, 1);
+        !security_authorize(1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 1);
     report_test("deny without authorization scope", denied_by_default);
 
     grant_ok = security_scope_grant(
@@ -34,19 +34,19 @@ void kernel_main(void)
     report_test("grant bounded assessment scope", grant_ok);
 
     allowed_in_scope =
-        security_authorize(1, 0x1001, SECURITY_OP_DISCOVER, 3);
+        security_authorize(1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 3);
     report_test("allow permitted operation on scoped target",
                 allowed_in_scope);
 
     denied_out_of_scope =
-        !security_authorize(1, 0x2002, SECURITY_OP_DISCOVER, 4);
+        !security_authorize(1, 0xA001, 0x2002, SECURITY_OP_DISCOVER, 4);
     report_test("deny operation outside target scope",
                 denied_out_of_scope);
 
     security_emergency_stop(5);
     stopped_denied =
         security_is_stopped() &&
-        !security_authorize(1, 0x1001, SECURITY_OP_INSPECT, 6);
+        !security_authorize(1, 0xA001, 0x1001, SECURITY_OP_INSPECT, 6);
     report_test("emergency stop revokes further operations",
                 stopped_denied);
 
