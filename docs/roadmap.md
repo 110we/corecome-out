@@ -17,12 +17,17 @@
 - [ ] Add checked physical/virtual address types
 - [x] Add initial AArch64 EL1 identity mappings for QEMU virt RAM, GIC, and PL011
 - [ ] Generalize MMU mappings for arbitrary FDT-described RAM/device ranges
-- [ ] Keep the MMU disabled until page tables and device mappings are tested
+- [ ] Add page-table allocation, dynamic mapping/unmapping, and translation tests
+- [ ] Add per-address-space page tables and enforce user/kernel permissions
 
 ## Milestone 3 — exceptions and interrupts
-- [ ] Define a complete exception frame and vector entry/exit contract
-- [ ] Add GICv2/v3 support for the selected QEMU machine
-- [ ] Add a generic interrupt-controller interface and timer driver
+- [x] Install an aligned 16-entry EL1 vector table
+- [x] Preserve general-purpose registers and capture ELR/SPSR/ESR/FAR for fatal diagnostics
+- [ ] Define and test the complete exception frame and vector entry/exit contract
+- [ ] Add exception-class decoding and safe recoverable synchronous-fault handling
+- [ ] Add GICv2 support for the selected QEMU machine
+- [ ] Add a generic interrupt-controller interface and architectural timer driver
+- [ ] Add IRQ dispatch, interrupt acknowledgement/EOI, and interrupt-context rules
 
 ## Milestone 4 — execution
 - [ ] Add per-CPU state, kernel threads, context switching, and a scheduler
