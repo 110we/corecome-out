@@ -32,7 +32,7 @@ jobs:
       - name: Dump boot diagnostics
         run: |
           aarch64-linux-gnu-nm -n build/coxvbn.elf
-          aarch64-linux-gnu-objdump -d build/coxvbn.elf | sed -n '/40080400/,/40080480/p'
+          aarch64-linux-gnu-objdump -d --start-address=0x40080400 --stop-address=0x40080480 build/coxvbn.elf
           aarch64-linux-gnu-readelf -lS build/coxvbn.elf
       - name: QEMU serial boot test
         run: |
@@ -46,7 +46,7 @@ jobs:
           grep -q "COXVBN: FDT PARSED" qemu.log
           grep -q "COXVBN: MEMORY DISCOVERY READY" qemu.log
           grep -q "COXVBN: BOOT COMPLETE" qemu.log
-          grep -Eq "COXVBN: RAM regions 0x[1-9a-f][0-9a-f]*" qemu.log
+          grep -Eq "COXVBN: RAM regions 0x0*[1-9a-f][0-9a-f]*" qemu.log
           if grep -q "ELR 0x200" qemu-int.log; then
             echo "Unexpected exception vector at address 0x200"
             exit 1
