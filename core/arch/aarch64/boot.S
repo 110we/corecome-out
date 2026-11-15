@@ -3,7 +3,7 @@
 .type _start, %function
 
 _start:
-    // QEMU virt commonly enters at EL2. Drop to EL1h with interrupts masked.
+    // QEMU virt normally enters at EL2; EL1 entry is also supported.
     mrs     x0, CurrentEL
     cmp     x0, #0x8
     b.eq    1f
@@ -11,7 +11,7 @@ _start:
     b.eq    2f
     b       3f
 
-1:  // EL2 -> EL1
+1:  // EL2 -> EL1h, with all exception classes masked.
     mov     x0, #0x80000000
     msr     hcr_el2, x0
     mov     x0, #0x3c5
@@ -20,7 +20,7 @@ _start:
     msr     elr_el2, x0
     eret
 
-2:  // EL1 entry
+2:  // EL1 entry: establish stack and clear the complete BSS region.
     ldr     x0, =__stack_top
     mov     sp, x0
     ldr     x0, =__bss_start
@@ -29,11 +29,14 @@ _start:
     b.hs    5f
     str     xzr, [x0], #8
     b       4b
-5:  bl      kernel_main
+5:  bl      vectors_install
+    bl      kernel_main
 6:  wfe
     b       6b
 
-3:  wfe
+3:  // Unsupported entry level (including EL3): stop rather than execute at an
+    // unknown privilege state. EL3-to-EL1 transition needs SCR_EL3 policy.
+    wfe
     b       3b
 
 .size _start, . - _start
