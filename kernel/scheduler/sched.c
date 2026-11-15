@@ -54,6 +54,24 @@ static void name_copy(char *d, const char *s)
     d[i] = '\0';
 }
 
+/* 复用已释放的 TCB；nth 只表示曾使用过的最高槽位 + 1。
+ * 僵尸进程必须等 wait 收尸后才会变成 FREE，不能提前复用。 */
+static int slot_take(int reuse_exit)
+{
+    int i;
+
+    for (i = 1; i < nth; i++) {
+        if (tcbs[i].state == ST_FREE ||
+            (reuse_exit && tcbs[i].state == ST_EXIT)) {
+            return i;
+        }
+    }
+    if (nth >= KTHREAD_MAX) {
+        return -1;
+    }
+    return nth++;
+}
+
 void sched_init(void)
 {
     int i;
@@ -86,11 +104,17 @@ int kthread_create(const char *name, void (*fn)(void *), void *arg)
     u64 *frame;
     u64 i;
 
-    if (nth >= KTHREAD_MAX || fn == (void (*)(void *))0) {
+    int slot;
+
+    if (fn == (void (*)(void *))0) {
         return -1;
     }
-    t = &tcbs[nth];
-    t->idx = (u64)nth;
+    slot = slot_take(1);
+    if (slot < 0) {
+        return -1;
+    }
+    t = &tcbs[slot];
+    t->idx = (u64)slot;
     name_copy(t->name, name);
     t->state = ST_READY;
     t->slice = SLICE;
@@ -106,7 +130,7 @@ int kthread_create(const char *name, void (*fn)(void *), void *arg)
     t->lr = (u64)&thread_boot;
 
     /* 栈顶伪造一份 trap frame：x0=arg，x30=0，elr=entry，spsr=EL1h */
-    frame = (u64 *)((u8 *)&stacks[nth][0] + STACK_SZ - 288);
+    frame = (u64 *)((u8 *)&stacks[slot][0] + STACK_SZ - 288);
     for (i = 0; i < 36; i++) {
         frame[i] = 0;
     }
@@ -115,7 +139,6 @@ int kthread_create(const char *name, void (*fn)(void *), void *arg)
     frame[33] = 0x5UL;
     t->sp = (u64)frame;
 
-    nth++;
     return (int)t->idx;
 }
 
@@ -235,11 +258,17 @@ static int sched_spawn(u64 *f, u64 *l1, u64 ftab, const char *nm,
     u64 *frame;
     int i;
 
-    if (nth >= KTHREAD_MAX || cur == (tcb_t *)0) {
+    int slot;
+
+    if (cur == (tcb_t *)0) {
         return -1;
     }
-    t = &tcbs[nth];
-    t->idx = (u64)nth;
+    slot = slot_take(0);
+    if (slot < 0) {
+        return -1;
+    }
+    t = &tcbs[slot];
+    t->idx = (u64)slot;
     name_copy(t->name, nm);
     t->state = ST_READY;
     t->slice = SLICE;
@@ -253,12 +282,11 @@ static int sched_spawn(u64 *f, u64 *l1, u64 ftab, const char *nm,
     t->daif = 0;
     t->fp = f[29];
     t->lr = (u64)&thread_boot;
-    frame = (u64 *)((u8 *)&stacks[nth][0] + STACK_SZ - 288);
+    frame = (u64 *)((u8 *)&stacks[slot][0] + STACK_SZ - 288);
     for (i = 0; i < 36; i++) {
         frame[i] = f[i];
     }
     t->sp = (u64)frame;
-    nth++;
     return t->pid;
 }
 
