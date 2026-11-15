@@ -13,7 +13,8 @@ LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 
 SOURCES_C := kernel/main.c kernel/uart.c kernel/fdt.c kernel/key_vault.c \
              kernel/information_store.c kernel/emergency_recovery.c \
-             kernel/phys_alloc.c kernel/mmu.c kernel/exception.c
+             kernel/phys_alloc.c kernel/mmu.c kernel/exception.c \
+             kernel/exception_decode.c
 SOURCES_S := $(ARCH)/boot.S
 OBJECTS   := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES_C)) \
              $(patsubst %.S,$(BUILD)/%.o,$(SOURCES_S))
@@ -45,6 +46,8 @@ test-host:
 	$(BUILD)/recovery_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/exception_frame_test.c -o $(BUILD)/exception_frame_test
 	$(BUILD)/exception_frame_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/exception_decode_test.c kernel/exception_decode.c -o $(BUILD)/exception_decode_test
+	$(BUILD)/exception_decode_test
 
 run: all
 	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/coxvbn.bin
