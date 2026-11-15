@@ -23,7 +23,7 @@ Linux and POSIX are the first user-space compatibility target. Windows PE/Win32,
 
 ## Current implementation status
 
-The current M0 tree contains only an early AArch64 boot path and UART diagnostics. It is not yet a usable operating system and has no implemented Linux, Windows, Android or BSD compatibility runtime. MMU, allocator, exceptions, scheduler, EL0, syscalls, ELF loading, VFS, networking, drivers, desktop and compatibility layers remain future work.
+The current tree is still an early M0/M1 bring-up, not a usable operating system. It now includes an initial single-core security monitor: deny-by-default authorization, one bounded target scope, operation allow-list, expiry, action quota, audit ring and emergency stop, with boot-time self-tests. This is a foundation only: it is not yet concurrency-safe for SMP, does not yet bind scopes to authenticated users or cryptographic identities, and does not yet mediate real network/device operations. MMU, allocator, exceptions, scheduler, EL0, syscalls, ELF loading, VFS, networking, drivers, desktop and compatibility runtimes remain future work.
 
 ## Build
 
