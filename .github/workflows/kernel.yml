@@ -25,8 +25,10 @@ jobs:
           test -s build/coxvbn.bin
       - name: Verify exception vector table
         run: |
-          aarch64-linux-gnu-nm build/coxvbn.elf | grep -q ' __exception_vectors$'
-          aarch64-linux-gnu-objdump -d build/coxvbn.elf | grep -q 'msr[[:space:]]*VBAR_EL1'
+          vector_addr=$(aarch64-linux-gnu-nm build/coxvbn.elf | awk '$3 == "__exception_vectors" { print $1 }')
+          test -n "$vector_addr"
+          test "$((16#$vector_addr % 2048))" -eq 0
+          aarch64-linux-gnu-objdump -d build/coxvbn.elf | grep -qi 'msr[[:space:]]*vbar_el1'
       - name: QEMU serial boot test
         run: |
           set +e
