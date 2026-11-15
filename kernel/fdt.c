@@ -217,7 +217,6 @@ int fdt_parse(const void *blob, struct fdt_info *info)
     while (pos <= ss && ss - pos >= 4U) {
         uint32_t token = be32(structure + pos);
         pos += 4U;
-        FDT_TRACE("FDTDBG: structure token\n");
         if (token == FDT_BEGIN_NODE) {
             uint32_t start = pos, len;
             uint64_t aligned;
@@ -225,7 +224,6 @@ int fdt_parse(const void *blob, struct fdt_info *info)
             while (pos < ss && structure[pos] != 0) ++pos;
             if (pos >= ss) return -11;
             len = pos - start;
-            FDT_TRACE("FDTDBG: node name bounded\n");
             ++pos;
             aligned = ((uint64_t)pos + 3U) & ~(uint64_t)3U;
             if (aligned > ss) return -11;
@@ -247,8 +245,8 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                 stack[depth].is_reserved = 1;
             ++depth;
         } else if (token == FDT_END_NODE) {
-            if (depth == 0U) return -13;
-            if (collect_node(&stack[depth - 1U], info)) return -14;
+            if (depth == 0U) { FDT_TRACE("FDTDBG: END_NODE at depth zero\n"); return -13; }
+            if (collect_node(&stack[depth - 1U], info)) { FDT_TRACE("FDTDBG: collect node failed\n"); return -14; }
             if (depth == 1U) {
                 info->address_cells = stack[0].address_cells;
                 info->size_cells = stack[0].size_cells;
@@ -268,7 +266,6 @@ int fdt_parse(const void *blob, struct fdt_info *info)
             if (len > ss - pos || bounded_string(strings, sts, nameoff, &name))
                 return -16;
             value = structure + pos;
-            FDT_TRACE("FDTDBG: property bounded\n");
             n = &stack[depth - 1U];
             if (string_is(name, "#address-cells") && len == 4U)
                 n->address_cells = be32(value);
@@ -286,7 +283,8 @@ int fdt_parse(const void *blob, struct fdt_info *info)
         } else if (token == FDT_NOP) {
             continue;
         } else if (token == FDT_END) {
-            if (depth != 0U || !root_closed) return -18;
+            if (depth != 0U) { FDT_TRACE("FDTDBG: END with open nodes\n"); return -18; }
+            if (!root_closed) { FDT_TRACE("FDTDBG: END before root close\n"); return -21; }
             ended = 1;
             FDT_TRACE("FDTDBG: end token\n");
             break;
@@ -294,6 +292,7 @@ int fdt_parse(const void *blob, struct fdt_info *info)
             return -19;
         }
     }
-    if (!ended || info->memory_count == 0U) return -20;
+    if (!ended) { FDT_TRACE("FDTDBG: structure ended without END token\n"); return -20; }
+    if (info->memory_count == 0U) { FDT_TRACE("FDTDBG: no memory nodes found\n"); return -22; }
     return 0;
 }
