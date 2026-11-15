@@ -2,6 +2,10 @@
 
 COXVBN is an independent operating-system project. The implementation is being rebuilt from a small, testable foundation rather than treating placeholder subsystems as completed features.
 
+## Related repository
+
+The separate COXVBN system project is maintained here: [COXVBN-system](https://github.com/110we/COXVBN-system).
+
 ## Current target
 
 - Architecture: AArch64
