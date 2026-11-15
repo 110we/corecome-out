@@ -6,7 +6,9 @@ on:
       - "core/**"
       - ".github/workflows/core-kernel.yml"
   push:
-    branches: [main]
+    branches:
+      - main
+      - "rewrite/**"
     paths:
       - "core/**"
       - ".github/workflows/core-kernel.yml"
