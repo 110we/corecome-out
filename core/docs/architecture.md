@@ -13,7 +13,7 @@ The compatibility target includes Linux/POSIX, Windows, Android, selected BSD fa
 3. CORECOME boots and operates without a Linux kernel or Linux user space.
 4. Native init, service manager, shell, package system and desktop are first-party components.
 5. ABI personalities translate foreign OS behavior into shared kernel primitives; they cannot bypass CORECOME capabilities, policy, audit, quotas or emergency stop.
-6. Active security assessments require explicit bounded authorization scopes. Out-of-scope operations are denied by default.
+6. All user-facing permission decisions are centralized in the trusted Security Plugin. Tools request permissions from it and cannot authorize themselves. The kernel independently enforces the resulting bounded grants; missing or unavailable security authorization is denied by default.
 
 ## Kernel subsystem map
 
@@ -24,7 +24,7 @@ The compatibility target includes Linux/POSIX, Windows, Android, selected BSD fa
 - VFS: vnode/inode layer, mount namespaces, file descriptors, permissions, filesystem drivers
 - Networking: socket API, Ethernet, ARP/ND, IPv4/IPv6, UDP/TCP, routing and packet policy
 - Drivers: bus/device model, DMA, interrupt handling, VirtIO and platform drivers
-- Security: capability/object-rights model, policy engine, scope validator, audit ring and emergency stop. The first bring-up implementation is single-core and must be upgraded with IRQ-safe synchronization before SMP or real device/network operations.
+- Security: one trusted Security Plugin owns permission policy, tool requests, user consent and grant lifecycle; the kernel reference monitor validates grants and enforces isolation, expiry, quotas, revocation and emergency stop on every privileged path. The first bring-up implementation is single-core and must be upgraded with IRQ-safe synchronization before SMP or real device/network operations. See [security-plugin.md](security-plugin.md).
 - Compatibility runtimes: ELF and PE loaders, Linux/POSIX syscall personality, Win32 API runtime, Android ART/Bionic/Binder, selected BSD personalities
 - User space: native init, service manager, shell, package manager, authorization console and isolated assessment workers
 - Desktop: graphics, input, compositor, window manager, accessibility and native applications
