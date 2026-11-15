@@ -32,7 +32,16 @@
 - [ ] Implement COXVBN Direct Port Communication: paired endpoints, direct shared-channel data path, no bridge/relay
 - [ ] Central Security Plugin request interface backed by kernel-enforced policy
 
-## Milestone 6 — userspace and compatibility
+## Milestone 6 — isolated recovery foundations
+- [x] Separate Key Vault, Information Store, and Emergency Recovery module interfaces
+- [x] Default-closed recovery channel state and allowlisted command authorization contract
+- [ ] Audited cryptographic backend and protected key storage
+- [ ] Persistent Information Store and separate storage partition
+- [ ] Independent watchdog/recovery environment
+- [ ] Network stack and authenticated TCP 3000 listener
+- [ ] Explicitly confirmed storage target for destructive reset/format
+
+## Milestone 7 — userspace and compatibility
 - [ ] Minimal init process and shell
 - [ ] Native system-call ABI
 - [ ] POSIX compatibility as a separately tested layer

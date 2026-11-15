@@ -11,7 +11,8 @@ CFLAGS  := -DCOXVBN_FDT_DEBUG -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding 
 ASFLAGS := $(CFLAGS)
 LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 
-SOURCES_C := kernel/main.c kernel/uart.c kernel/fdt.c
+SOURCES_C := kernel/main.c kernel/uart.c kernel/fdt.c kernel/key_vault.c \
+             kernel/information_store.c kernel/emergency_recovery.c
 SOURCES_S := $(ARCH)/boot.S
 OBJECTS   := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES_C)) \
              $(patsubst %.S,$(BUILD)/%.o,$(SOURCES_S))
@@ -37,6 +38,8 @@ test-host:
 	@mkdir -p $(BUILD)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/fdt_test.c kernel/fdt.c -o $(BUILD)/fdt_test
 	$(BUILD)/fdt_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/recovery_test.c kernel/key_vault.c kernel/information_store.c kernel/emergency_recovery.c -o $(BUILD)/recovery_test
+	$(BUILD)/recovery_test
 
 run: all
 	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/coxvbn.bin

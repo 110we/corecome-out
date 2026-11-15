@@ -15,6 +15,7 @@ This is deliberately a narrow contract. It does not yet claim to support arbitra
 - Kernel-owned enforcement for memory isolation and privileged operations.
 - One central Security Plugin API for policy decisions requested by tools and services; it cannot override hardware or kernel-enforced safety boundaries.
 - Compatibility layers are later projects, not substitutes for native kernel foundations.
+- The Key Vault, Information Store, and Emergency Recovery are separate modules with independent APIs. See [recovery-and-stores.md](recovery-and-stores.md).
 
 ## Implementation discipline
 
