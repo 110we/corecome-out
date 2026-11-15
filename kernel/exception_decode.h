@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-/* Return a stable diagnostic name for the ESR_EL1 exception class. */
+/* Stable diagnostic names for architectural ESR and VBAR_EL1 fields. */
 const char *exception_class_name(uint64_t esr);
+const char *exception_vector_name(uint64_t vector);
 
 #endif
