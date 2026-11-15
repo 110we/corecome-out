@@ -23,6 +23,10 @@ jobs:
         run: |
           aarch64-linux-gnu-readelf -h build/coxvbn.elf | grep -E 'Machine:.*AArch64'
           test -s build/coxvbn.bin
+      - name: Verify exception vector table
+        run: |
+          aarch64-linux-gnu-nm build/coxvbn.elf | grep -q ' __exception_vectors$'
+          aarch64-linux-gnu-objdump -d build/coxvbn.elf | grep -q 'msr[[:space:]]*VBAR_EL1'
       - name: QEMU serial boot test
         run: |
           set +e
@@ -31,7 +35,13 @@ jobs:
           set -e
           cat qemu.log
           if [ -f qemu-int.log ]; then tail -n 120 qemu-int.log; fi
-          grep -q "COXVBN: kernel online" qemu.log
-          grep -q "COXVBN: FDT parsed" qemu.log
+          grep -q "COXVBN: UART READY" qemu.log
+          grep -q "COXVBN: FDT PARSED" qemu.log
+          grep -q "COXVBN: MEMORY DISCOVERY READY" qemu.log
+          grep -q "COXVBN: BOOT COMPLETE" qemu.log
           grep -Eq "COXVBN: RAM regions 0x[1-9a-f][0-9a-f]*" qemu.log
+          if grep -q "ELR 0x200" qemu-int.log; then
+            echo "Unexpected exception vector at address 0x200"
+            exit 1
+          fi
           if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then exit "$status"; fi
