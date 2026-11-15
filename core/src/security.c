@@ -1,4 +1,5 @@
 #include "corecome/security.h"
+#include "security_internal.h"
 #define SECURITY_AUDIT_CAPACITY 64u
 #define SECURITY_KNOWN_OPERATIONS (SECURITY_OP_DISCOVER|SECURITY_OP_CONNECT|SECURITY_OP_INSPECT|SECURITY_OP_CAPTURE)
 struct security_scope {
