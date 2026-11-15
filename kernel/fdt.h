@@ -16,6 +16,8 @@ struct fdt_info {
     uint32_t total_size;
     uint32_t structure_size;
     uint32_t strings_size;
+    /* Keep the following 64-bit compiler stores naturally aligned. */
+    uint32_t alignment_pad;
     uint32_t address_cells;
     uint32_t size_cells;
     uint32_t memory_count;
