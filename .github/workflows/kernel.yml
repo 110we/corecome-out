@@ -29,6 +29,11 @@ jobs:
           test -n "$vector_addr"
           test "$((16#$vector_addr % 2048))" -eq 0
           aarch64-linux-gnu-objdump -d build/coxvbn.elf | grep -qi 'msr[[:space:]]*vbar_el1'
+      - name: Dump boot diagnostics
+        run: |
+          aarch64-linux-gnu-nm -n build/coxvbn.elf
+          aarch64-linux-gnu-objdump -d build/coxvbn.elf | sed -n '/40080400/,/40080480/p'
+          aarch64-linux-gnu-readelf -lS build/coxvbn.elf
       - name: QEMU serial boot test
         run: |
           set +e
