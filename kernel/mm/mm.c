@@ -91,6 +91,11 @@ void mm_page_free(void *p)
     if (i < 0) {
         return; /* 不是池里的页，宁可泄漏也不改位图 */
     }
+    /* 只允许释放仍分配且仅有本调用者一份引用的页。
+     * 共享页必须走 mm_page_unref()，不能绕过 COW 引用计数。 */
+    if ((bitmap[i / 64] & (1UL << (i % 64))) == 0 || refs[i] != 1) {
+        return;
+    }
     bitmap[i / 64] &= ~(1UL << (i % 64));
     refs[i] = 0;
     cowf[i] = 0;
