@@ -1,6 +1,10 @@
 #include "fdt.h"
+#ifdef COXVBN_FDT_DEBUG
 #include "uart.h"
 #define FDT_TRACE(message) uart_write(message)
+#else
+#define FDT_TRACE(message) ((void)0)
+#endif
 
 #include <stddef.h>
 #include <stdint.h>
