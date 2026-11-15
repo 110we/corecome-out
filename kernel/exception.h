@@ -11,6 +11,7 @@ struct exception_frame {
     uint64_t spsr;
     uint64_t esr;
     uint64_t far;
+    uint64_t vector;
 };
 
 _Static_assert(offsetof(struct exception_frame, x) == 0U,
@@ -23,7 +24,9 @@ _Static_assert(offsetof(struct exception_frame, esr) == 264U,
                "exception ESR offset mismatch");
 _Static_assert(offsetof(struct exception_frame, far) == 272U,
                "exception FAR offset mismatch");
-_Static_assert(sizeof(struct exception_frame) == 280U,
+_Static_assert(offsetof(struct exception_frame, vector) == 280U,
+               "exception vector offset mismatch");
+_Static_assert(sizeof(struct exception_frame) == 288U,
                "exception frame payload size mismatch");
 
 #if defined(__GNUC__)
