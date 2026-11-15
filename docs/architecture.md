@@ -8,7 +8,9 @@ The current image is linked for the QEMU AArch64 direct-kernel boot path at `0x4
 
 The initial translation regime is intentionally machine-specific: a 39-bit VA, 4-KiB granule, 2-MiB block mappings, QEMU virt RAM in the supported 0x40000000–0x80000000 window, and known GIC/PL011 device windows. It is not yet a general-purpose virtual-memory manager and does not provide per-process address spaces or EL0 isolation.
 
-An aligned 16-entry EL1 vector table is installed. The common entry preserves x0–x30 and captures ELR_EL1, SPSR_EL1, ESR_EL1, and FAR_EL1 for fatal diagnostics. Every vector currently takes the fatal path: there is no IRQ dispatch, exception return path, or recoverable fault handling yet.
+An aligned 16-entry EL1 vector table is installed. Each slot now records its architectural vector index (0–15) before the common register saver runs. The exception frame preserves x0–x30 plus ELR_EL1, SPSR_EL1, ESR_EL1, FAR_EL1, and the vector index. Fatal diagnostics identify the vector class (current EL SP0, current EL SPx, lower AArch64, or lower AArch32; sync/IRQ/FIQ/SError) alongside the decoded ESR exception class. The frame offsets and size are compile-time asserted and host-tested.
+
+All vectors still take the fatal path: there is no IRQ dispatch, exception return path, or recoverable fault handling yet. IRQ/FIQ entries are identified for diagnostics only; interrupts remain masked.
 
 ## Current limitations
 
