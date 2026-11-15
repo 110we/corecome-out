@@ -31,36 +31,32 @@ void kernel_main(void)
 
     security_init();
     security_plugin_init();
-
     denied_pending = !security_plugin_authorize(
         1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 1);
     report_test("deny before plugin approval", denied_pending);
 
     submitted = security_plugin_submit(&req);
     report_test("central plugin accepts permission request", submitted);
-
     denied_pending = denied_pending && !security_plugin_authorize(
         1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 2);
-    report_test("pending request cannot execute privileged operation",
-                denied_pending);
+    report_test("pending request cannot execute privileged operation", denied_pending);
 
     approved = security_plugin_user_decision(1, true, 3);
     report_test("plugin issues grant after approval", approved);
 
-    allowed = security_plugin_authorize(
-        1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 4);
-    allowed_second = security_plugin_authorize(
-        1, 0xA001, 0x1001, SECURITY_OP_INSPECT, 5);
-    report_test("approved tool can use granted operations",
-                allowed && allowed_second);
-
+    // Check identity and target binding before consuming the two-action quota.
     wrong_tool = !security_plugin_authorize(
-        1, 0xB002, 0x1001, SECURITY_OP_INSPECT, 6);
+        1, 0xB002, 0x1001, SECURITY_OP_INSPECT, 4);
     report_test("another tool cannot reuse grant", wrong_tool);
-
     wrong_target = !security_plugin_authorize(
-        1, 0xA001, 0x2002, SECURITY_OP_DISCOVER, 7);
+        1, 0xA001, 0x2002, SECURITY_OP_DISCOVER, 5);
     report_test("grant cannot be reused on another target", wrong_target);
+
+    allowed = security_plugin_authorize(
+        1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 6);
+    allowed_second = security_plugin_authorize(
+        1, 0xA001, 0x1001, SECURITY_OP_INSPECT, 7);
+    report_test("approved tool can use granted operations", allowed && allowed_second);
 
     quota_denied = !security_plugin_authorize(
         1, 0xA001, 0x1001, SECURITY_OP_DISCOVER, 8);
@@ -87,8 +83,7 @@ void kernel_main(void)
     report_test("emergency stop blocks privileged operations", stopped);
 
     audit_present = security_audit_count() >= 8;
-    report_test("kernel records grants, allows, denials and revocation",
-                audit_present);
+    report_test("kernel records grants, allows, denials and revocation", audit_present);
 
     if (submitted && denied_pending && approved && allowed && allowed_second &&
         wrong_tool && wrong_target && quota_denied && revoked &&
