@@ -30,6 +30,7 @@ jobs:
           status=$?
           set -e
           cat qemu.log
+          if [ -f qemu-int.log ]; then tail -n 120 qemu-int.log; fi
           grep -q "COXVBN: kernel online" qemu.log
           grep -q "COXVBN: FDT parsed" qemu.log
           grep -Eq "COXVBN: RAM regions 0x[1-9a-f][0-9a-f]*" qemu.log
