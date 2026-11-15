@@ -26,3 +26,18 @@ const char *exception_class_name(uint64_t esr)
     default: return "Unclassified exception";
     }
 }
+
+const char *exception_vector_name(uint64_t vector)
+{
+    static const char *const names[16] = {
+        "CURRENT_SP0_SYNC", "CURRENT_SP0_IRQ",
+        "CURRENT_SP0_FIQ", "CURRENT_SP0_SERROR",
+        "LOWER_A64_SYNC", "LOWER_A64_IRQ",
+        "LOWER_A64_FIQ", "LOWER_A64_SERROR",
+        "LOWER_A32_SYNC", "LOWER_A32_IRQ",
+        "LOWER_A32_FIQ", "LOWER_A32_SERROR",
+        "CURRENT_SPX_SYNC", "CURRENT_SPX_IRQ",
+        "CURRENT_SPX_FIQ", "CURRENT_SPX_SERROR"
+    };
+    return vector < 16U ? names[vector] : "INVALID_VECTOR";
+}
