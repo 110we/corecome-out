@@ -4,7 +4,6 @@
 
 _start:
     msr     daifset, #0xf
-    mov     x19, x0
     ldr     x0, =__stack_top
     mov     sp, x0
 
@@ -16,7 +15,6 @@ _start:
     str     xzr, [x0], #8
     b       1b
 2:
-    mov     x0, x19
     bl      kernel_main
 3:
     wfe

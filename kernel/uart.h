@@ -1,5 +1,5 @@
-#ifndef CORECOME_UART_H
-#define CORECOME_UART_H
+#ifndef COXVBN_UART_H
+#define COXVBN_UART_H
 
 void uart_init(void);
 void uart_putc(char ch);

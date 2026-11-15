@@ -1,4 +1,4 @@
-name: CORECOME kernel
+name: COXVBN kernel
 
 on:
   push:
@@ -22,16 +22,16 @@ jobs:
         run: make clean all
       - name: Verify image format
         run: |
-          aarch64-linux-gnu-readelf -h build/corecome.elf | grep -E 'Machine:.*AArch64'
-          test -s build/corecome.bin
+          aarch64-linux-gnu-readelf -h build/coxvbn.elf | grep -E 'Machine:.*AArch64'
+          test -s build/coxvbn.bin
       - name: QEMU serial boot test
         run: |
           set +e
-          timeout 8s qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel build/corecome.bin > qemu.log 2>&1
+          timeout 8s qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel build/coxvbn.bin > qemu.log 2>&1
           status=$?
           set -e
           cat qemu.log
-          grep -q "CORECOME: kernel online" qemu.log
+          grep -q "COXVBN: kernel online" qemu.log
           if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then
             exit "$status"
           fi

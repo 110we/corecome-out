@@ -1,6 +1,6 @@
 # Architecture baseline
 
-CORECOME is a new operating-system implementation, not a Linux distribution. The initial engineering target is AArch64 on the QEMU `virt` machine so that each low-level milestone can be reproduced in CI.
+COXVBN is a new operating-system implementation, not a Linux distribution. The initial engineering target is AArch64 on the QEMU `virt` machine so that each low-level milestone can be reproduced in CI.
 
 ## Initial boot contract
 

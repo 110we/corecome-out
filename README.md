@@ -1,6 +1,6 @@
-# CORECOME
+# COXVBN
 
-CORECOME is an independent operating-system project. The implementation is being rebuilt from a small, testable foundation rather than treating placeholder subsystems as completed features.
+COXVBN is an independent operating-system project. The implementation is being rebuilt from a small, testable foundation rather than treating placeholder subsystems as completed features.
 
 ## Current target
 

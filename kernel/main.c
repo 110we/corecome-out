@@ -23,17 +23,17 @@ void kernel_main(const void *boot_fdt)
     struct fdt_info fdt;
 
     uart_init();
-    uart_write("\nCORECOME: kernel online\n");
-    uart_write("CORECOME: AArch64 early-boot milestone 1\n");
+    uart_write("\nCOXVBN: kernel online\n");
+    uart_write("COXVBN: AArch64 early-boot milestone 1\n");
 
     if (fdt_inspect(boot_fdt, &fdt) == 0) {
-        uart_write("CORECOME: FDT validated at ");
+        uart_write("COXVBN: FDT validated at ");
         uart_write_hex(fdt.address);
-        uart_write("\nCORECOME: FDT bytes ");
+        uart_write("\nCOXVBN: FDT bytes ");
         uart_write_hex(fdt.total_size);
         uart_write("\n");
     } else {
-        uart_write("CORECOME: no valid FDT supplied; platform discovery halted\n");
+        uart_write("COXVBN: no valid FDT supplied; platform discovery halted\n");
     }
 
     for (;;) {

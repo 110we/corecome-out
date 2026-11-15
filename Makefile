@@ -16,7 +16,7 @@ OBJECTS   := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES_C)) \
              $(patsubst %.S,$(BUILD)/%.o,$(SOURCES_S))
 
 .PHONY: all clean run disassemble
-all: $(BUILD)/corecome.elf $(BUILD)/corecome.bin
+all: $(BUILD)/coxvbn.elf $(BUILD)/coxvbn.bin
 
 $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -26,16 +26,16 @@ $(BUILD)/%.o: %.S
 	@mkdir -p $(dir $@)
 	$(CC) $(ASFLAGS) -c $< -o $@
 
-$(BUILD)/corecome.elf: $(OBJECTS) $(ARCH)/linker.ld
+$(BUILD)/coxvbn.elf: $(OBJECTS) $(ARCH)/linker.ld
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
-$(BUILD)/corecome.bin: $(BUILD)/corecome.elf
+$(BUILD)/coxvbn.bin: $(BUILD)/coxvbn.elf
 	$(OBJCOPY) -O binary $< $@
 
 run: all
-	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/corecome.bin
+	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/coxvbn.bin
 
-disassemble: $(BUILD)/corecome.elf
+disassemble: $(BUILD)/coxvbn.elf
 	$(OBJDUMP) -d $<
 
 clean:
