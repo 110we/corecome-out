@@ -99,12 +99,18 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
     const uint8_t *b = (const uint8_t *)blob;
     uint32_t total, so, ss, sto, sts, ver, compat, ro;
     uint32_t struct_end, strings_end;
+    FDT_TRACE("FDTDBG: inspect start\n");
     if (blob == NULL || info == NULL) return -1;
+    FDT_TRACE("FDTDBG: pointers ok\n");
     if (((uintptr_t)blob & 7U) != 0U) return -2;
+    FDT_TRACE("FDTDBG: aligned\n");
     if (be32(b) != FDT_MAGIC) return -3;
+    FDT_TRACE("FDTDBG: magic ok\n");
     total = be32(b + 4); so = be32(b + 8); sto = be32(b + 12);
     ro = be32(b + 16); ver = be32(b + 20); compat = be32(b + 24);
+    FDT_TRACE("FDTDBG: header fields\n");
     sts = be32(b + 32); ss = be32(b + 36);
+    FDT_TRACE("FDTDBG: header sizes\n");
     if (total < FDT_HEADER_SIZE || ver < FDT_VERSION_MIN ||
         compat > ver) return -4;
     if ((so & 3U) || (ro & 7U) || (ss & 3U) ||
