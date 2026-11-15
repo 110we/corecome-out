@@ -13,7 +13,7 @@ CORECOME is not based on the Linux kernel and is not a Linux distribution. It ow
 - AArch64 first for bring-up; x86_64 is a major follow-on architecture
 - Cross-ISA execution only through a separately implemented and tested emulator/dynamic translator
 - Own driver model, initially targeting QEMU virt and VirtIO, then broad PC and mobile hardware
-- Kernel-enforced capabilities, authorization scopes, audit, quotas and emergency stop for security assessment workloads
+- One trusted Security Plugin for all tool permission requests and user consent; kernel-enforced grant validation, isolation, quotas, revocation and emergency stop
 
 ## Compatibility promise
 
@@ -23,7 +23,7 @@ Linux and POSIX are the first user-space compatibility target. Windows PE/Win32,
 
 ## Current implementation status
 
-The current tree is still an early M0/M1 bring-up, not a usable operating system. It now includes an initial single-core security monitor: deny-by-default authorization, one bounded target scope, operation allow-list, expiry, action quota, audit ring and emergency stop, with boot-time self-tests. This is a foundation only: it is not yet concurrency-safe for SMP, does not yet bind scopes to authenticated users or cryptographic identities, and does not yet mediate real network/device operations. MMU, allocator, exceptions, scheduler, EL0, syscalls, ELF loading, VFS, networking, drivers, desktop and compatibility runtimes remain future work.
+The current tree is still an early M0/M1 bring-up, not a usable operating system. It includes an initial single-core kernel security reference monitor and a Security Plugin contract. The intended design centralizes all tool permission requests and user consent in one trusted Security Plugin, while the kernel validates and enforces its grants. The current code is only a foundation: the plugin is not dynamically loadable yet, and there is no authenticated tool identity, signed grant, package verification, consent UI, SMP-safe synchronization or real network/device mediation. MMU, allocator, exceptions, scheduler, EL0, syscalls, ELF loading, VFS, networking, drivers, desktop and compatibility runtimes remain future work.
 
 ## Build
 
@@ -36,4 +36,4 @@ The build defaults to aarch64-none-elf-gcc. Override CROSS_COMPILE for a differe
 
 ## Security rule
 
-No active security assessment operation may run without an explicit bounded authorization scope. The kernel must enforce target identity, permitted operations, expiry, rate/resource limits, revocation, audit and emergency stop. No compatibility personality may bypass these controls.
+All tool permission requests and user consent flow through the trusted Security Plugin. No tool may authorize itself or present a competing system-level permission flow. The kernel must independently enforce each grant's requester identity, target, permitted operations, expiry, quotas and revocation. Missing or unavailable Security Plugin means deny by default. No compatibility personality or driver may bypass these controls. See [the Security Plugin design](docs/security-plugin.md).
