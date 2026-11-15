@@ -20,7 +20,6 @@ struct node_state {
     const uint8_t *reg;
     uint8_t is_memory;
     uint8_t is_reserved;
-    uint8_t is_reserved_root;
 };
 
 static uint32_t be32(const uint8_t *p)
@@ -52,7 +51,7 @@ static int string_prefix(const char *s, const char *prefix)
 {
     uint32_t i = 0;
     while (prefix[i] != 0) {
-        if (s[i] != prefix[i]) return 0;
+        if (s[i] == 0 || s[i] != prefix[i]) return 0;
         ++i;
     }
     return 1;
@@ -72,6 +71,12 @@ static int bounded_string(const uint8_t *base, uint32_t size,
     return -1;
 }
 
+static int ranges_overlap(uint32_t a, uint32_t as,
+                          uint32_t b, uint32_t bs)
+{
+    return a < b + bs && b < a + as;
+}
+
 static int add_range(struct fdt_range *ranges, uint32_t *count,
                      uint64_t base, uint64_t size)
 {
@@ -87,6 +92,7 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
 {
     const uint8_t *b = (const uint8_t *)blob;
     uint32_t total, so, ss, sto, sts, ver, compat, ro;
+    uint32_t struct_end, strings_end;
     if (blob == NULL || info == NULL) return -1;
     if (((uintptr_t)blob & 7U) != 0U) return -2;
     if (be32(b) != FDT_MAGIC) return -3;
@@ -95,12 +101,19 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
     sts = be32(b + 32); ss = be32(b + 36);
     if (total < FDT_HEADER_SIZE || ver < FDT_VERSION_MIN ||
         compat > ver) return -4;
-    if ((so & 3U) || (sto & 3U) || (ro & 7U) ||
-        so > total || ss > total - so ||
+    if ((so & 3U) || (ro & 7U) || (ss & 3U) ||
+        so < FDT_HEADER_SIZE || sto < FDT_HEADER_SIZE ||
+        ro < FDT_HEADER_SIZE || so > total || ss > total - so ||
         sto > total || sts > total - sto ||
         ro > total || total - ro < 16U) return -5;
-    if (so < FDT_HEADER_SIZE || sto < FDT_HEADER_SIZE ||
-        ro < FDT_HEADER_SIZE) return -6;
+    struct_end = so + ss;
+    strings_end = sto + sts;
+    if (ss == 0U || sts == 0U ||
+        ranges_overlap(so, ss, sto, sts)) return -6;
+    /* The reservation map must precede both data blocks. */
+    if (ro >= so || ro >= sto) return -7;
+    if (struct_end > total || strings_end > total) return -8;
+
     info->address = (uintptr_t)blob;
     info->total_size = total;
     info->structure_size = ss;
@@ -112,13 +125,15 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
     return 0;
 }
 
-static int parse_reservations(const uint8_t *b, uint32_t total,
+static int parse_reservations(const uint8_t *b, uint32_t limit,
                               uint32_t offset, struct fdt_info *info)
 {
     uint32_t pos = offset;
-    while (pos <= total && total - pos >= 16U) {
-        uint64_t base = ((uint64_t)be32(b + pos) << 32) | be32(b + pos + 4);
-        uint64_t size = ((uint64_t)be32(b + pos + 8) << 32) | be32(b + pos + 12);
+    while (pos <= limit && limit - pos >= 16U) {
+        uint64_t base = ((uint64_t)be32(b + pos) << 32) |
+                        be32(b + pos + 4U);
+        uint64_t size = ((uint64_t)be32(b + pos + 8U) << 32) |
+                        be32(b + pos + 12U);
         pos += 16U;
         if (base == 0 && size == 0) return 0;
         if (add_range(info->reserved, &info->reserved_count, base, size))
@@ -156,64 +171,67 @@ int fdt_parse(const void *blob, struct fdt_info *info)
     const uint8_t *b = (const uint8_t *)blob;
     const uint8_t *structure, *strings;
     struct node_state stack[FDT_MAX_DEPTH];
-    uint32_t so, sto, ro, ss, sts, pos = 0, depth = 0;
-    int ended = 0, rc;
+    uint32_t so, sto, ro, ss, sts, pos = 0, depth = 0, reserve_limit;
+    int ended = 0, root_closed = 0, rc;
     rc = fdt_inspect(blob, info);
     if (rc) return rc;
     so = be32(b + 8); sto = be32(b + 12); ro = be32(b + 16);
     ss = be32(b + 36); sts = be32(b + 32);
     structure = b + so; strings = b + sto;
-    if (parse_reservations(b, info->total_size, ro, info)) return -7;
+    reserve_limit = so < sto ? so : sto;
+    if (parse_reservations(b, reserve_limit, ro, info)) return -9;
 
     while (pos <= ss && ss - pos >= 4U) {
         uint32_t token = be32(structure + pos);
         pos += 4U;
         if (token == FDT_BEGIN_NODE) {
             uint32_t start = pos, len;
-            if (depth >= FDT_MAX_DEPTH) return -8;
+            uint64_t aligned;
+            if (depth >= FDT_MAX_DEPTH || root_closed) return -10;
             while (pos < ss && structure[pos] != 0) ++pos;
-            if (pos >= ss) return -9;
+            if (pos >= ss) return -11;
             len = pos - start;
             ++pos;
-            pos = (pos + 3U) & ~3U;
-            if (pos > ss) return -9;
+            aligned = ((uint64_t)pos + 3U) & ~(uint64_t)3U;
+            if (aligned > ss) return -11;
+            pos = (uint32_t)aligned;
             if (depth == 0) {
-                stack[depth] = (struct node_state){2, 1, 0, NULL, 0, 0, 0};
+                if (len != 0U) return -12;
+                stack[depth] = (struct node_state){2, 1, 0, NULL, 0, 0};
             } else {
                 stack[depth] = stack[depth - 1U];
                 stack[depth].reg = NULL;
                 stack[depth].reg_length = 0;
                 stack[depth].is_memory = 0;
-                stack[depth].is_reserved_root = 0;
             }
             if (string_is((const char *)(structure + start), "memory") ||
                 string_prefix((const char *)(structure + start), "memory@"))
                 stack[depth].is_memory = 1;
             if (string_is((const char *)(structure + start), "reserved-memory") &&
-                depth > 0) {
-                stack[depth].is_reserved_root = 1;
+                depth > 0U)
                 stack[depth].is_reserved = 1;
-            }
             ++depth;
         } else if (token == FDT_END_NODE) {
-            if (depth == 0) return -10;
-            if (collect_node(&stack[depth - 1U], info)) return -11;
+            if (depth == 0U) return -13;
+            if (collect_node(&stack[depth - 1U], info)) return -14;
             if (depth == 1U) {
                 info->address_cells = stack[0].address_cells;
                 info->size_cells = stack[0].size_cells;
+                root_closed = 1;
             }
             --depth;
         } else if (token == FDT_PROP) {
             uint32_t len, nameoff;
+            uint64_t aligned;
             const char *name;
             struct node_state *n;
             const uint8_t *value;
-            if (depth == 0 || ss - pos < 8U) return -12;
+            if (depth == 0U || ss - pos < 8U) return -15;
             len = be32(structure + pos);
             nameoff = be32(structure + pos + 4U);
             pos += 8U;
             if (len > ss - pos || bounded_string(strings, sts, nameoff, &name))
-                return -13;
+                return -16;
             value = structure + pos;
             n = &stack[depth - 1U];
             if (string_is(name, "#address-cells") && len == 4U)
@@ -226,21 +244,19 @@ int fdt_parse(const void *blob, struct fdt_info *info)
             } else if (string_is(name, "device_type") &&
                        len == 7U && string_is((const char *)value, "memory"))
                 n->is_memory = 1;
-            pos += len;
-            pos = (pos + 3U) & ~3U;
-            if (pos > ss) return -14;
+            aligned = ((uint64_t)pos + len + 3U) & ~(uint64_t)3U;
+            if (aligned > ss) return -17;
+            pos = (uint32_t)aligned;
         } else if (token == FDT_NOP) {
             continue;
         } else if (token == FDT_END) {
-            if (depth != 0) return -15;
+            if (depth != 0U || !root_closed) return -18;
             ended = 1;
             break;
         } else {
-            return -16;
+            return -19;
         }
     }
-    if (!ended) return -17;
-    info->address_cells = 2;
-    info->size_cells = 1;
+    if (!ended || info->memory_count == 0U) return -20;
     return 0;
 }

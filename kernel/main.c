@@ -18,11 +18,13 @@ void kernel_main(const void *boot_fdt)
 {
     struct fdt_info fdt;
     uint32_t i;
+    int rc;
     uart_init();
     uart_write("\nCOXVBN: kernel online\n");
     uart_write("COXVBN: AArch64 early-boot milestone 1\n");
-    if (fdt_parse(boot_fdt, &fdt) == 0) {
-        uart_write("COXVBN: FDT parsed; RAM regions ");
+    rc = fdt_parse(boot_fdt, &fdt);
+    if (rc == 0) {
+        uart_write("COXVBN: FDT parsed\nCOXVBN: RAM regions ");
         uart_write_hex(fdt.memory_count);
         uart_write("\nCOXVBN: reserved regions ");
         uart_write_hex(fdt.reserved_count);
@@ -35,7 +37,9 @@ void kernel_main(const void *boot_fdt)
             uart_write("\n");
         }
     } else {
-        uart_write("COXVBN: FDT parse failed; memory discovery halted\n");
+        uart_write("COXVBN: FDT parse failed; memory discovery halted; error ");
+        uart_write_hex((uintptr_t)(uint32_t)(-rc));
+        uart_write("\n");
     }
     for (;;) __asm__ volatile("wfe");
 }
