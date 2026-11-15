@@ -19,6 +19,17 @@
 #define FDT_END 9U
 #define FDT_MAX_DEPTH 32U
 
+#ifdef COXVBN_FDT_DEBUG
+static void uart_write_hex_debug(uint32_t value)
+{
+    static const char digits[] = "0123456789abcdef";
+    char out[8];
+    uint32_t i;
+    for (i = 0; i < 8U; ++i) { out[7U-i] = digits[value & 15U]; value >>= 4; }
+    for (i = 0; i < 8U; ++i) uart_putc(out[i]);
+}
+#endif
+
 struct node_state {
     uint32_t address_cells;
     uint32_t size_cells;
@@ -214,9 +225,12 @@ int fdt_parse(const void *blob, struct fdt_info *info)
     FDT_TRACE("FDTDBG: reserve ok\n");
 
     FDT_TRACE("FDTDBG: structure start\n");
+    FDT_TRACE("FDTDBG: before first token read\n");
     while (pos <= ss && ss - pos >= 4U) {
         uint32_t token = be32(structure + pos);
+        FDT_TRACE("FDTDBG: first token read\n");
         pos += 4U;
+        if (pos == 4U) { FDT_TRACE("FDTDBG: first token value "); uart_write_hex_debug(token); FDT_TRACE("\n"); }
         if (token == FDT_BEGIN_NODE) {
             uint32_t start = pos, len;
             uint64_t aligned;
