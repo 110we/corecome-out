@@ -1,5 +1,10 @@
 #include "fdt.h"
+#ifdef COXVBN_FDT_DEBUG
 #include "uart.h"
+#define FDT_TRACE(message) uart_write(message)
+#else
+#define FDT_TRACE(message) ((void)0)
+#endif
 
 #include <stddef.h>
 #include <stdint.h>
@@ -174,19 +179,19 @@ int fdt_parse(const void *blob, struct fdt_info *info)
     struct node_state stack[FDT_MAX_DEPTH];
     uint32_t so, sto, ro, ss, sts, pos = 0, depth = 0, reserve_limit;
     int ended = 0, root_closed = 0, rc;
-    uart_write("FDTDBG: enter\n");
+    FDT_TRACE("FDTDBG: enter\n");
     rc = fdt_inspect(blob, info);
-    if (rc) { uart_write("FDTDBG: header reject\n"); return rc; }
-    uart_write("FDTDBG: header ok\n");
+    if (rc) { FDT_TRACE("FDTDBG: header reject\n"); return rc; }
+    FDT_TRACE("FDTDBG: header ok\n");
     so = be32(b + 8); sto = be32(b + 12); ro = be32(b + 16);
     ss = be32(b + 36); sts = be32(b + 32);
     structure = b + so; strings = b + sto;
     reserve_limit = so < sto ? so : sto;
-    uart_write("FDTDBG: reserve start\n");
-    if (parse_reservations(b, reserve_limit, ro, info)) { uart_write("FDTDBG: reserve bad\n"); return -9; }
-    uart_write("FDTDBG: reserve ok\n");
+    FDT_TRACE("FDTDBG: reserve start\n");
+    if (parse_reservations(b, reserve_limit, ro, info)) { FDT_TRACE("FDTDBG: reserve bad\n"); return -9; }
+    FDT_TRACE("FDTDBG: reserve ok\n");
 
-    uart_write("FDTDBG: structure start\n");
+    FDT_TRACE("FDTDBG: structure start\n");
     while (pos <= ss && ss - pos >= 4U) {
         uint32_t token = be32(structure + pos);
         pos += 4U;
@@ -258,7 +263,7 @@ int fdt_parse(const void *blob, struct fdt_info *info)
         } else if (token == FDT_END) {
             if (depth != 0U || !root_closed) return -18;
             ended = 1;
-            uart_write("FDTDBG: end token\n");
+            FDT_TRACE("FDTDBG: end token\n");
             break;
         } else {
             return -19;
