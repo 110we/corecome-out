@@ -15,9 +15,6 @@ struct security_audit_record {
  uint32_t operation, event;
 };
 void security_init(void);
-bool security_monitor_install_grant(uint64_t grant_id,uint64_t requester_id,
- uint64_t target_id,uint32_t operations,uint64_t expires_at,
- uint32_t action_limit,uint64_t now);
 bool security_authorize(uint64_t grant_id,uint64_t requester_id,
  uint64_t target_id,uint32_t operation,uint64_t now);
 void security_scope_revoke(uint64_t now);
