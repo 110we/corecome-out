@@ -8,6 +8,9 @@ static uint64_t audit_sequence;
 static uint32_t audit_count;
 static bool emergency_stopped;
 
+#define SECURITY_KNOWN_OPERATIONS (SECURITY_OP_DISCOVER | SECURITY_OP_CONNECT | \\
+                                   SECURITY_OP_INSPECT | SECURITY_OP_CAPTURE)
+
 static void audit_append(uint32_t event, uint64_t scope_id,
                          uint64_t target_id, uint32_t operation,
                          uint64_t now)
@@ -60,7 +63,9 @@ bool security_scope_grant(uint64_t scope_id, uint64_t target_id,
 {
     if (emergency_stopped || current_scope.active ||
         scope_id == 0 || target_id == 0 ||
-        allowed_operations == 0 || action_limit == 0 ||
+        allowed_operations == 0 ||
+        (allowed_operations & ~SECURITY_KNOWN_OPERATIONS) != 0 ||
+        action_limit == 0 ||
         expires_at <= now) {
         audit_append(SECURITY_AUDIT_DENY, scope_id, target_id, 0, now);
         return false;
