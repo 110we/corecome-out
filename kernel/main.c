@@ -22,6 +22,9 @@ void kernel_main(const void *boot_fdt)
     uart_init();
     uart_write("\nCOXVBN: kernel online\n");
     uart_write("COXVBN: AArch64 early-boot milestone 1\n");
+    uart_write("COXVBN: boot FDT pointer ");
+    uart_write_hex((uintptr_t)boot_fdt);
+    uart_write("\\n");
     rc = fdt_parse(boot_fdt, &fdt);
     if (rc == 0) {
         uart_write("COXVBN: FDT parsed\nCOXVBN: RAM regions ");
