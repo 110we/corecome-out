@@ -24,7 +24,7 @@ The compatibility target includes Linux/POSIX, Windows, Android, selected BSD fa
 - VFS: vnode/inode layer, mount namespaces, file descriptors, permissions, filesystem drivers
 - Networking: socket API, Ethernet, ARP/ND, IPv4/IPv6, UDP/TCP, routing and packet policy
 - Drivers: bus/device model, DMA, interrupt handling, VirtIO and platform drivers
-- Security: capability/object-rights model, policy engine, scope validator, audit ring and emergency stop
+- Security: capability/object-rights model, policy engine, scope validator, audit ring and emergency stop. The first bring-up implementation is single-core and must be upgraded with IRQ-safe synchronization before SMP or real device/network operations.
 - Compatibility runtimes: ELF and PE loaders, Linux/POSIX syscall personality, Win32 API runtime, Android ART/Bionic/Binder, selected BSD personalities
 - User space: native init, service manager, shell, package manager, authorization console and isolated assessment workers
 - Desktop: graphics, input, compositor, window manager, accessibility and native applications
