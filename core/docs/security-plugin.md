@@ -49,7 +49,7 @@ The Security Plugin is a trusted system plugin, not an ordinary third-party tool
 
 The OS must avoid a bootstrap deadlock: installation and recovery of the Security Plugin are handled by a minimal trusted system path, not by asking the missing plugin to authorize its own installation. An untrusted package must never replace the trusted Security Plugin.
 
-For the current M0/M1 kernel, there is no module loader, package manager, process identity system or consent UI. Therefore the first implementation stage is a built-in trusted Security Plugin interface and kernel reference-monitor contract. Dynamic loading, signed installation, user prompts and per-tool identities are later milestones and must be tested before being described as operational.
+For the current M0/M1 kernel, there is no module loader, package manager, authenticated process identity system or consent UI. The repository now contains a built-in broker request/decision/grant/revoke path and a kernel reference monitor, with the grant-issuer declaration kept in a private source header rather than the public tool-facing API. The boot self-test exercises pending denial, approval, requester/target binding, action quota, revocation, user denial, expired requests and emergency stop. The approval call in that test is a simulated trusted-UI decision, not a real user prompt. Dynamic loading, signed installation, real user prompts, authenticated identities and concurrency-safe enforcement remain later milestones.
 
 ## Current implementation boundary
 
@@ -62,6 +62,8 @@ The current `security.c` is an early single-core reference-monitor prototype wit
 - User denial prevents the requested operation.
 - Approval grants only the displayed tool, target, operations, duration and quota.
 - A different tool or target cannot reuse another tool's grant.
+- The configured action quota blocks further operations after it is exhausted.
+- Revocation, explicit denial, expired requests and emergency stop leave no usable grant.
 - Expiry and revocation are enforced by the kernel on the next operation.
 - Compatibility layers and drivers cannot bypass the same enforcement path.
 - Security Plugin update/recovery cannot be hijacked by an untrusted package.
