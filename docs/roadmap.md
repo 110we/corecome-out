@@ -29,6 +29,7 @@
 - [ ] VFS and an initial in-memory filesystem
 - [ ] Device model and driver lifecycle
 - [ ] IPC and capability-based resource handles
+- [ ] Implement COXVBN Direct Port Communication: paired endpoints, direct shared-channel data path, no bridge/relay
 - [ ] Central Security Plugin request interface backed by kernel-enforced policy
 
 ## Milestone 6 — userspace and compatibility
