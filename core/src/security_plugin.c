@@ -1,4 +1,5 @@
 #include "corecome/security_plugin.h"
+#include "security_internal.h"
 
 static struct security_plugin_request pending;
 static enum security_plugin_request_state state;
