@@ -1,5 +1,8 @@
 #include "fdt.h"
 #include "uart.h"
+#include "phys_alloc.h"
+extern char __kernel_start[];
+extern char __kernel_end[];
 
 static void uart_write_hex(uintptr_t value)
 {
@@ -50,6 +53,9 @@ void kernel_main(const void *boot_fdt)
     }
 
     uart_write("COXVBN: MEMORY DISCOVERY READY\n");
+    rc = phys_allocator_init(&fdt, (uintptr_t)__kernel_start, (uintptr_t)__kernel_end, (uintptr_t)boot_fdt, (uintptr_t)boot_fdt + fdt.total_size);
+    if (rc != 0) { uart_write("COXVBN: PHYSICAL ALLOCATOR INIT FAILED\n"); for (;;) __asm__ volatile("wfe"); }
+    { struct phys_allocator_stats stats; uintptr_t page; phys_allocator_get_stats(&stats); uart_write("COXVBN: PHYSICAL ALLOCATOR READY; free pages "); uart_write_hex(stats.free_pages); uart_write("\n"); page=phys_alloc_page(); if (!page || phys_free_page(page)!=0) { uart_write("COXVBN: PHYSICAL ALLOCATOR SELFTEST FAILED\n"); for (;;) __asm__ volatile("wfe"); } uart_write("COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS\n"); }
     uart_write("COXVBN: BOOT COMPLETE\n");
     for (;;) __asm__ volatile("wfe");
 }

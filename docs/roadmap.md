@@ -13,7 +13,8 @@
 - [x] Walk FDT structure tokens with bounded depth and property/string checks
 - [x] Read memory-node reg ranges and reservation-map entries
 - [ ] Validate reserved-memory child nodes and all parent cell-width combinations
-- [ ] Add checked physical/virtual address types and a physical page allocator
+- [x] Add a bounded bitmap physical page allocator with reservation handling
+- [ ] Add checked physical/virtual address types
 - [ ] Keep the MMU disabled until page tables and device mappings are tested
 
 ## Milestone 3 — exceptions and interrupts
