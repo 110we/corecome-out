@@ -156,9 +156,10 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
     info->structure_size = ss;
     info->strings_size = sts;
     FDT_TRACE("FDTDBG: info sizes ok\n");
-    info->address_cells = 2;
+    /* Avoid a combined unaligned 64-bit store to adjacent 32-bit fields. */
+    ((volatile uint32_t *)&info->address_cells)[0] = 2U;
     FDT_TRACE("FDTDBG: info address-cells write ok\n");
-    info->size_cells = 1;
+    ((volatile uint32_t *)&info->size_cells)[0] = 1U;
     FDT_TRACE("FDTDBG: info size-cells write ok\n");
     FDT_TRACE("FDTDBG: before memory-count store\n");
     ((volatile uint32_t *)&info->memory_count)[0] = 0U;
