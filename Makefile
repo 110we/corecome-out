@@ -6,7 +6,7 @@ HOST_CC ?= cc
 
 BUILD   := build
 ARCH    := arch/aarch64
-CFLAGS  := -DCOXVBN_FDT_DEBUG -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin \
+CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin \
            -fno-stack-protector -fno-pic -mgeneral-regs-only
 ASFLAGS := $(CFLAGS)
 LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
