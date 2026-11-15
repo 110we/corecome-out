@@ -1,4 +1,5 @@
 #include "exception.h"
+#include "exception_decode.h"
 #include "uart.h"
 
 static void write_hex(uint64_t value)
@@ -20,7 +21,9 @@ void exception_panic(const struct exception_frame *frame)
     if (frame == 0) {
         uart_write("\nCOXVBN: FATAL EXCEPTION; NO FRAME\n");
     } else {
-        uart_write("\nCOXVBN: FATAL EXCEPTION\nELR=");
+        uart_write("\nCOXVBN: FATAL EXCEPTION\nCLASS=");
+        uart_write(exception_class_name(frame->esr));
+        uart_write("\nELR=");
         write_hex(frame->elr);
         uart_write(" SPSR=");
         write_hex(frame->spsr);
