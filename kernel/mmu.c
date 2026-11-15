@@ -26,8 +26,10 @@ static uint64_t ram_l2[L2_ENTRIES] __attribute__((aligned(4096)));
 
 static uint64_t normal_block(uint64_t address)
 {
+    /* Kernel text executes at EL1; keep privileged execution enabled
+       for this bootstrap identity map, while denying EL0 execution. */
     return (address & ~(BLOCK_SIZE - 1ULL)) | DESC_BLOCK | DESC_AF |
-           DESC_SH_INNER | DESC_PXN | DESC_UXN;
+           DESC_SH_INNER | DESC_UXN;
 }
 
 static uint64_t device_block(uint64_t address)
