@@ -1,3 +1,0 @@
-# userspace/shell
-
-shell。
