@@ -17,7 +17,7 @@
 #define DESC_ATTR_DEVICE (1ULL << 2)
 #define DESC_PXN         (1ULL << 53)
 #define DESC_UXN         (1ULL << 54)
-#define DESC_BLOCK       (DESC_VALID | DESC_TABLE)
+#define DESC_BLOCK       DESC_VALID
 #define DESC_TABLE_PAGE  (DESC_VALID | DESC_TABLE)
 
 static uint64_t l1[ L1_ENTRIES ] __attribute__((aligned(4096)));
