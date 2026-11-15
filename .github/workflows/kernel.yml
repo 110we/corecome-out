@@ -26,7 +26,7 @@ jobs:
       - name: QEMU serial boot test
         run: |
           set +e
-          timeout 8s qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel build/coxvbn.bin > qemu.log 2>&1
+          timeout 8s qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel build/coxvbn.bin -d int -D qemu-int.log > qemu.log 2>&1
           status=$?
           set -e
           cat qemu.log

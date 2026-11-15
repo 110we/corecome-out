@@ -144,9 +144,12 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
     FDT_TRACE("FDTDBG: info address-cells write ok\n");
     info->size_cells = 1;
     FDT_TRACE("FDTDBG: info size-cells write ok\n");
-    info->memory_count = 0;
-    info->reserved_count = 0;
-    FDT_TRACE("FDTDBG: info counts ok\\n");
+    FDT_TRACE("FDTDBG: before memory-count store\n");
+    ((volatile uint32_t *)&info->memory_count)[0] = 0U;
+    FDT_TRACE("FDTDBG: memory-count store ok\n");
+    ((volatile uint32_t *)&info->reserved_count)[0] = 0U;
+    FDT_TRACE("FDTDBG: reserved-count store ok\n");
+    FDT_TRACE("FDTDBG: info counts ok\n");
     return 0;
 }
 
