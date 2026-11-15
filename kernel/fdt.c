@@ -1,5 +1,6 @@
 #include "fdt.h"
-#define FDT_TRACE(message) ((void)0)
+#include "uart.h"
+#define FDT_TRACE(message) uart_write(message)
 
 #include <stddef.h>
 #include <stdint.h>
@@ -209,9 +210,12 @@ int fdt_parse(const void *blob, struct fdt_info *info)
     FDT_TRACE("FDTDBG: reserve ok\n");
 
     FDT_TRACE("FDTDBG: structure start\n");
+    FDT_TRACE("FDTDBG: structure pointer "); uart_write_hex_debug((uint32_t)(uintptr_t)structure); FDT_TRACE(" offset "); uart_write_hex_debug(so); FDT_TRACE(" size "); uart_write_hex_debug(ss); FDT_TRACE("\n");
     FDT_TRACE("FDTDBG: before first token read\n");
     while (pos <= ss && ss - pos >= 4U) {
-        uint32_t token = be32(structure + pos);
+        uint32_t token;
+        FDT_TRACE("FDTDBG: token address "); uart_write_hex_debug((uint32_t)(uintptr_t)(structure + pos)); FDT_TRACE("\n");
+        token = be32(structure + pos);
         FDT_TRACE("FDTDBG: first token read\n");
         pos += 4U;
         if (token == FDT_BEGIN_NODE) {
