@@ -24,7 +24,8 @@
 - [x] Install an aligned 16-entry EL1 vector table
 - [x] Preserve general-purpose registers and capture ELR/SPSR/ESR/FAR for fatal diagnostics
 - [ ] Define and test the complete exception frame and vector entry/exit contract
-- [ ] Add exception-class decoding and safe recoverable synchronous-fault handling
+- [x] Decode common ESR_EL1 exception classes for fatal diagnostics
+- [ ] Add safe recoverable synchronous-fault handling
 - [ ] Add GICv2 support for the selected QEMU machine
 - [ ] Add a generic interrupt-controller interface and architectural timer driver
 - [ ] Add IRQ dispatch, interrupt acknowledgement/EOI, and interrupt-context rules
