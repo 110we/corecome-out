@@ -319,7 +319,7 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                     stack[depth - 1U].is_reserved_container;
                 stack[depth].is_reserved_container = 0;
                 stack[depth].is_gicv2 = 0;
-                stack[depth].is_disabled = 0;
+                /* Availability is inherited: a child cannot re-enable a disabled bus/container. */
             }
             if (string_is((const char *)(structure + start), "memory") ||
                 string_prefix((const char *)(structure + start), "memory@"))

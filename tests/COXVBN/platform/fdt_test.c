@@ -10,6 +10,7 @@
 #define END 9U
 static _Alignas(8) uint8_t blob[1024];
 static const char *memory_status;
+static const char *reserved_status;
 static void put32(uint8_t*p,uint32_t v){p[0]=(uint8_t)(v>>24);p[1]=(uint8_t)(v>>16);p[2]=(uint8_t)(v>>8);p[3]=(uint8_t)v;}
 static uint32_t get32(const uint8_t*p){return ((uint32_t)p[0]<<24)|((uint32_t)p[1]<<16)|((uint32_t)p[2]<<8)|p[3];}
 static uint32_t w(uint32_t p,uint32_t v){put32(blob+p,v);return p+4;}
@@ -26,7 +27,7 @@ static void build(void){
  p=w(p,END_NODE);
  p=w(p,BEGIN_NODE);p=str(p,"reserved-memory");
  p=prop(p,4,0,(const uint8_t[]){0,0,0,1});
- p=prop(p,4,16,(const uint8_t[]){0,0,0,1});
+ p=prop(p,4,16,(const uint8_t[]){0,0,0,1});if(reserved_status)p=prop(p,(uint32_t)strlen(reserved_status)+1U,56,(const uint8_t*)reserved_status);
  p=w(p,BEGIN_NODE);p=str(p,"secure@200000");
  p=prop(p,8,40,(const uint8_t[]){0,0x20,0,0,0,0,0x10,0});
  p=w(p,BEGIN_NODE);p=str(p,"nested@300000");
@@ -59,5 +60,6 @@ static void missing_root_close(void){struct fdt_info i;uint32_t so,ss,p;build();
  assert(fdt_parse(blob,&i)==-18);}
 
 static void unavailable_memory_status_is_ignored(void){struct fdt_info i;memory_status="disabled";build();memory_status=NULL;assert(fdt_parse(blob,&i)==-22);assert(i.memory_count==0U);memory_status="fail";build();memory_status=NULL;assert(fdt_parse(blob,&i)==-22);assert(i.memory_count==0U);memory_status="fail-clock";build();memory_status=NULL;assert(fdt_parse(blob,&i)==-22);assert(i.memory_count==0U);}
+static void disabled_reserved_container_suppresses_children(void){struct fdt_info i;reserved_status="disabled";build();reserved_status=NULL;assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1U);assert(i.reserved_count==1U);assert(i.reserved[0].base==0x1000ULL);}
 static void available_memory_status_is_kept(void){struct fdt_info i;memory_status="okay";build();memory_status=NULL;assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1U);memory_status="ok";build();memory_status=NULL;assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1U);}
-int main(void){valid();bad_magic();overlap();bad_token();no_reservation_terminator();undersized_total();structure_out_of_bounds();strings_out_of_bounds();unclosed_root();missing_root_close();unavailable_memory_status_is_ignored();available_memory_status_is_kept();puts("COXVBN host FDT tests: PASS");return 0;}
+int main(void){valid();bad_magic();overlap();bad_token();no_reservation_terminator();undersized_total();structure_out_of_bounds();strings_out_of_bounds();unclosed_root();missing_root_close();unavailable_memory_status_is_ignored();disabled_reserved_container_suppresses_children();available_memory_status_is_kept();puts("COXVBN host FDT tests: PASS");return 0;}
