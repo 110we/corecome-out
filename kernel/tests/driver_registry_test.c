@@ -25,7 +25,8 @@ int main(void){
     if(driver_register(&vd)||driver_register(&ud)||driver_register(&gd))return 2;
     if(driver_register(&duplicate_name)==0||driver_register(&invalid_driver)==0)return 10;
     if(driver_bind_all()!=3||vp!=2||up!=1||gp!=1||device_bound_count()!=3)return 3;
-    if(driver_bind_all()!=0||vp!=2||up!=1||gp!=1)return 11;
+    /* A failed probe is retryable; already-bound devices must not be probed again. */
+    if(driver_bind_all()!=0||vp!=3||up!=1||gp!=1)return 11;
     d=device_get(0);if(!d||!d->bound||d->driver!=&vd)return 4;
     d=device_get(1);if(!d||!d->bound||d->driver!=&ud)return 5;
     d=device_get(2);if(!d||d->bound)return 6;
