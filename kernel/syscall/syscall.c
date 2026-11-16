@@ -37,7 +37,7 @@ extern u64 heap_used(void);
 /* 返回值 -2 = EFAULT：调用没通过参数校验，不是“功能没实现”。 */
 #define EFAULT_  ((u64)-2)
 
-static int u_ok(u64 p, u64 n)
+static int u_ok(u64 p, u64 n, int write)
 {
     u64 *l1;
 
@@ -54,19 +54,8 @@ static int u_ok(u64 p, u64 n)
     if (l1 == (u64 *)0) {
         return 0; /* 没有 aspace 就不该有用户指针 */
     }
-    /* 逐页看：首尾都映射不代表中间没有洞 */
-    while (p < p + n && n > 0) {
-        u64 step = 4096 - (p & 4095);
-        if (pg_user_pa(l1, p) == 0) {
-            return 0;
-        }
-        if (step > n) {
-            break;
-        }
-        p += step;
-        n -= step;
-    }
-    return 1;
+    /* 逐页检查映射与 EL0 权限；copyout 不能写 RX/RO 页。 */
+    return pg_user_access(l1, p, n, write, 0);
 }
 
 /* 逐页校验的 copyin：字符串可能贴着页尾、下一页未必映射，
@@ -76,7 +65,7 @@ static int u_str(u64 p, char *dst, u64 cap)
     u64 i;
 
     for (i = 0; i + 1 < cap; i++) {
-        if (!u_ok(p + i, 1)) {
+        if (!u_ok(p + i, 1, 0)) {
             return -1;
         }
         dst[i] = *(const char *)(p + i);
@@ -113,7 +102,7 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
     case SYS_HEAP:
         return heap_used();
     case SYS_WRITE:
-        if (g_from_el0 && !u_ok(a1, a2)) {
+        if (g_from_el0 && !u_ok(a1, a2, 0)) {
             return deny(nr, a1);
         }
         return (u64)vfs_write((int)a0, (const void *)a1, a2);
@@ -127,7 +116,7 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
         }
         return (u64)vfs_open((const char *)a0, (int)a1);
     case SYS_READ:
-        if (g_from_el0 && !u_ok(a1, a2)) {
+        if (g_from_el0 && !u_ok(a1, a2, 1)) {
             return deny(nr, a1);
         }
         return (u64)vfs_read((int)a0, (void *)a1, a2);
@@ -140,7 +129,7 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
         kthread_exit();
         return 0; /* 不会到这里 */
     case SYS_LIST:
-        if (g_from_el0 && (!u_ok(a0, 1) || !u_ok(a1, a2))) {
+        if (g_from_el0 && (!u_ok(a0, 1, 0) || !u_ok(a1, a2, 1))) {
             return deny(nr, a0);
         }
         return (u64)vfs_list((const char *)a0, (char *)a1, a2);

@@ -173,6 +173,33 @@ u64 pg_user_pa(u64 *l1, u64 va)
     return (e & PA_MASK) | (va & (PG_SIZE - 1));
 }
 
+/* Validate EL0 access, not merely that a PTE exists. EL1 copyin/copyout
+ * bypasses the CPU's EL0 permission checks, so syscalls must enforce AP/UXN. */
+int pg_user_access(u64 *l1, u64 va, u64 len, int write, int exec)
+{
+    u64 *l3 = win_l3(l1);
+    u64 end;
+    u64 cur;
+
+    if (len == 0) return 1;
+    if (l3 == (u64 *)0 || va < USER_WIN_BASE ||
+        va >= USER_WIN_TOP || va + len < va ||
+        va + len > USER_WIN_TOP) return 0;
+    end = va + len;
+    cur = va;
+    while (cur < end) {
+        u64 e = l3[(cur >> 12) & IDX_MASK];
+        u64 step;
+        if ((e & 1UL) == 0 || (e & (1UL << 6)) == 0) return 0;
+        if (write && (e & (1UL << 7)) != 0) return 0;
+        if (exec && (e & UXN) != 0) return 0;
+        step = PG_SIZE - (cur & (PG_SIZE - 1));
+        if (step > end - cur) break;
+        cur += step;
+    }
+    return 1;
+}
+
 /* 切地址空间：内核在每个 aspace 里都恒等映射，所以写完 TTBR0 还能继续跑。 */
 void pg_activate(u64 *l1)
 {
@@ -198,10 +225,15 @@ int pg_selftest(void)
     for (i = 0; i < PG_SIZE; i++) {
         page[i] = (u8)(i & 0xFF);
     }
-    if (pg_map_user(l1, 0x10000000UL, (u64)page, PG_USER_RW) != 0) {
+    if (pg_map_user(l1, 0x10000000UL, (u64)page, PG_USER_RW) != 0 ||
+        pg_map_user(l1, 0x10001000UL, (u64)page, PG_USER_RX) != 0) {
         return 0;
     }
-    if (pg_user_pa(l1, 0x10000000UL) != (u64)page) {
+    if (pg_user_pa(l1, 0x10000000UL) != (u64)page ||
+        !pg_user_access(l1, 0x10000000UL, PG_SIZE, 1, 0) ||
+        pg_user_access(l1, 0x10000000UL, PG_SIZE, 0, 1) ||
+        !pg_user_access(l1, 0x10001000UL, PG_SIZE, 0, 1) ||
+        pg_user_access(l1, 0x10001000UL, PG_SIZE, 1, 0)) {
         ok = 0;
     }
 

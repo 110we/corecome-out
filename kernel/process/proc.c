@@ -72,6 +72,14 @@ int proc_clone(u64 *f)
         printk("[kern] proc: clone without aspace\n");
         return -1;
     }
+    /* Clone entry must be EL0-executable; the supplied stack must be writable.
+     * Do not let an EL0 caller manufacture a thread that returns into EL1/MMIO. */
+    if (!pg_user_access(l1, f[1], 4, 0, 1) ||
+        f[3] <= USER_WIN_BASE || f[3] > USER_WIN_TOP ||
+        !pg_user_access(l1, f[3] - 1, 1, 1, 0)) {
+        printk("[kern] proc: clone invalid entry/stack\n");
+        return -1;
+    }
     pg_aspace_ref(l1);
     tid = sched_clone_thread(f, l1, sched_get_ftab(), f[1], f[2], f[3]);
     if (tid < 0) {

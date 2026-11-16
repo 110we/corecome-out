@@ -45,6 +45,7 @@ u64 *pg_template(void);
 u64 *pg_aspace_new(void);
 int pg_map_user(u64 *l1, u64 va, u64 pa, u64 attr);
 u64 pg_user_pa(u64 *l1, u64 va);
+int pg_user_access(u64 *l1, u64 va, u64 len, int write, int exec);
 void pg_activate(u64 *l1);
 int pg_selftest(void);
 
