@@ -214,7 +214,7 @@ static bool module_has_capability_locked(
 }
 
 bool coxvbn_module_authorize(
-    const struct coxvbn_module_registry *registry,
+    struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref,
     coxvbn_capability_t required)
 {
