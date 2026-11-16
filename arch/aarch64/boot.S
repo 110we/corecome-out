@@ -79,10 +79,10 @@ __exception_vectors:
  * 304-byte allocation preserves the 16-byte stack alignment at the C ABI.
  */
 .macro VECTOR_ENTRY number
-exception_vector_\number:
+exception_vector_\\number:
     sub     sp, sp, #304
     stp     x0, x1, [sp, #0]
-    mov     x0, #\number
+    mov     x0, #\\number
     str     x0, [sp, #280]
     b       exception_save_rest
 .endm

@@ -132,5 +132,11 @@ void exception_panic(const struct exception_frame *frame)
         }
     }
     uart_write("COXVBN: HALTED AFTER EXCEPTION\n");
-    for (;;) __asm__ volatile("wfe");
+    for (;;) {
+#if defined(__aarch64__)
+        __asm__ volatile("wfe");
+#else
+        __asm__ volatile("" ::: "memory");
+#endif
+    }
 }
