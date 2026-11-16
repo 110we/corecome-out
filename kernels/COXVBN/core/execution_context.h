@@ -19,4 +19,13 @@ bool coxvbn_execution_context_install_provider(
 bool coxvbn_execution_context_current_module(
     struct coxvbn_module_ref *module_out);
 
+/*
+ * Resolve identity from the trusted provider and enforce the registry grant.
+ * This is a kernel-side authorization boundary; callers must invoke it at
+ * each privileged operation. It does not create a scheduler or syscall ABI.
+ */
+bool coxvbn_module_authorize_current(
+    struct coxvbn_module_registry *registry,
+    coxvbn_capability_t required);
+
 #endif
