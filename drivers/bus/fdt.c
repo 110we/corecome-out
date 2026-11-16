@@ -14,6 +14,7 @@
 #define FDT_MAGIC     0xd00dfeedUL
 #define FDT_HDR_SIZE  40UL
 #define FDT_CUR_VER   17UL
+#define FDT_MAX_SIZE  (2UL * 1024UL * 1024UL)
 
 /* 结构块 token（大端 u32） */
 #define FDT_BEGIN_NODE 1UL
@@ -43,6 +44,7 @@ enum {
 struct node_state {
     int kind;
     int nseg;
+    int reg_invalid;
     u64 base[2];
     u64 size[2];
     char name[32];
@@ -156,6 +158,7 @@ static void node_reset(struct node_state *n)
 {
     n->kind = NODE_PLAIN;
     n->nseg = 0;
+    n->reg_invalid = 0;
     n->base[0] = 0;
     n->base[1] = 0;
     n->size[0] = 0;
@@ -168,13 +171,21 @@ static void node_reg(struct node_state *n, const u8 *d, u32 len)
 {
     u32 ac = g_dt.addr_cells ? g_dt.addr_cells : 2;
     u32 sc = g_dt.size_cells ? g_dt.size_cells : 2;
-    u32 per = (ac + sc) * 4u;
+    u32 per;
     u32 off = 0;
 
-    if (per == 0) {
+    /* This parser intentionally supports 32/64-bit cells only. Never let
+     * untrusted cell counts drive pointer arithmetic or truncated decoding. */
+    if (ac > 2 || sc > 2 || ac == 0 || sc == 0) {
+        n->reg_invalid = 1;
         return;
     }
-    while (off + per <= len && n->nseg < 2) {
+    per = (ac + sc) * 4u;
+    if (per == 0 || len == 0 || (len % per) != 0 || len / per > 2) {
+        n->reg_invalid = 1;
+        return;
+    }
+    while (off < len) {
         n->base[n->nseg] = cells_u64(d + off, ac);
         n->size[n->nseg] = cells_u64(d + off + ac * 4u, sc);
         n->nseg++;
@@ -186,7 +197,7 @@ static void node_finish(struct node_state *n)
 {
     u64 end = n->base[0] + n->size[0];
     u64 end2 = n->base[1] + n->size[1];
-    int ranges_ok = n->nseg >= 1 && n->size[0] != 0 &&
+    int ranges_ok = !n->reg_invalid && n->nseg >= 1 && n->size[0] != 0 &&
                     end >= n->base[0] && n->base[0] < DEV_WIN_TOP &&
                     end <= DEV_WIN_TOP;
 
@@ -405,6 +416,13 @@ int fdt_init(u64 pa)
         g_dt.err = "totalsize too small";
         return -1;
     }
+    /* The DTB pointer and its entire declared extent must stay in mapped RAM.
+     * Cap the blob before any offset arithmetic to prevent wrap/over-read. */
+    if (total > FDT_MAX_SIZE || pa > KERN_WIN_TOP ||
+        (u64)total > KERN_WIN_TOP - pa) {
+        g_dt.err = "totalsize outside safe RAM window";
+        return -1;
+    }
     g_dt.totalsize = total;
     g_dt.version = be32(b + 20);
 
@@ -417,11 +435,11 @@ int fdt_init(u64 pa)
         g_dt.err = "fdt version too old";
         return -1;
     }
-    if (g_off_struct + g_size_struct > total || g_off_struct > total) {
+    if (g_off_struct > total || g_size_struct > total - g_off_struct) {
         g_dt.err = "struct block out of blob";
         return -1;
     }
-    if (g_off_strings + g_size_strings > total || g_off_strings > total) {
+    if (g_off_strings > total || g_size_strings > total - g_off_strings) {
         g_dt.err = "strings block out of blob";
         return -1;
     }
