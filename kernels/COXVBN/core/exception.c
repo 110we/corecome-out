@@ -91,8 +91,8 @@ void exception_dispatch(struct exception_frame *frame)
     if (frame == 0)
         exception_panic(0);
 
-    /* Current-EL SPx IRQ and lower-EL AArch64 IRQ vector slots. */
-    if (frame->vector == 5U || frame->vector == 9U) {
+    /* Current-EL SPx IRQ (slot 13) and lower-EL AArch64 IRQ (slot 5). */
+    if (frame->vector == 5U || frame->vector == 13U) {
         dispatch_irq(frame);
         return;
     }
