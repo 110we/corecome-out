@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "key_vault.h"
 
 #define COXVBN_MODULE_CAPACITY 32U
 
@@ -22,8 +23,9 @@ typedef uint64_t coxvbn_capability_t;
 
 enum coxvbn_module_state {
     COXVBN_MODULE_UNUSED = 0,
-    COXVBN_MODULE_ACTIVE = 1,
-    COXVBN_MODULE_REVOKED = 2
+    COXVBN_MODULE_PENDING = 1,
+    COXVBN_MODULE_ACTIVE = 2,
+    COXVBN_MODULE_REVOKED = 3
 };
 
 struct coxvbn_module_ref {
@@ -33,6 +35,7 @@ struct coxvbn_module_ref {
 
 struct coxvbn_module_record {
     struct coxvbn_module_ref ref;
+    struct coxvbn_receiver_key_ref receiver_key;
     coxvbn_capability_t requested;
     coxvbn_capability_t granted;
     enum coxvbn_module_state state;
@@ -48,13 +51,23 @@ struct coxvbn_module_registry {
 void coxvbn_module_registry_init(struct coxvbn_module_registry *registry,
                                  const void *loader_authority);
 
-/* Kernel loader only. granted must be a subset of requested and known caps. */
+/* Registration creates a non-runnable PENDING record only. */
 bool coxvbn_module_register(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,
     coxvbn_capability_t requested,
     coxvbn_capability_t granted,
     struct coxvbn_module_ref *out);
+
+/* Activation is loader-only and succeeds only after Key Vault PoP enrollment. */
+bool coxvbn_module_activate(
+    struct coxvbn_module_registry *registry,
+    const void *loader_authority,
+    struct coxvbn_key_vault *vault,
+    const struct coxvbn_module_ref *ref,
+    uint64_t receiver_id,
+    const uint8_t *public_key, size_t public_key_len,
+    const uint8_t *proof, size_t proof_len);
 
 bool coxvbn_module_is_active(
     const struct coxvbn_module_registry *registry,
@@ -70,9 +83,11 @@ bool coxvbn_module_authorize(
     const struct coxvbn_module_ref *ref,
     coxvbn_capability_t required);
 
+/* Revokes the receiver key before making the module terminally revoked. */
 bool coxvbn_module_revoke(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,
+    struct coxvbn_key_vault *vault,
     const struct coxvbn_module_ref *ref);
 
 #endif

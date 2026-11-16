@@ -1,12 +1,12 @@
 # Module receiver-key lifecycle
 
-## Enrollment
+## Enrollment and activation
 
-A module may enroll a receiver public key under its own module identity. The
-caller identity passed to the Key Vault must be obtained by trusted kernel
-code from the current execution context; it must never be accepted from an
-untrusted module payload. Enrollment requires a proof-of-possession check
-against the candidate public key.
+A module registration begins in PENDING state. It receives no effective
+capabilities and cannot be treated as runnable. The trusted kernel loader
+activates it only after the Key Vault accepts receiver public-key enrollment
+and proof of possession. The module ID comes from the registry record, not
+from an untrusted module request. A failed proof leaves the module pending.
 
 The Key Vault stores a public key and a reference tuple
 (module ID, receiver ID, key ID, key version). It does not expose a key-read
@@ -18,7 +18,8 @@ API. A platform cryptographic backend supplies the proof verifier through
 Rotation creates a new key ID and increments the receiver key version. The
 old record is revoked as part of the same bounded in-memory operation. A
 revoked record is never reactivated or reused, and attempts to rotate from an
-old reference fail. Explicit revocation is also terminal.
+old reference fail. Explicit module revocation revokes its enrolled receiver
+key before making the module terminally revoked and clearing capabilities.
 
 The current implementation is an in-memory contract with a fixed record
 capacity. It does not yet provide persistent audit storage, crash-atomic
@@ -33,5 +34,6 @@ from an external snapshot or backup.
 The proof callback in host tests is intentionally a deterministic test stub,
 not production cryptography. Until a platform backend is integrated, receiver
 enrollment and verification must not be treated as production-authenticated.
-The API is not yet exposed to user mode; kernel integration must bind
-`caller_module_id` to an authenticated module execution context.
+The loader-authority pointer is an internal software guardrail, not a hardware
+security boundary. The API is not yet exposed to user mode; a future loader
+must bind its authority to a protected kernel execution context.

@@ -7,7 +7,22 @@ static bool ref_equal(const struct coxvbn_module_ref *a,
            a->generation == b->generation;
 }
 
-static const struct coxvbn_module_record *find_record(
+static struct coxvbn_module_record *find_record(
+    struct coxvbn_module_registry *registry,
+    const struct coxvbn_module_ref *ref)
+{
+    size_t i;
+    if (registry == NULL || ref == NULL) return NULL;
+    for (i = 0U; i < COXVBN_MODULE_CAPACITY; ++i) {
+        struct coxvbn_module_record *record = &registry->modules[i];
+        if (record->state != COXVBN_MODULE_UNUSED &&
+            ref_equal(&record->ref, ref))
+            return record;
+    }
+    return NULL;
+}
+
+static const struct coxvbn_module_record *find_record_const(
     const struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref)
 {
@@ -30,11 +45,16 @@ void coxvbn_module_registry_init(struct coxvbn_module_registry *registry,
     registry->loader_authority = loader_authority;
     registry->next_module_id = 1U;
     for (i = 0U; i < COXVBN_MODULE_CAPACITY; ++i) {
-        registry->modules[i].ref.module_id = 0U;
-        registry->modules[i].ref.generation = 0U;
-        registry->modules[i].requested = COXVBN_CAP_NONE;
-        registry->modules[i].granted = COXVBN_CAP_NONE;
-        registry->modules[i].state = COXVBN_MODULE_UNUSED;
+        struct coxvbn_module_record *record = &registry->modules[i];
+        record->ref.module_id = 0U;
+        record->ref.generation = 0U;
+        record->receiver_key.module_id = 0U;
+        record->receiver_key.receiver_id = 0U;
+        record->receiver_key.key_id = 0U;
+        record->receiver_key.key_version = 0U;
+        record->requested = COXVBN_CAP_NONE;
+        record->granted = COXVBN_CAP_NONE;
+        record->state = COXVBN_MODULE_UNUSED;
     }
 }
 
@@ -58,9 +78,13 @@ bool coxvbn_module_register(
         if (record->state == COXVBN_MODULE_UNUSED) {
             record->ref.module_id = registry->next_module_id++;
             record->ref.generation = 1U;
+            record->receiver_key.module_id = 0U;
+            record->receiver_key.receiver_id = 0U;
+            record->receiver_key.key_id = 0U;
+            record->receiver_key.key_version = 0U;
             record->requested = requested;
             record->granted = granted;
-            record->state = COXVBN_MODULE_ACTIVE;
+            record->state = COXVBN_MODULE_PENDING;
             *out = record->ref;
             return true;
         }
@@ -68,11 +92,44 @@ bool coxvbn_module_register(
     return false;
 }
 
+bool coxvbn_module_activate(
+    struct coxvbn_module_registry *registry,
+    const void *loader_authority,
+    struct coxvbn_key_vault *vault,
+    const struct coxvbn_module_ref *ref,
+    uint64_t receiver_id,
+    const uint8_t *public_key, size_t public_key_len,
+    const uint8_t *proof, size_t proof_len)
+{
+    struct coxvbn_module_record *record;
+    struct coxvbn_receiver_key_ref key_ref;
+    if (registry == NULL || loader_authority == NULL ||
+        loader_authority != registry->loader_authority || vault == NULL ||
+        receiver_id == 0U || ref == NULL)
+        return false;
+
+    record = find_record(registry, ref);
+    if (record == NULL || record->state != COXVBN_MODULE_PENDING)
+        return false;
+
+    /* Enrollment is the last fallible operation. The record becomes ACTIVE
+     * only after the Key Vault has accepted proof of possession. */
+    if (!coxvbn_key_vault_enroll_receiver(
+            vault, record->ref.module_id, receiver_id,
+            public_key, public_key_len, proof, proof_len, &key_ref))
+        return false;
+
+    record->receiver_key = key_ref;
+    record->state = COXVBN_MODULE_ACTIVE;
+    return true;
+}
+
 bool coxvbn_module_is_active(
     const struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref)
 {
-    const struct coxvbn_module_record *record = find_record(registry, ref);
+    const struct coxvbn_module_record *record =
+        find_record_const(registry, ref);
     return record != NULL && record->state == COXVBN_MODULE_ACTIVE;
 }
 
@@ -85,7 +142,7 @@ bool coxvbn_module_has_capability(
     if (required == COXVBN_CAP_NONE ||
         (required & ~COXVBN_CAP_ALL) != 0U)
         return false;
-    record = find_record(registry, ref);
+    record = find_record_const(registry, ref);
     return record != NULL && record->state == COXVBN_MODULE_ACTIVE &&
            (record->granted & required) == required;
 }
@@ -101,20 +158,27 @@ bool coxvbn_module_authorize(
 bool coxvbn_module_revoke(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,
+    struct coxvbn_key_vault *vault,
     const struct coxvbn_module_ref *ref)
 {
-    size_t i;
+    struct coxvbn_module_record *record;
     if (registry == NULL || loader_authority == NULL ||
         loader_authority != registry->loader_authority || ref == NULL)
         return false;
-    for (i = 0U; i < COXVBN_MODULE_CAPACITY; ++i) {
-        struct coxvbn_module_record *record = &registry->modules[i];
-        if (record->state == COXVBN_MODULE_ACTIVE &&
-            ref_equal(&record->ref, ref)) {
-            record->state = COXVBN_MODULE_REVOKED;
-            record->granted = COXVBN_CAP_NONE;
-            return true;
-        }
+
+    record = find_record(registry, ref);
+    if (record == NULL || record->state == COXVBN_MODULE_REVOKED ||
+        record->state == COXVBN_MODULE_UNUSED)
+        return false;
+
+    if (record->state == COXVBN_MODULE_ACTIVE) {
+        if (vault == NULL ||
+            !coxvbn_key_vault_revoke_receiver(
+                vault, record->ref.module_id, &record->receiver_key))
+            return false;
     }
-    return false;
+
+    record->state = COXVBN_MODULE_REVOKED;
+    record->granted = COXVBN_CAP_NONE;
+    return true;
 }
