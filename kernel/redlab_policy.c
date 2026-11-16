@@ -2,10 +2,12 @@
 static size_t address_bytes(uint8_t f){return f==COXVBN_IP_V4?4U:(f==COXVBN_IP_V6?16U:0U);}
 bool coxvbn_redlab_cidr_valid(const struct coxvbn_cidr *c){
  size_t n,full,rem,i;if(!c)return false;n=address_bytes(c->family);
- if(!n||c->prefix>n*8U)return false;full=c->prefix/8U;rem=c->prefix%8U;
+ if(!n||c->prefix>n*8U)return false;
+ full=c->prefix/8U;rem=c->prefix%8U;
  if(rem&&(c->network[full]&(uint8_t)((1U<<(8U-rem))-1U)))return false;
  for(i=full+(rem?1U:0U);i<n;i++)if(c->network[i])return false;
- for(i=n;i<16U;i++)if(c->network[i])return false;return true;
+ for(i=n;i<16U;i++)if(c->network[i])return false;
+ return true;
 }
 bool coxvbn_redlab_cidr_contains(const struct coxvbn_cidr *c,const struct coxvbn_ip_addr *a){
  size_t full,rem;if(!coxvbn_redlab_cidr_valid(c)||!a||a->family!=c->family)return false;
@@ -16,11 +18,14 @@ bool coxvbn_redlab_cidr_contains(const struct coxvbn_cidr *c,const struct coxvbn
 }
 static bool address_valid(const struct coxvbn_ip_addr *a){
  size_t n=a?address_bytes(a->family):0U;if(!n)return false;
- for(size_t i=n;i<16U;i++)if(a->bytes[i])return false;return true;
+ for(size_t i=n;i<16U;i++)if(a->bytes[i])return false;
+ return true;
 }
 static bool address_equal(const struct coxvbn_ip_addr *a,const struct coxvbn_ip_addr *b){
- if(a->family!=b->family)return false;size_t n=address_bytes(a->family);
- for(size_t i=0;i<n;i++)if(a->bytes[i]!=b->bytes[i])return false;return true;
+ if(a->family!=b->family)return false;
+ size_t n=address_bytes(a->family);
+ for(size_t i=0;i<n;i++)if(a->bytes[i]!=b->bytes[i])return false;
+ return true;
 }
 static void audit(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q,enum coxvbn_redlab_decision d){
  struct coxvbn_redlab_audit_event e;if(!p->audit)return;e.version=COXVBN_REDLAB_AUDIT_VERSION;
@@ -43,7 +48,8 @@ static enum coxvbn_redlab_decision scope(const struct coxvbn_redlab_policy *p,co
  if(q->port<r->first_port||q->port>r->last_port||!coxvbn_redlab_cidr_contains(&r->target,&q->target))continue;
  if(r->exclude)return COXVBN_REDLAB_DENY_EXCLUDED;
  if(q->now<r->not_before||q->now>=r->expires_at){expired=true;continue;}allowed=true;}
- if(allowed)return COXVBN_REDLAB_ALLOW;return expired?COXVBN_REDLAB_DENY_TIME:COXVBN_REDLAB_DENY_SCOPE;
+ if(allowed)return COXVBN_REDLAB_ALLOW;
+ return expired?COXVBN_REDLAB_DENY_TIME:COXVBN_REDLAB_DENY_SCOPE;
 }
 static size_t find_target(struct coxvbn_redlab_policy *p,const struct coxvbn_ip_addr *a,bool *ok){
  size_t free_i=COXVBN_REDLAB_MAX_TARGETS;
@@ -53,7 +59,9 @@ static size_t find_target(struct coxvbn_redlab_policy *p,const struct coxvbn_ip_
 static size_t find_job(struct coxvbn_redlab_policy *p,uint64_t id){for(size_t i=0;i<COXVBN_REDLAB_MAX_JOBS;i++)if(p->jobs[i].used&&p->jobs[i].job_id==id)return i;return COXVBN_REDLAB_MAX_JOBS;}
 static size_t free_job(struct coxvbn_redlab_policy *p){for(size_t i=0;i<COXVBN_REDLAB_MAX_JOBS;i++)if(!p->jobs[i].used)return i;return COXVBN_REDLAB_MAX_JOBS;}
 bool coxvbn_redlab_job_finish(struct coxvbn_redlab_policy *p,uint64_t id){
- if(!p||!id)return false;size_t s=find_job(p,id);if(s==COXVBN_REDLAB_MAX_JOBS)return false;
+ if(!p||!id)return false;
+ size_t s=find_job(p,id);
+ if(s==COXVBN_REDLAB_MAX_JOBS)return false;
  struct coxvbn_redlab_job_state *j=&p->jobs[s];if(j->target_slot>=COXVBN_REDLAB_MAX_TARGETS)return false;
  struct coxvbn_redlab_target_state *t=&p->targets[j->target_slot];if(t->active_jobs)--t->active_jobs;j->used=false;return true;
 }
@@ -81,7 +89,9 @@ enum coxvbn_redlab_decision coxvbn_redlab_policy_check(struct coxvbn_redlab_poli
  ++t->requests_in_window;j->bytes_used+=q->bytes;audit(p,q,COXVBN_REDLAB_ALLOW);return COXVBN_REDLAB_ALLOW;
 }
 void coxvbn_redlab_global_stop(struct coxvbn_redlab_policy *p){
- if(!p||p->stopped)return;p->stopped=true;audit(p,NULL,COXVBN_REDLAB_DENY_STOPPED);
+ if(!p||p->stopped)return;
+ p->stopped=true;
+ audit(p,NULL,COXVBN_REDLAB_DENY_STOPPED);
  for(size_t i=0;i<COXVBN_REDLAB_MAX_JOBS;i++)if(p->jobs[i].used)(void)coxvbn_redlab_job_finish(p,p->jobs[i].job_id);
  for(size_t i=0;i<COXVBN_REDLAB_MAX_TARGETS;i++){p->targets[i].active_jobs=0;p->targets[i].used=false;}
 }
