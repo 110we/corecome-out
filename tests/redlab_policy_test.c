@@ -11,6 +11,7 @@ int main(void){
  struct coxvbn_redlab_policy p;struct audit_log log={0,COXVBN_REDLAB_ALLOW};struct coxvbn_redlab_limits lim={2,1,10,100};
  struct coxvbn_redlab_rule r[2];struct coxvbn_redlab_request q;struct coxvbn_cidr c6;struct coxvbn_ip_addr a6;size_t before;
  r[0]=rule4(192,0,2,0,24,80,443,100,200,false);r[1]=rule4(192,0,2,128,25,80,443,100,200,true);
+ assert(!coxvbn_redlab_policy_init(&p,r,2,&lim,false,NULL,&log));
  assert(coxvbn_redlab_policy_init(&p,r,2,&lim,false,record,&log));memset(&q,0,sizeof(q));q.job_id=1;q.target=ip4(192,0,2,10);q.port=443;q.now=100;q.bytes=10;
  assert(coxvbn_redlab_policy_check(&p,&q)==COXVBN_REDLAB_ALLOW);assert(coxvbn_redlab_policy_check(&p,&q)==COXVBN_REDLAB_ALLOW);assert(coxvbn_redlab_policy_check(&p,&q)==COXVBN_REDLAB_DENY_RATE);
  q.job_id=2;q.now=101;assert(coxvbn_redlab_policy_check(&p,&q)==COXVBN_REDLAB_DENY_CONCURRENCY);q.now=99;assert(coxvbn_redlab_policy_check(&p,&q)==COXVBN_REDLAB_DENY_TIME);
