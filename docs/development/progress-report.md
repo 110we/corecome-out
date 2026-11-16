@@ -32,14 +32,14 @@ This report distinguishes implemented/tested contracts from runtime capabilities
 - COXVBN builds its AArch64 image from `kernels/COXVBN/` and no longer compiles RedLab source files.
 - RedLab builds independently with `make -C kernels/RedLab clean all test` and produces `libredlab.a`.
 - RedLab policy/profile tests are owned by `kernels/RedLab/tests/`.
-- GitHub Actions now has separate COXVBN and RedLab jobs. RedLab build and standalone tests passed on the current PR run; COXVBN's AArch64 job was still running when this report was prepared.
+- GitHub Actions has separate `aarch64-build` and `redlab-build` jobs. Both jobs completed successfully on PR run [43841560110](https://github.com/110we/corecome-out/actions/runs/43841560110), including COXVBN host tests, AArch64 image and vector checks, QEMU device-tree and serial-boot checks, plus RedLab standalone build and tests.
 - RedLab is a host library, not a second bootable OS kernel. Running it inside COXVBN still requires a module ABI, loader, syscall/IPC boundary, and runtime isolation.
 
 ## Latest verified repository and CI state
 
-- Latest CI-verified source commit: [5a4cd33](https://github.com/110we/corecome-out/commit/5a4cd335db412c52f0168a0732d6abf7d460f051)
-- Independent build workflow: [run 43841307094](https://github.com/110we/corecome-out/actions/runs/43841307094) — **success**
-- Both CI jobs tested source commit `5a4cd335db412c52f0168a0732d6abf7d460f051`: COXVBN host tests, AArch64 image build, vector checks, QEMU device-tree checks and QEMU serial boot; plus RedLab standalone library build and tests.
+- Latest branch commit: [01e3d4a](https://github.com/110we/corecome-out/commit/01e3d4a4d3b925121287477d0a76b9eb69872d4b) (progress-report update; no kernel source change)
+- Latest PR workflow for that commit: [run 43841560110](https://github.com/110we/corecome-out/actions/runs/43841560110) — **success**
+- Both jobs completed successfully: COXVBN host tests, AArch64 image build, image/vector checks, QEMU device-tree and serial-boot checks; RedLab standalone library build and tests.
 - The change is tracked in [PR #5](https://github.com/110we/corecome-out/pull/5); it remains open and unmerged.
 - The latest workflow covered host tests, AArch64 kernel build, image/vector checks and QEMU serial boot checks.
 - Changes remain on `refactor/classify-kernel-subsystems`, targeting `rewrite/corecome-from-zero`; `main` has not been modified or merged by this work.
