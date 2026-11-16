@@ -1,6 +1,6 @@
 # kernel · 代码空间
 
-**主线只有一条：`kernel/` —— AArch64 宏内核（EL0/EL1）。**
+**主线只有一条：`kernels/COXVBN/` —— AArch64 宏内核（EL0/EL1）。**
 `services/` 是**用户态服务层实验**（Side 契约、能力总线、HTTP 闸门），
 它们能编译、能自检，但**不参与内核能力宣称**，也不要拿它们跟 Linux 比。
 
@@ -19,18 +19,19 @@
 - 自检：`make test`
 - 裸机：`make kernel-test`
 - 大内核（AArch64 裸机，EL0/EL1、4K 页表、COW fork、clone 线程、kill/信号、
-  virtio-blk + 只读 ext2）：`cd kernel && make && make test`，
+  virtio-blk + 只读 ext2）：`cd kernels/COXVBN && make && make test`，
   与 Linux 的能力对照见 [`docs/kernel/status.md`](docs/kernel/status.md)
 
 ## 现状
 
 | 位置 | 内容 |
 |---|---|
-| `kernel/` | **内核主线**：AArch64 EL0/EL1、4K 页表、COW fork、clone 线程、信号、ramfs + ext2、virtio-blk、DTB 只读解析；`make test-m4` 跑通 EL0 init + shell（ls/cat）。M0–M4 已通，M5 进行中 |
-| `kernel/core/` | 入口 `system.c`、panic、运行时信息 |
-| `kernel/arch/aarch64/` | `boot/`（入口汇编 + 链接脚本）、`exception/`、`context/`、`mmu/` |
+| `kernels/COXVBN/` | **内核主线**：AArch64 EL0/EL1、4K 页表、COW fork、clone 线程、信号、ramfs + ext2、virtio-blk、DTB 只读解析；`make test-m4` 跑通 EL0 init + shell（ls/cat）。M0–M4 已通，M5 进行中 |
+| `kernels/RedLab/` | COXVBN 的授权安全测试与隐私保护扩展，独立维护策略、工具适配和测试；当前先建立目录边界，尚未形成独立启动镜像 |
+| `kernels/COXVBN/core/` | 入口 `system.c`、panic、运行时信息 |
+| `kernels/COXVBN/arch/aarch64/` | `boot/`（入口汇编 + 链接脚本）、`exception/`、`context/`、`mmu/` |
 | `drivers/` | `bus/fdt.c`、`storage/virtio_blk.c`；timer / interrupt 等仍在内核主体里，待拆 |
-| `filesystems/` | `ext2/`（只读）；ramfs 由 `kernel/vfs` 提供 |
+| `filesystems/` | `ext2/`（只读）；ramfs 由 `kernels/COXVBN/vfs` 提供 |
 | `services/astra/` | 能力总线（`Cap` / `Message` / `Module` / `Bus` / `Edge`），鉴权在总线上而不是 HTTP 层 |
 | `services/init/` | 服务生命周期：`Kernel` / `Side` / `SideState` / `Config` / `Main` |
 | `services/security/` | `Guard` / `Policy` 三档 |
@@ -144,7 +145,7 @@ Kernel 装配
 **AI 写的：**
 
 - 上述契约在 `services/` 里的实现（Kernel / Side / HttpService / Policy / 两个面 / Main），
-  以及 `tests/` 下的全部自检脚本、`kernel/` 下的 AArch64 内核与文档。
+  以及 `tests/` 下的全部自检脚本、`kernels/COXVBN/` 下的 AArch64 内核与文档。
 - 测试暴露问题后的修复：例如“拿不到来源地址就当本机”是历史漏洞，
   由安全自检抓出；`fork/wait` 返回值被 dispatch 覆盖，由裸机断言抓出。
 
@@ -188,7 +189,7 @@ Kernel 装配
 
 - **不追求 Linux ABI**：不跑 glibc、不跑现成 Linux 二进制、不承诺 POSIX 全量；
   目标是“能跑自己编译的静态 EL0 程序”的教学级宏内核。
-- 内核主线只认 `kernel/`；`services/` 是用户态服务层实验，不算内核能力。
+- 内核主线只认 `kernels/COXVBN/`；`services/` 是用户态服务层实验，不算内核能力。
 - 不支持 x86/ARM32/Windows；只承诺 AArch64 + Linux + JDK 17。
 - 不承诺跨版本 ABI；`Side`/路由随时可能因补面而变，以 `server_smoke.py` 的快照为准。
 - **墓碑满时的策略未定义**（拒绝新进程 / 丢最旧 / 阻塞），仓库版未实现，不在本文件承诺。
@@ -201,7 +202,7 @@ Kernel 装配
 **AGPL-3.0-only**（见 `LICENSE`，GNU Affero GPL v3；文件正文没有 “or later” 条款，
 所以按 only 处理）。网络分发修改版需提供对应源码。
 
-## 裸机（kernel/）
+## 裸机（kernels/COXVBN/）
 
 aarch64 裸机内核，现在是 EL1 **大内核**：异常向量、GICv2、100 Hz 定时器、MMU，
 加上页分配/slab、COW fork、clone 线程、kill/信号、ramfs + VFS、

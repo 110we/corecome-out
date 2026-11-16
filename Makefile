@@ -32,16 +32,16 @@ test-failure: build
 	python3 tests/integration/failure_test.py
 
 kernel:
-	$(MAKE) -C kernel
+	$(MAKE) -C kernels/COXVBN
 
 kernel-test:
-	$(MAKE) -C kernel test
+	$(MAKE) -C kernels/COXVBN test
 
 kernel-m4:
-	$(MAKE) -C kernel test-m4
+	$(MAKE) -C kernels/COXVBN test-m4
 
 test: test-netos test-security test-astra test-compat test-smoke test-failure
 
 clean:
 	rm -rf out
-	$(MAKE) -C kernel clean
+	$(MAKE) -C kernels/COXVBN clean
