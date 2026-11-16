@@ -69,6 +69,8 @@ int arm_timer_init(void)
     if (frequency == 0U)
         return ARM_TIMER_ERR_UNAVAILABLE;
 
+    write_cntp_ctl(0U);
+    timer_isb();
     write_cntp_ctl(CNTP_CTL_IMASK);
     timer_isb();
     timer_frequency = frequency;
