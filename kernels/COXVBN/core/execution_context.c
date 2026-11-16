@@ -43,3 +43,14 @@ bool coxvbn_execution_context_current_module(
     }
     return true;
 }
+
+bool coxvbn_module_authorize_current(
+    struct coxvbn_module_registry *registry,
+    coxvbn_capability_t required)
+{
+    struct coxvbn_module_ref current;
+    if (registry == 0 || required == COXVBN_CAP_NONE ||
+        !coxvbn_execution_context_current_module(&current))
+        return false;
+    return coxvbn_module_authorize(registry, &current, required);
+}
