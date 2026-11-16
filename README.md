@@ -1,13 +1,37 @@
-# kernel · 代码空间
+# COXVBN 项目家族 · 三条独立产品线
 
-**主线只有一条：`kernel/` —— AArch64 宏内核（EL0/EL1）。**
-`services/` 是**用户态服务层实验**（Side 契约、能力总线、HTTP 闸门），
-它们能编译、能自检，但**不参与内核能力宣称**，也不要拿它们跟 Linux 比。
+本仓库围绕三个彼此独立的产品方向展开。它们有各自的职责、代码边界和开发路线，不应混为同一个内核或同一套运行模式。
 
-内核目标写死：**能跑自己编译的静态 EL0 程序**的教学级宏内核，
-按 M0–M5 推进（见 [`docs/kernel/status.md`](docs/kernel/status.md)）。
-**不追求 Linux ABI 兼容**：不跑 glibc、不跑现成 Linux 二进制、不承诺 POSIX 全量。
-“语义对齐”指机制角色对得上，不是“能替换 Linux”。
+| 产品 | 定位 | 当前边界 |
+|---|---|---|
+| **COXVBN** | 基础 AArch64 内核 | 独立内核镜像与底层子系统 |
+| **RedLab** | 授权安全评估与隐私配置库 | 独立构建的库，不是可启动的操作系统内核 |
+| **OpenKernel** | 第三个独立的通用 AArch64 内核 | 独立启动入口、链接布局、构建系统与扩展路线；目前处于启动与串口输出基础阶段 |
+
+## OpenKernel：第三独立内核
+
+OpenKernel 不是 RedLab 的模式，也不是 COXVBN 的插件或扩展。它拥有独立源树、启动路径、平台接口和后续子系统路线。
+
+- 不继承 COXVBN 的 capability masks。
+- 不继承 RedLab 的目标范围规则或 Daily Privacy Profile 限制。
+- 功能配置与扩展策略由 OpenKernel 自己定义。
+- 内存安全、特权隔离、设备所有权和资源生命周期仍是可靠内核必须具备的正确性基础。
+
+**当前进度说明：** OpenKernel 已建立独立 AArch64 启动与串口输出基础，并通过独立构建及 QEMU 串口启动检查；这不代表完整操作系统已经完成。MMU、内存分配、异常与中断、调度、进程、用户态、系统调用、IPC、驱动、网络、文件系统和模块 ABI 仍在后续路线中。
+
+- [OpenKernel 架构与完成路线](docs/third-kernel/open-kernel.md)
+- [开发进度报告](docs/development/progress-report.md)
+- [开发路线图](docs/development/roadmap.md)
+- [OpenKernel 独立构建 CI](https://github.com/110we/corecome-out/actions/runs/43846739631)
+
+## 产品边界原则
+
+1. 三条产品线分别维护自己的代码、构建与运行边界。
+2. RedLab 是库，不将它描述为可启动内核。
+3. OpenKernel 的功能路线由自身设计决定，不继承前两条产品线的产品策略限制。
+4. 只有实现代码和自动化验证都存在的功能，才标记为已完成。
+
+---
 
 ## 环境（代码空间）
 
