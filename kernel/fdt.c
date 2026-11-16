@@ -41,8 +41,8 @@ struct node_state {
     uint32_t reg_length;
     const uint8_t *reg;
     uint8_t is_memory;
+    uint8_t is_reserved;
     uint8_t is_reserved_container;
-    uint8_t is_reserved_child;
 };
 
 static uint32_t be32(const uint8_t *p)
@@ -259,7 +259,7 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                 stack[depth].reg = NULL;
                 stack[depth].reg_length = 0;
                 stack[depth].is_memory = 0;
-                stack[depth].is_reserved_child =
+                stack[depth].is_reserved =
                     stack[depth - 1U].is_reserved_container;
                 stack[depth].is_reserved_container = 0;
             }
@@ -269,12 +269,15 @@ int fdt_parse(const void *blob, struct fdt_info *info)
             if (string_is((const char *)(structure + start), "reserved-memory") &&
                 depth == 1U) {
                 stack[depth].is_reserved_container = 1;
-                stack[depth].is_reserved_child = 0;
+                stack[depth].is_reserved = 0;
             }
             ++depth;
         } else if (token == FDT_END_NODE) {
             if (depth == 0U) { FDT_TRACE("FDTDBG: END_NODE at depth zero\n"); return -13; }
-            if (collect_node(&stack[depth - 1U], info)) { FDT_TRACE("FDTDBG: collect node failed\n"); return -14; }
+            if (collect_node(&stack[depth - 1U], info)) {
+                FDT_TRACE("FDTDBG: collect node failed\n");
+                return -14;
+            }
             if (depth == 1U) {
                 info->address_cells = stack[0].address_cells;
                 info->size_cells = stack[0].size_cells;
