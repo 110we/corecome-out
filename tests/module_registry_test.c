@@ -97,6 +97,32 @@ int main(void)
     assert(!coxvbn_module_revoke(
         &registry, &loader_authority, &vault, &driver));
 
+    assert(!coxvbn_module_register_domain(
+        &registry, &loader_authority, COXVBN_DOMAIN_DAILY_PROFILE,
+        COXVBN_CAP_REDLAB_ACTIVE_PROBE, COXVBN_CAP_REDLAB_ACTIVE_PROBE,
+        &rejected));
+    assert(coxvbn_module_register_domain(
+        &registry, &loader_authority, COXVBN_DOMAIN_DAILY_PROFILE,
+        COXVBN_CAP_DAILY_PROFILE_DATA | COXVBN_CAP_DAILY_PROFILE_SETTINGS,
+        COXVBN_CAP_DAILY_PROFILE_DATA, &rejected));
+    assert(!coxvbn_module_has_capability(
+        &registry, &rejected, COXVBN_CAP_REDLAB_DISCOVERY));
+    assert(coxvbn_module_register_domain(
+        &registry, &loader_authority, COXVBN_DOMAIN_REDLAB,
+        COXVBN_CAP_REDLAB_DISCOVERY | COXVBN_CAP_REDLAB_ACTIVE_PROBE,
+        COXVBN_CAP_REDLAB_DISCOVERY, &rejected));
+    assert(coxvbn_module_activate(
+        &registry, &loader_authority, &vault, &rejected, 10U,
+        key, sizeof(key), proof, sizeof(proof)));
+    assert(coxvbn_module_authorize(
+        &registry, &rejected, COXVBN_CAP_REDLAB_DISCOVERY));
+    assert(!coxvbn_module_authorize(
+        &registry, &rejected, COXVBN_CAP_REDLAB_ACTIVE_PROBE));
+    assert(coxvbn_module_revoke(
+        &registry, &loader_authority, &vault, &rejected));
+    assert(!coxvbn_module_authorize(
+        &registry, &rejected, COXVBN_CAP_REDLAB_DISCOVERY));
+
     puts("COXVBN module registry and Key Vault activation tests: PASS");
     return 0;
 }
