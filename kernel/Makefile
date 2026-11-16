@@ -6,6 +6,7 @@
 .RECIPEPREFIX = >
 
 CROSS ?= aarch64-linux-gnu-
+HOST_CC ?= cc
 CC := $(CROSS)gcc
 LD := $(CROSS)ld
 
@@ -28,6 +29,7 @@ SRCS := \
         scheduler/sched.c \
         syscall/syscall.c \
         vfs/vfs.c \
+        ../drivers/core/driver_model.c \
         ../drivers/storage/virtio_blk.c \
         ../drivers/bus/fdt.c \
         ../filesystems/ext2/ext2.c
@@ -61,7 +63,7 @@ QEMU := qemu-system-aarch64
 QEMUFLAGS := -M virt,gic-version=2 -cpu cortex-a53 -display none -monitor none
 QEMU_EXTRA ?=
 
-.PHONY: all run test test-cmd test-m4 clean
+.PHONY: all run test test-driver-host test-cmd test-m4 clean
 
 all: $(BUILD)/kernel.bin
 
@@ -95,7 +97,12 @@ $(DISK): $(STAGE)/hello.txt
 run: $(BUILD)/kernel.bin $(DISK)
 > $(QEMU) $(QEMUFLAGS) $(DISKFLAGS) -serial stdio -kernel $<
 
-test: $(BUILD)/kernel.bin $(DISK)
+test-driver-host: | $(BUILD)
+> $(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I include \
+>     tests/driver_registry_test.c ../drivers/core/driver_model.c -o $(BUILD)/driver_registry_test
+> $(BUILD)/driver_registry_test
+
+test: test-driver-host $(BUILD)/kernel.bin $(DISK)
 > @rm -f $(BUILD)/serial.log
 > @timeout 10 $(QEMU) $(QEMUFLAGS) $(DISKFLAGS) $(QEMU_EXTRA) -serial file:$(BUILD)/serial.log -kernel $< || true
 > @cat $(BUILD)/serial.log

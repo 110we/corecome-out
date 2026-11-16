@@ -45,6 +45,8 @@ struct node_state {
     int nseg;
     u64 base[2];
     u64 size[2];
+    char name[32];
+    char compatible[64];
 };
 
 static struct dtb_info g_dt;
@@ -158,6 +160,8 @@ static void node_reset(struct node_state *n)
     n->base[1] = 0;
     n->size[0] = 0;
     n->size[1] = 0;
+    n->name[0] = '\0';
+    n->compatible[0] = '\0';
 }
 
 static void node_reg(struct node_state *n, const u8 *d, u32 len)
@@ -180,6 +184,16 @@ static void node_reg(struct node_state *n, const u8 *d, u32 len)
 
 static void node_finish(struct node_state *n)
 {
+    if (n->compatible[0] != '\0' && n->nseg >= 1 &&
+        g_dt.device_count < DTB_DEVICE_MAX) {
+        struct dtb_device *d = &g_dt.devices[g_dt.device_count++];
+        copy_cstr((const u8 *)n->name, 31, d->name, sizeof(d->name));
+        copy_cstr((const u8 *)n->compatible, 63, d->compatible,
+                  sizeof(d->compatible));
+        d->base = n->base[0];
+        d->size = n->size[0];
+    }
+
     if (n->kind == NODE_UART && n->nseg >= 1) {
         g_dt.uart_base = n->base[0];
         g_dt.uart_size = n->size[0];
@@ -222,6 +236,8 @@ static void handle_prop(u32 depth, const char *path, const char *name,
     }
 
     if (str_eq(name, "compatible")) {
+        copy_cstr(d, len, g_ns[depth].compatible,
+                  sizeof(g_ns[depth].compatible));
         if (compat_has(d, len, "arm,pl011")) {
             g_ns[depth].kind = NODE_UART;
         } else if (compat_has(d, len, "arm,cortex-a15-gic") ||
@@ -288,6 +304,8 @@ static int scan(void)
                 return -1;
             }
             node_reset(&g_ns[depth]);
+            copy_cstr(g_base + pos, nlen, g_ns[depth].name,
+                      sizeof(g_ns[depth].name));
             if (str_eq(path, "/memory") || str_has_prefix(path, "/memory@")) {
                 g_ns[depth].kind = NODE_MEM;
             }

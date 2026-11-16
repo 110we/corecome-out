@@ -535,6 +535,7 @@ static void thr_b(void *arg)
 
 int kmain(u64 dtb)
 {
+    const struct dtb_info *dti;
     u64 sp;
     u64 vbar;
     u64 sctlr;
@@ -542,14 +543,11 @@ int kmain(u64 dtb)
     /* M5：先把 DTB 读出来，UART 基址由它决定。
      * 解析失败就用编译期地址继续，但日志里必须留下原因。 */
     (void)fdt_init(dtb);
-    {
-        const struct dtb_info *dti = dtb_info();
-
-        if (dti->ok) {
-            uart = (volatile u32 *)dti->uart_base;
-            gicd = (volatile u32 *)dti->gicd_base;
-            gicc = (volatile u32 *)dti->gicc_base;
-        }
+    dti = dtb_info();
+    if (dti->ok) {
+        uart = (volatile u32 *)dti->uart_base;
+        gicd = (volatile u32 *)dti->gicd_base;
+        gicc = (volatile u32 *)dti->gicc_base;
     }
 
     puts_("\n[bare] aarch64 virt, PL011 UART up\n");
@@ -560,6 +558,12 @@ int kmain(u64 dtb)
     printk("[bare] el=%u  sp=%x\n", (sctlr >> 2) & 3, sp);
     printk("[bare] entry=%x  dtb=%x\n", (u64)(void *)kmain, dtb);
     fdt_dump();
+    if (dti->ok && device_model_init(dti) == 0) {
+        printk("[drv] device model: %u DT devices\\n", device_count());
+    } else {
+        (void)device_model_init((const struct dtb_info *)0);
+        puts_("[drv] device model: unavailable\\n");
+    }
 
     puts_("[bare] check: sp ");
     if (sp > (u64)__stack_bottom && sp <= (u64)__stack_top) {

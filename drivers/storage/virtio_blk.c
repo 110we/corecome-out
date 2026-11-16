@@ -10,10 +10,6 @@
 #include "kern.h"
 #include "blk.h"
 
-#define VIRT_BASE   0x0A000000UL
-#define VIRT_STRIDE 0x200UL
-#define VIRT_SLOTS  32   /* virt 机一共 32 个 mmio 传输口，设备从高位往低位插 */
-
 /* legacy（version=1）的寄存器表比 modern 整体偏 8 字节：
  * 0x028 是 GuestPageSize，不是 QueueSel。照 modern 的表写，
  * 所有配置都落在错误寄存器上，表现就是“写进去读回来全是 0”。 */
@@ -102,44 +98,35 @@ u64 blk_reqs(void)
     return req_count;
 }
 
-int blk_init(void)
+static int virtio_blk_probe(struct device *dev)
 {
     u32 i;
+    volatile u32 *r;
 
-    for (i = 0; i < VIRT_SLOTS; i++) {
-        volatile u32 *r = (volatile u32 *)(VIRT_BASE + i * VIRT_STRIDE);
-
-        if (r[R_MAGIC / 4] != 0x74726976UL) { /* "virt" */
-            continue;
-        }
-        if (r[R_DEVID / 4] != 2) {            /* 2 = block */
-            continue;
-        }
-        printk("[blk] found virtio-mmio slot%u\n", i);
-        regs = r;
-        break;
-    }
-    if (regs == (volatile u32 *)0) {
+    if (dev == (struct device *)0 || dev->base == 0 ||
+        dev->size < R_CONFIG + 8 || regs != (volatile u32 *)0) {
         return -1;
     }
-
-    /* 复位 → 认驱动 → 谈特性。特性一位都不要：纯轮询、无中断、无 RO 位。 */
+    r = (volatile u32 *)dev->base;
+    if (r[R_MAGIC / 4] != 0x74726976UL || r[R_DEVID / 4] != 2) {
+        return -1;
+    }
+    printk("[blk] probe %s at %x\\n", dev->name, dev->base);
+    regs = r;
     wr(R_GUESTPAGE, 4096);
     wr(R_STATUS, 0);
     wr(R_STATUS, ST_ACK);
     wr(R_STATUS, ST_ACK | ST_DRIVER);
     wr(R_GUESTFEAT, 0);
-    /* legacy 没有 FEATURES_OK 这一步：ACK|DRIVER 之后就配队列 */
     wr(R_STATUS, ST_ACK | ST_DRIVER);
-
     wr(R_QUEUESEL, 0);
     if (rd(R_QUEUENUMMAX) < VQ_SIZE) {
+        regs = (volatile u32 *)0;
         return -1;
     }
     wr(R_QUEUENUM, VQ_SIZE);
     wr(R_QUEUEALIGN, 4096);
     wr(R_QUEUEPFN, (u32)((u64)queue_mem >> 12));
-
     for (i = 0; i < VQ_SIZE; i++) {
         QDESC[i].addr = 0;
         QDESC[i].len = 0;
@@ -153,15 +140,29 @@ int blk_init(void)
     used_seen = 0;
     wr(R_IACK, 0xFFFFFFFFUL);
     wr(R_STATUS, ST_ACK | ST_DRIVER | ST_DRIVEROK);
-
-    /* 配置区头 8 字节 = 容量（512B 扇区数） */
     dev_sectors = (u64)rd(R_CONFIG) | ((u64)rd(R_CONFIG + 4) << 32);
     req_count = 0;
     if (rd(R_STATUS) != (ST_ACK | ST_DRIVER | ST_DRIVEROK)) {
+        regs = (volatile u32 *)0;
         return -1;
     }
     return 0;
 }
+
+static const struct driver virtio_blk_driver = {
+    "virtio-blk", "virtio,mmio", virtio_blk_probe
+};
+
+int blk_init(void)
+{
+    regs = (volatile u32 *)0;
+    dev_sectors = 0;
+    req_count = 0;
+    if (driver_register(&virtio_blk_driver) != 0) return -1;
+    (void)driver_bind_all();
+    return regs == (volatile u32 *)0 ? -1 : 0;
+}
+
 /* 一次同步读：三描述符链（头 / 数据 / 状态），轮询 used.idx。
  * 没有中断、没有回收队列——一次一个请求，简单到不会错。 */
 int blk_read(u64 sector, void *buf, u32 nsec)

@@ -110,7 +110,15 @@ void syscall_dump(void);
 u64 heap_size(void);
 u64 heap_used(void);
 
-/* ---- 设备树（M5） ---- */
+#define DTB_DEVICE_MAX 48
+struct dtb_device {
+    char name[32];
+    char compatible[64];
+    u64 base;
+    u64 size;
+};
+
+/* ---- 设备树与设备模型（M5） ---- */
 /* 只读解析结果。ok=0 时 err 是一句能打出来的原因，
  * 调用方必须回落到编译期地址，不能拿半成品字段去访问硬件。 */
 struct dtb_info {
@@ -121,6 +129,8 @@ struct dtb_info {
     u32 version;
     u32 nodes;
     u32 props;
+    u32 device_count;
+    struct dtb_device devices[DTB_DEVICE_MAX];
     u32 addr_cells;
     u32 size_cells;
     u64 mem_base;
@@ -137,6 +147,28 @@ struct dtb_info {
 int fdt_init(u64 dtb);
 const struct dtb_info *dtb_info(void);
 void fdt_dump(void);
+
+struct device;
+struct driver {
+    const char *name;
+    const char *compatible;
+    int (*probe)(struct device *dev);
+};
+struct device {
+    char name[32];
+    char compatible[64];
+    u64 base;
+    u64 size;
+    const struct driver *driver;
+    void *driver_data;
+    int bound;
+};
+int device_model_init(const struct dtb_info *dt);
+int driver_register(const struct driver *drv);
+int driver_bind_all(void);
+u32 device_count(void);
+u32 device_bound_count(void);
+const struct device *device_get(u32 index);
 
 /* ---- VFS / ramfs / 设备 ---- */
 #define VFS_PATH_MAX 96
