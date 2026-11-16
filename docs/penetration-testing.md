@@ -55,6 +55,10 @@ Kernel security boundary
 
 The diagram is a target architecture, not a claim that these components already exist. The current kernel has a module registry and capability-mask contract, but it does not yet have user mode, a syscall ABI, a network stack, persistent audit storage, or a production cryptographic backend.
 
+## R1 policy-core status
+
+The initial R1 policy library is implemented in kernel/redlab_policy.c and host-tested. It supports canonical IPv4/IPv6 CIDR matching, allow/exclusion precedence, port ranges, monotonic engagement windows, default-deny decisions, active-test default-off, per-target request/concurrency limits, per-job duration/byte budgets, audit callbacks, and a sticky global stop. It performs no DNS resolution or network I/O. Kernel-owned caller identity, locking, and integration with a future network/syscall boundary remain unimplemented; see docs/redlab-policy-core.md.
+
 ## Delivery stages
 
 - **R0 — design and boundaries:** document threat model, scope schema, capability classes, audit event schema, and kill-switch semantics.

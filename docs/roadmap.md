@@ -67,9 +67,9 @@
 
 ## Milestone 8 — COXVBN RedLab authorized security assessment
 - [ ] Define immutable engagement scope schema, target exclusions, and authorization metadata
-- [ ] Implement host-tested deny-by-default CIDR/port/time scope guard (no network I/O)
+- [x] Implement host-tested deny-by-default IPv4/IPv6 CIDR, port, and monotonic-time scope guard (no network I/O)
 - [ ] Add separate discovery, passive-capture, and active-probe capability classes
-- [ ] Add per-target rate/resource limits, audit callbacks, and global stop semantics
+- [x] Add host-tested per-target rate/concurrency limits, per-job time/byte budgets, audit callbacks, and sticky global stop (kernel identity/locking integration remains open)
 - [ ] Bind scope and policy checks to trusted module identity and revocable capabilities
 - [ ] Add isolated user-space assessment runner after scheduler, address-space isolation, and syscall/IPC ABI
 - [ ] Add bounded discovery, service enumeration, TLS/configuration, and web/API assessment tools
