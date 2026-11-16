@@ -9,6 +9,7 @@
 #define PROP 3U
 #define END 9U
 static _Alignas(8) uint8_t blob[512];
+static int disable_memory_node;
 static void put32(uint8_t*p,uint32_t v){p[0]=(uint8_t)(v>>24);p[1]=(uint8_t)(v>>16);p[2]=(uint8_t)(v>>8);p[3]=(uint8_t)v;}
 static uint32_t get32(const uint8_t*p){return ((uint32_t)p[0]<<24)|((uint32_t)p[1]<<16)|((uint32_t)p[2]<<8)|p[3];}
 static uint32_t w(uint32_t p,uint32_t v){put32(blob+p,v);return p+4;}
@@ -21,7 +22,7 @@ static void build(void){
  const uint8_t reg[16]={0,0,0,0,0x40,0,0,0,0,0,0,0,0,0,0x10,0};
  memset(blob,0,sizeof(blob));put32(blob+p,0);put32(blob+p+4,0x1000);put32(blob+p+8,0);put32(blob+p+12,0x1000);p+=32;
  so=p;p=w(p,BEGIN_NODE);p=str(p,"");p=prop(p,4,0,ac);p=prop(p,4,16,sc);
- p=w(p,BEGIN_NODE);p=str(p,"memory@40000000");p=prop(p,7,28,dt);p=prop(p,16,40,reg);
+ p=w(p,BEGIN_NODE);p=str(p,"memory@40000000");p=prop(p,7,28,dt);if(disable_memory_node)p=prop(p,9,66,(const uint8_t*)"disabled");p=prop(p,16,40,reg);
  p=w(p,END_NODE);
  p=w(p,BEGIN_NODE);p=str(p,"reserved-memory");
  p=prop(p,4,0,(const uint8_t[]){0,0,0,1});
@@ -39,7 +40,7 @@ static void build(void){
  });
  p=w(p,END_NODE);
  p=w(p,END_NODE);p=w(p,END);ss=p-so;
- sto=p;p=str(p,"#address-cells");p=str(p,"#size-cells");p=str(p,"device_type");p=str(p,"reg");p=str(p,"compatible");sts=p-sto;
+ sto=p;p=str(p,"#address-cells");p=str(p,"#size-cells");p=str(p,"device_type");p=str(p,"reg");p=str(p,"compatible");p=str(p,"status");sts=p-sto;
  put32(blob,0xd00dfeedU);put32(blob+4,p);put32(blob+8,so);put32(blob+12,sto);put32(blob+16,H);put32(blob+20,17);put32(blob+24,16);put32(blob+28,0);put32(blob+32,sts);put32(blob+36,ss);
 }
 static void valid(void){struct fdt_info i;build();assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1);assert(i.memory[0].base==0x40000000ULL);assert(i.memory[0].size==0x1000ULL);assert(i.reserved_count==2);assert(i.reserved[0].base==0x1000ULL);assert(i.reserved[1].base==0x200000ULL);assert(i.reserved[1].size==0x1000ULL);assert(i.gicv2_found==1U);assert(i.gicv2_distributor.base==0x08000000ULL);assert(i.gicv2_distributor.size==0x10000ULL);assert(i.gicv2_cpu_interface.base==0x08010000ULL);assert(i.gicv2_cpu_interface.size==0x10000ULL);}
@@ -57,4 +58,5 @@ static void missing_root_close(void){struct fdt_info i;uint32_t so,ss,p;build();
  for(p=ss-8U;;p-=4U){if(get32(blob+so+p)==END_NODE){put32(blob+so+p,4U);break;}assert(p>=4U);}
  assert(fdt_parse(blob,&i)==-18);}
 
-int main(void){valid();bad_magic();overlap();bad_token();no_reservation_terminator();undersized_total();structure_out_of_bounds();strings_out_of_bounds();unclosed_root();missing_root_close();puts("COXVBN host FDT tests: PASS");return 0;}
+static void disabled_memory_is_ignored(void){struct fdt_info i;disable_memory_node=1;build();disable_memory_node=0;assert(fdt_parse(blob,&i)==-22);assert(i.memory_count==0U);}
+int main(void){valid();bad_magic();overlap();bad_token();no_reservation_terminator();undersized_total();structure_out_of_bounds();strings_out_of_bounds();unclosed_root();missing_root_close();disabled_memory_is_ignored();puts("COXVBN host FDT tests: PASS");return 0;}
