@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <pthread.h>
-#include "module_registry.h"
+#include "execution_context.h"
 
 static bool receiver_proof(const uint8_t *key, size_t key_len,
                            const uint8_t *proof, size_t proof_len,
@@ -18,6 +18,12 @@ static bool recovery_proof(const uint8_t *proof, size_t len, void *context)
     return proof != NULL && len == 1U && proof[0] == 0x5aU;
 }
 
+static bool fixed_module_provider(struct coxvbn_module_ref *out, void *ctx)
+{
+    if (out == NULL || ctx == NULL) return false;
+    *out = *(const struct coxvbn_module_ref *)ctx;
+    return true;
+}
 
 #define REGISTRY_WORKERS 4U
 #define REGISTRATIONS_PER_WORKER 7U
@@ -122,7 +128,6 @@ int main(void)
     assert(!coxvbn_module_register(
         &registry, &loader_authority,
         UINT64_C(1) << 40, COXVBN_CAP_NONE, &rejected));
-    /* Legacy/system registration must not be a path around domain isolation. */
     assert(!coxvbn_module_register(
         &registry, &loader_authority,
         COXVBN_CAP_REDLAB_DISCOVERY, COXVBN_CAP_REDLAB_DISCOVERY, &rejected));
@@ -168,11 +173,18 @@ int main(void)
     assert(!coxvbn_module_activate(
         &registry, &loader_authority, &vault, &driver, 9U,
         key, sizeof(key), proof, sizeof(proof)));
-    /* A failed Key Vault revoke must restore ACTIVE rather than strand the
-     * module in REVOKING or falsely report a terminal revocation. */
     assert(!coxvbn_module_revoke(
         &registry, &loader_authority, NULL, &driver));
     assert(coxvbn_module_is_active(&registry, &driver));
+
+    assert(coxvbn_execution_context_install_provider(
+        fixed_module_provider, &driver));
+    assert(!coxvbn_execution_context_install_provider(
+        fixed_module_provider, &driver));
+    assert(coxvbn_module_authorize_current(
+        &registry, COXVBN_CAP_DEVICE_READ));
+    assert(!coxvbn_module_authorize_current(
+        &registry, COXVBN_CAP_DEVICE_WRITE));
 
     assert(coxvbn_module_register(
         &registry, &loader_authority,
@@ -230,7 +242,6 @@ int main(void)
         &registry, &rejected, COXVBN_CAP_REDLAB_DISCOVERY));
 
     test_concurrent_registry_registration(&registry, &loader_authority);
-
-    puts("COXVBN module registry, concurrent registration, and Key Vault tests: PASS");
+    puts("COXVBN module registry, execution-context authorization, and Key Vault tests: PASS");
     return 0;
 }
