@@ -16,7 +16,7 @@ int main(void){
  r[0]=rule4(192,0,2,0,24,80,443,100,200,false);r[1]=rule4(192,0,2,128,25,80,443,100,200,true);
  assert(!coxvbn_redlab_policy_init(&p,r,2,&lim,false,NULL,&log));
  assert(coxvbn_redlab_policy_init(&authp,r,2,&lim,true,record,&authlog));
- const uint8_t recovery[]={0x5a};coxvbn_key_vault_init(&vault,recovery_verify,NULL);
+ coxvbn_key_vault_init(&vault,recovery_verify,NULL);
  coxvbn_key_vault_set_receiver_verifier(&vault,verify_key,NULL);
  coxvbn_module_registry_init(&registry,&authority);
  assert(coxvbn_module_register_domain(&registry,&authority,COXVBN_DOMAIN_REDLAB,
