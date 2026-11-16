@@ -414,8 +414,13 @@ int sched_wait_child(int pid, int *code)
         *code = (int)t->code;
         t->state = ST_FREE;
         t->ppid = -1;
-        /* 收尸时才还地址空间引用。fork 的进程引用只有 1 次，这里直接拆；
-         * clone 的线程共享同一份，refs>1 时只减一，最后一个才真拆。 */
+        /* 收尸时释放子进程独占的 fd 表，并归还地址空间引用。
+         * fork 的 filetable 是深拷贝，不能随 TCB 一起丢失；clone 线程
+         * 共享父线程的表，因此 sched_clone_thread 不创建新的 filetable。 */
+        if (t->ftab != 0) {
+            kfree((void *)t->ftab);
+            t->ftab = 0;
+        }
         pg_aspace_unref(t->l1);
         t->l1 = (u64 *)0;
         return t->pid;
