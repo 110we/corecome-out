@@ -29,6 +29,8 @@ int main(void)
     assert(gicv2_acknowledge(&state, &token) == GICV2_ERR_ARGUMENT);
     assert(gicv2_init(&state, (uintptr_t)distributor, 4U,
                       (uintptr_t)cpu_interface, sizeof(cpu_interface)) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_init(&state, (uintptr_t)distributor, sizeof(distributor),
+                      (uintptr_t)cpu_interface, 16U) == GICV2_ERR_ARGUMENT);
     assert(gicv2_init(&state, UINTPTR_MAX - 3U, 16U,
                       (uintptr_t)cpu_interface, sizeof(cpu_interface)) == GICV2_ERR_ARGUMENT);
 
@@ -61,8 +63,8 @@ int main(void)
 
     state.initialized = 1U;
     distributor[GICD_TYPER / 4U] = 0U;
-    assert(gicv2_init(&state, (uintptr_t)distributor,
-                      (uintptr_t)cpu_interface) == GICV2_OK);
+    assert(gicv2_init(&state, (uintptr_t)distributor, sizeof(distributor),
+                      (uintptr_t)cpu_interface, sizeof(cpu_interface)) == GICV2_OK);
     assert(state.interrupt_lines == 32U);
     cpu_interface[GICC_IAR / 4U] = 40U;
     assert(gicv2_acknowledge(&state, &token) == GICV2_NO_INTERRUPT);
