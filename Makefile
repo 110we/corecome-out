@@ -10,21 +10,29 @@ CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin \
            -fno-stack-protector -fno-pic -mgeneral-regs-only -mno-outline-atomics
 ASFLAGS := $(CFLAGS)
 KERNEL_INCLUDES := -Ikernels/COXVBN/core -Ikernels/COXVBN/memory -Ikernels/COXVBN/platform \
-                   -Ikernels/COXVBN/security -Ikernels/COXVBN/recovery \
-                   -Ikernels/RedLab/policy -Ikernels/RedLab/profile
+                   -Ikernels/COXVBN/security -Ikernels/COXVBN/recovery
 LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 
 SOURCES_C := kernels/COXVBN/core/main.c kernels/COXVBN/core/execution_context.c kernels/COXVBN/platform/uart.c kernels/COXVBN/platform/fdt.c kernels/COXVBN/security/key_vault.c \
              kernels/COXVBN/recovery/information_store.c kernels/COXVBN/recovery/emergency_recovery.c \
              kernels/COXVBN/memory/phys_alloc.c kernels/COXVBN/memory/mmu.c kernels/COXVBN/security/module_registry.c kernels/COXVBN/core/exception.c \
-             kernels/COXVBN/core/exception_decode.c kernels/COXVBN/platform/gicv2.c kernels/COXVBN/platform/arm_timer.c kernels/RedLab/policy/redlab_policy.c \
-             kernels/RedLab/profile/privacy_profile.c
+             kernels/COXVBN/core/exception_decode.c kernels/COXVBN/platform/gicv2.c kernels/COXVBN/platform/arm_timer.c
 SOURCES_S := $(ARCH)/boot.S
 OBJECTS   := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES_C)) \
              $(patsubst %.S,$(BUILD)/%.o,$(SOURCES_S))
 
-.PHONY: all clean run disassemble test-host
-all: $(BUILD)/coxvbn.elf $(BUILD)/coxvbn.bin
+.PHONY: all coxvbn redlab redlab-test test clean run disassemble test-host
+all: coxvbn redlab
+
+coxvbn: $(BUILD)/coxvbn.elf $(BUILD)/coxvbn.bin
+
+redlab:
+	$(MAKE) -C kernels/RedLab all
+
+redlab-test:
+	$(MAKE) -C kernels/RedLab test
+
+test: test-host redlab-test
 
 $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -62,12 +70,9 @@ test-host:
 	$(BUILD)/gicv2_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/platform/arm_timer_test.c kernels/COXVBN/platform/arm_timer.c -o $(BUILD)/arm_timer_test
 	$(BUILD)/arm_timer_test
-	$(HOST_CC) -DCOXVBN_REDLAB_TESTING -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/RedLab/policy/redlab_policy_test.c kernels/RedLab/policy/redlab_policy.c kernels/COXVBN/core/execution_context.c kernels/COXVBN/security/module_registry.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/redlab_policy_test
-	$(BUILD)/redlab_policy_test
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/RedLab/profile/privacy_profile_test.c kernels/RedLab/profile/privacy_profile.c -o $(BUILD)/privacy_profile_test
-	$(BUILD)/privacy_profile_test
 
-run: all
+
+run: coxvbn
 	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/coxvbn.bin
 
 disassemble: $(BUILD)/coxvbn.elf
@@ -75,3 +80,4 @@ disassemble: $(BUILD)/coxvbn.elf
 
 clean:
 	rm -rf $(BUILD)
+	$(MAKE) -C kernels/RedLab clean
