@@ -71,6 +71,7 @@ void coxvbn_key_vault_set_receiver_verifier(
  *
  * Receiver verifier callbacks execute without the vault lock held. The
  * callback and its context must remain valid until any in-flight call ends. */
+
 bool coxvbn_key_vault_enroll_receiver(
     struct coxvbn_key_vault *vault, uint64_t caller_module_id,
     uint64_t receiver_id, const uint8_t *public_key, size_t public_key_len,
@@ -88,8 +89,9 @@ bool coxvbn_key_vault_revoke_receiver(
     struct coxvbn_key_vault *vault, uint64_t caller_module_id,
     const struct coxvbn_receiver_key_ref *ref);
 
+/* Verification mutates lock state; the vault must therefore be non-const. */
 bool coxvbn_key_vault_verify_receiver(
-    const struct coxvbn_key_vault *vault,
+    struct coxvbn_key_vault *vault,
     const struct coxvbn_receiver_key_ref *ref,
     const uint8_t *proof, size_t proof_len);
 
