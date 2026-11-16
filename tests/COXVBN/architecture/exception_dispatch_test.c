@@ -46,14 +46,23 @@ int main(void)
     assert(context_count == 1U);
     assert(cpu_regs[4] == token); /* GICC_EOIR receives the complete token. */
 
+    /* Current-EL SPx IRQ uses vector slot 13, not lower-AArch32 slot 9. */
+    frame.vector = 13U;
+    cpu_regs[3] = token;
+    exception_dispatch(&frame);
+    assert(handled_count == 2U);
+    assert(context_count == 2U);
+    assert(cpu_regs[4] == token);
+
     assert(exception_unregister_irq_handler(5U) == 0);
     assert(exception_unregister_irq_handler(5U) != 0);
 
     /* A spurious interrupt returns without dispatching or writing EOI. */
+    frame.vector = 5U;
     cpu_regs[3] = 1023U;
     cpu_regs[4] = 0U;
     exception_dispatch(&frame);
-    assert(handled_count == 1U);
+    assert(handled_count == 2U);
     assert(cpu_regs[4] == 0U);
 
     puts("exception dispatch tests: PASS");
