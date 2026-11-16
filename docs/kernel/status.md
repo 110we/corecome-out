@@ -22,7 +22,7 @@
 | 抢占 | 内核可抢占 | 用户态可抢占，内核靠关中断 | 部分 | 长 syscall 拖拍 |
 | 文件 | VFS + 页缓存 + 多 FS | VFS + ramfs root + `/dev/console` + ext2 只读 | 部分 | **ext2 无挂载点**、无页缓存、无写、无日志 |
 | fd | 每进程 files_struct | 每进程 filetable | 已验证 | fork 深拷贝，clone 共享 |
-| 设备 | 驱动模型 + DT/ACPI | DTB 只读解析 + PL011/GICv2/timer/virtio-mmio blk 手写 | 部分 | 地址已来自 DTB；无驱动注册表，virtio-blk 仍是手写扫描（M5） |
+| 设备 | 驱动模型 + DT/ACPI | DTB 只读解析 + 固定注册表；virtio-blk 已 probe/bind，PL011/GICv2/timer 仍直调 | 部分 | 无动态卸载/热插拔/总线层级；phandle 与中断映射未做（M5） |
 | 网络 | TCP/IP + netfilter | 无 | 计划中 | — |
 | 信号 | 完整、可注册 handler | 仅 KILL/TERM/SEGV 默认动作 | 部分 | 无 handler / sigreturn |
 | 线程 | clone(CLONE_VM) + futex/TLS | clone 共享 mm/fd | 部分 | 无 futex、无 TLS |
