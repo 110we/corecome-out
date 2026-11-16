@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdatomic.h>
 
 #define COXVBN_KEY_MAX_PUBLIC_BYTES 128U
 #define COXVBN_KEY_MAX_PROOF_BYTES 256U
@@ -30,7 +31,11 @@ struct coxvbn_receiver_key_ref {
 enum coxvbn_receiver_key_state {
     COXVBN_RECEIVER_KEY_UNUSED = 0,
     COXVBN_RECEIVER_KEY_ACTIVE = 1,
-    COXVBN_RECEIVER_KEY_REVOKED = 2
+    COXVBN_RECEIVER_KEY_REVOKED = 2,
+    /* Reserved while a verifier callback runs without the vault lock held. */
+    COXVBN_RECEIVER_KEY_PENDING = 3,
+    /* Old key is temporarily unavailable during an atomic rotation attempt. */
+    COXVBN_RECEIVER_KEY_ROTATING = 4
 };
 
 struct coxvbn_receiver_key_record {
@@ -47,6 +52,7 @@ struct coxvbn_key_vault {
     coxvbn_receiver_proof_fn receiver_verify;
     void *receiver_context;
     uint64_t next_receiver_key_id;
+    atomic_flag receiver_lock;
     struct coxvbn_receiver_key_record
         receiver_keys[COXVBN_RECEIVER_KEY_CAPACITY];
 };
@@ -61,7 +67,10 @@ void coxvbn_key_vault_set_receiver_verifier(
     void *context);
 
 /* caller_module_id must be supplied by trusted kernel execution context,
- * never copied from an untrusted module request. */
+ * never copied from an untrusted module request.
+ *
+ * Receiver verifier callbacks execute without the vault lock held. The
+ * callback and its context must remain valid until any in-flight call ends. */
 bool coxvbn_key_vault_enroll_receiver(
     struct coxvbn_key_vault *vault, uint64_t caller_module_id,
     uint64_t receiver_id, const uint8_t *public_key, size_t public_key_len,
