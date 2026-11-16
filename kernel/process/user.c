@@ -50,46 +50,49 @@ u64 user_enter_ticks(void)
 
 static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
 {
-    u64 *l1;
-    u8 *code;
-    u8 *stk;
+    u64 *l1 = (u64 *)0;
+    u8 *code = (u8 *)0;
+    u8 *stk = (u8 *)0;
     u64 n;
     u64 i;
+    int code_mapped = 0;
+    int stack_mapped = 0;
 
     l1 = pg_aspace_new();
+    if (l1 == (u64 *)0) {
+        goto fail;
+    }
     code = (u8 *)mm_page_alloc();
     stk = (u8 *)mm_page_alloc();
-    if (l1 == (u64 *)0 || code == (u8 *)0 || stk == (u8 *)0) {
-        kputs("[kern] user: out of memory\n");
-        pg_activate((u64 *)0);
-        kthread_exit();
-        return;
+    if (code == (u8 *)0 || stk == (u8 *)0) {
+        goto fail;
     }
 
     n = (u64)(blob_end - blob);
     if (n > 4096) {
-        kputs("[kern] user: blob too big\n");
-        pg_activate((u64 *)0);
-        kthread_exit();
-        return;
+        kputs("[kern] user: blob too big\\n");
+        goto fail;
     }
     for (i = 0; i < n; i++) {
         code[i] = blob[i];
     }
 
-    if (pg_map_user(l1, USER_WIN_BASE, (u64)code, PG_USER_RX) != 0 ||
-        pg_map_user(l1, USER_WIN_BASE + 0x1000, (u64)stk, PG_USER_RW) != 0) {
-        kputs("[kern] user: map failed\n");
-        pg_activate((u64 *)0);
-        kthread_exit();
-        return;
+    if (pg_map_user(l1, USER_WIN_BASE, (u64)code, PG_USER_RX) != 0) {
+        kputs("[kern] user: code map failed\\n");
+        goto fail;
     }
+    code_mapped = 1;
+    if (pg_map_user(l1, USER_WIN_BASE + 0x1000, (u64)stk, PG_USER_RW) != 0) {
+        kputs("[kern] user: stack map failed\\n");
+        goto fail;
+    }
+    stack_mapped = 1;
 
-    printk("[kern] user: enter el0 tag=%s pc=%x sp=%x bytes=%u\n",
+    printk("[kern] user: enter el0 tag=%s pc=%x sp=%x bytes=%u\\n",
            tag, (u32)USER_WIN_BASE, (u32)(USER_WIN_BASE + 0x2000), (u32)n);
 
-/* 地址空间登记到线程上：从这以后，抢占/恢复由调度器负责切 TTBR0，
- * 所以 EL0 可以放心开着中断跑。 */
+    /* 地址空间登记到线程上：从这以后，抢占/恢复由调度器负责切 TTBR0，
+     * 所以 EL0 可以放心开着中断跑。 */
     sched_set_l1(l1);
     pg_activate(l1);
 
@@ -100,9 +103,25 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     user_enter(USER_WIN_BASE, USER_WIN_BASE + 0x2000);
 
     /* 走到这里说明 eret 之后又回到了 EL1 —— exit 没生效，是 bug。 */
-    kputs("[kern] user: eret returned (BUG)\n");
+    kputs("[kern] user: eret returned (BUG)\\n");
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
+    kthread_exit();
+    return;
+
+fail:
+    /* pg_aspace_unref 会释放已映射用户页；未映射页仍由本函数单独释放。 */
+    if (l1 != (u64 *)0) {
+        pg_aspace_unref(l1);
+    }
+    if (code != (u8 *)0 && !code_mapped) {
+        mm_page_free(code);
+    }
+    if (stk != (u8 *)0 && !stack_mapped) {
+        mm_page_free(stk);
+    }
+    pg_activate((u64 *)0);
+    kputs("[kern] user: launch aborted; resources reclaimed\\n");
     kthread_exit();
 }
 
