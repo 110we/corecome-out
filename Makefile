@@ -57,6 +57,8 @@ test-host:
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/platform/fdt_test.c kernels/COXVBN/platform/fdt.c -o $(BUILD)/fdt_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/memory/phys_alloc_test.c kernels/COXVBN/memory/phys_alloc.c -o $(BUILD)/phys_alloc_test
 	$(BUILD)/phys_alloc_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/memory/mmu_test.c -o $(BUILD)/mmu_test
+	$(BUILD)/mmu_test
 	$(BUILD)/fdt_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/recovery/recovery_test.c kernels/COXVBN/security/key_vault.c kernels/COXVBN/recovery/information_store.c kernels/COXVBN/recovery/emergency_recovery.c -o $(BUILD)/recovery_test
 	$(BUILD)/recovery_test
