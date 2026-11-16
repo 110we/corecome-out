@@ -29,7 +29,7 @@ RedLab is the security-assessment environment planned on top of the `rewrite/cor
 
 ## Relationship to the Daily Privacy Profile
 
-RedLab and the Daily Privacy Profile are separate security domains, not two labels for the same mode. Daily privacy settings cannot grant assessment permissions. Entering RedLab requires explicit authorization and a scoped engagement; leaving RedLab requires stopping jobs, revoking assessment capabilities, and recording the transition. See [docs/privacy-mode.md](privacy-mode.md) for the daily profile contract and transition requirements.
+RedLab and the Daily Privacy Profile are separate security domains, not two labels for the same mode. Daily privacy settings cannot grant assessment permissions. Entering RedLab requires explicit authorization and a scoped engagement; leaving RedLab requires stopping jobs, revoking assessment capabilities, and recording the transition. See [docs/redlab/privacy-mode.md](privacy-mode.md) for the daily profile contract and transition requirements.
 
 ## Planned architecture
 
@@ -57,7 +57,7 @@ The diagram is a target architecture, not a claim that these components already 
 
 ## R1 policy-core status
 
-The initial R1 policy library is implemented in kernel/redlab_policy.c and host-tested. It supports canonical IPv4/IPv6 CIDR matching, allow/exclusion precedence, port ranges, monotonic engagement windows, default-deny decisions, active-test default-off, per-target request/concurrency limits, per-job duration/byte budgets, audit callbacks, and a sticky global stop. It performs no DNS resolution or network I/O. Kernel-owned caller identity, locking, and integration with a future network/syscall boundary remain unimplemented; see docs/redlab-policy-core.md.
+The initial R1 policy library is implemented in kernels/RedLab/policy/redlab_policy.c and host-tested. It supports canonical IPv4/IPv6 CIDR matching, allow/exclusion precedence, port ranges, monotonic engagement windows, default-deny decisions, active-test default-off, per-target request/concurrency limits, per-job duration/byte budgets, audit callbacks, and a sticky global stop. It performs no DNS resolution or network I/O. Kernel-owned caller identity, locking, and integration with a future network/syscall boundary remain unimplemented; see docs/redlab/redlab-policy-core.md.
 
 ## Delivery stages
 

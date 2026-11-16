@@ -24,13 +24,22 @@ These profiles are deliberately separate. Daily privacy mode does not inherit as
 
 The current host-tested foundation includes the R1 scope/resource policy core, domain-separated module capability registration, and a RedLab admission adapter that checks active module identity plus distinct discovery, passive-capture, and active-probe grants. Daily Profile modules are rejected if they request RedLab capability bits. This is not yet a runtime security boundary: trusted execution-context binding, kernel locking, user mode, syscalls, and network integration remain unimplemented.
 
-RedLab assessment architecture: [docs/penetration-testing.md](docs/penetration-testing.md). Daily privacy profile contract: [docs/privacy-mode.md](docs/privacy-mode.md).
+RedLab assessment architecture: [docs/redlab/penetration-testing.md](docs/redlab/penetration-testing.md). Daily privacy profile contract: [docs/redlab/privacy-mode.md](docs/redlab/privacy-mode.md).
 
 ## Isolated recovery subsystems
 
 The Key Vault, Information Store, and Emergency Recovery interfaces are separate modules. Their current implementation is an in-memory, testable contract only: there is no persistent vault, cryptographic backend, watchdog takeover, network stack, or TCP listener yet. TCP port 3000 is reserved and logically disabled until fault mode is entered. Recovery requests require credential verification and an allowlisted command.
 
-See [docs/recovery-and-stores.md](docs/recovery-and-stores.md).
+See [docs/kernel/recovery-and-stores.md](docs/kernel/recovery-and-stores.md).
+
+## Directory groups
+
+- `kernels/COXVBN/`: base kernel grouped by architecture, core, memory, platform, security and recovery.
+- `kernels/RedLab/`: scope policy and daily privacy-profile extension.
+- `tests/COXVBN/` and `tests/RedLab/`: tests grouped by kernel and subsystem.
+- `docs/kernel/` and `docs/redlab/`: product-line documentation.
+
+RedLab currently shares the COXVBN kernel image; it is not yet an independently bootable image.
 
 ## Build
 
