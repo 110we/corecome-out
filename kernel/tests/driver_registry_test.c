@@ -6,6 +6,8 @@ static int probe_g(struct device *d){gp++;return d->base==0x08000000UL&&d->base2
 static const struct driver vd={"test-virtio","virtio,mmio",probe_v};
 static const struct driver ud={"test-uart","arm,pl011",probe_u};
 static const struct driver gd={"test-gic","arm,cortex-a15-gic",probe_g};
+static const struct driver duplicate_name={"test-virtio","vendor,other",probe_v};
+static const struct driver invalid_driver={"invalid","vendor,invalid",0};
 static void setstr(char *d,const char *s){int i=0;do{d[i]=s[i];}while(s[i++]!='\0');}
 int main(void){
     struct dtb_info dt={0};const struct device *d;
@@ -21,12 +23,16 @@ int main(void){
     dt.devices[3].base2=0x08010000UL;dt.devices[3].size2=0x10000;
     if(device_model_init(&dt)||device_count()!=4)return 1;
     if(driver_register(&vd)||driver_register(&ud)||driver_register(&gd))return 2;
+    if(driver_register(&duplicate_name)==0||driver_register(&invalid_driver)==0)return 10;
     if(driver_bind_all()!=3||vp!=2||up!=1||gp!=1||device_bound_count()!=3)return 3;
+    if(driver_bind_all()!=0||vp!=2||up!=1||gp!=1)return 11;
     d=device_get(0);if(!d||!d->bound||d->driver!=&vd)return 4;
     d=device_get(1);if(!d||!d->bound||d->driver!=&ud)return 5;
     d=device_get(2);if(!d||d->bound)return 6;
     d=device_get(3);if(!d||!d->bound||d->base2!=0x08010000UL)return 7;
     if(device_get(4)||driver_register(&vd)==0)return 8;
     if(device_model_init(0)==0||device_count()!=0||driver_bind_all()!=-1)return 9;
+    dt.device_count=DTB_DEVICE_MAX+1;
+    if(device_model_init(&dt)==0||device_count()!=0)return 12;
     return 0;
 }

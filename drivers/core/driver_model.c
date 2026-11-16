@@ -47,8 +47,17 @@ int driver_bind_all(void){
         if(devices[i].bound)continue;
         for(j=0;j<ndrivers;j++){
             const struct driver *drv=drivers[j];
-            if(str_eq(devices[i].compatible,drv->compatible)&&drv->probe(&devices[i])==0){
-                devices[i].driver=drv;devices[i].bound=1;bound++;break;
+            if(str_eq(devices[i].compatible,drv->compatible)) {
+                /* Failed probes must never leave a stale binding visible. */
+                devices[i].driver_data = 0;
+                if (drv->probe(&devices[i]) == 0) {
+                    devices[i].driver = drv;
+                    devices[i].bound = 1;
+                    bound++;
+                    break;
+                }
+                devices[i].driver = 0;
+                devices[i].driver_data = 0;
             }
         }
     }

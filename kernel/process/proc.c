@@ -1,9 +1,9 @@
 /* proc.c —— 进程语义：fork / exec / wait / 退出码。
  *
  * 和 Linux 的差别写在明处：
- *   - 没有写时复制（COW）：fork 直接把父进程的每一页复制一份；
+ *   - fork 使用页级 COW：父子共享只读页，首次写入时复制；
  *   - 没有真正的睡眠队列：wait 是“让出 CPU 再看一眼”，不是 wait_event；
- *   - 没有信号、没有进程组、没有会话。
+ *   - 信号只有 KILL/TERM/SEGV 默认动作，没有 handler、进程组或会话。
  * 但语义顺序是一致的：fork 子返回 0、父拿 pid；exec 换掉整个地址空间；
  * 退出进僵尸；父 wait 取 code 并收尸。
  */

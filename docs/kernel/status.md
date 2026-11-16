@@ -43,7 +43,7 @@
 | **M2 VFS + fd 表** | 每进程 fd、open/read/write/close、ramfs root、ext2 只读挂载点、/dev 字符设备 | **部分** | fd/ramfs/`/dev/console` 已有；ext2 只能按块读，**没有挂载点** |
 | **M3 调度器重写** | 用户进程调度、就绪队列、时间片、抢占、切换含页表 | **部分** | 切页表与时间片已有；**无就绪队列/优先级**，内核不可抢占 |
 | **M4 init + shell** | 内核加载 init，init 拉起 shell，`ls /`、`cat` 一个文件 | **已验证** | `init: up` → `sh> ls` 出 `hello.txt` → `cat` 出 `big kernel vfs works` → `wait pid=16 code=0`；边界见下 |
-| **M5 驱动模型 + DTB** | DTB 解析、驱动注册表、virtio-blk 改走模型 | **部分** | FDT 收集 compatible/reg 设备；固定容量注册表按 compatible probe/bind；virtio-blk 已通过模型发现并读出 ext2。host 单测 + QEMU CI 已验证；PL011/GIC 尚未纳入统一驱动生命周期 |
+| **M5 驱动模型 + DTB** | DTB 解析、驱动注册表、virtio-blk 改走模型 | **部分** | FDT 收集 compatible/reg 设备；固定容量注册表按 compatible probe/bind；PL011/GICv2/virtio-blk 已 probe/bind，virtio-blk 通过模型发现并读出 ext2。host 单测 + QEMU CI 已验证；timer 仍直调，phandle/中断映射未做 |
 
 **M5 第一阶段已落地并通过裸机 CI**：FDT 设备节点进入固定容量注册表，PL011、GICv2 与 virtio-blk 都经 compatible 匹配和 probe/bind；PL011/GIC 的具体初始化函数仍在 `system.c`，下一步再把初始化/中断资源接口下沉到驱动层，并补 phandle/中断映射与总线层级。M4 已经跑通，但它**不是**
 “Linux 用户态”：exec 只按 id 选内置 blob，shell 只认首字母命令，
