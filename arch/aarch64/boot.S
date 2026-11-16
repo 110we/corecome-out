@@ -78,31 +78,117 @@ __exception_vectors:
  * x[0..30] at 0..240, ELR/SPSR/ESR/FAR at 248..272, vector at 280.
  * 304-byte allocation preserves the 16-byte stack alignment at the C ABI.
  */
-.macro VECTOR_ENTRY number
-exception_vector_\number:
+exception_vector_0:
     sub     sp, sp, #304
     stp     x0, x1, [sp, #0]
-    mov     x0, #\number
+    mov     x0, #0
     str     x0, [sp, #280]
     b       exception_save_rest
-.endm
 
-VECTOR_ENTRY 0
-VECTOR_ENTRY 1
-VECTOR_ENTRY 2
-VECTOR_ENTRY 3
-VECTOR_ENTRY 4
-VECTOR_ENTRY 5
-VECTOR_ENTRY 6
-VECTOR_ENTRY 7
-VECTOR_ENTRY 8
-VECTOR_ENTRY 9
-VECTOR_ENTRY 10
-VECTOR_ENTRY 11
-VECTOR_ENTRY 12
-VECTOR_ENTRY 13
-VECTOR_ENTRY 14
-VECTOR_ENTRY 15
+exception_vector_1:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #1
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_2:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #2
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_3:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #3
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_4:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #4
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_5:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #5
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_6:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #6
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_7:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #7
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_8:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #8
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_9:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #9
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_10:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #10
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_11:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #11
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_12:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #12
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_13:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #13
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_14:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #14
+    str     x0, [sp, #280]
+    b       exception_save_rest
+
+exception_vector_15:
+    sub     sp, sp, #304
+    stp     x0, x1, [sp, #0]
+    mov     x0, #15
+    str     x0, [sp, #280]
+    b       exception_save_rest
 
 exception_save_rest:
     stp     x2, x3, [sp, #16]
