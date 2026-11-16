@@ -41,7 +41,8 @@ struct node_state {
     uint32_t reg_length;
     const uint8_t *reg;
     uint8_t is_memory;
-    uint8_t is_reserved;
+    uint8_t is_reserved_container;
+    uint8_t is_reserved_child;
 };
 
 static uint32_t be32(const uint8_t *p)
@@ -252,19 +253,24 @@ int fdt_parse(const void *blob, struct fdt_info *info)
             pos = (uint32_t)aligned;
             if (depth == 0) {
                 if (len != 0U) return -12;
-                stack[depth] = (struct node_state){2, 1, 0, NULL, 0, 0};
+                stack[depth] = (struct node_state){2, 1, 0, NULL, 0, 0, 0};
             } else {
                 stack[depth] = stack[depth - 1U];
                 stack[depth].reg = NULL;
                 stack[depth].reg_length = 0;
                 stack[depth].is_memory = 0;
+                stack[depth].is_reserved_child =
+                    stack[depth - 1U].is_reserved_container;
+                stack[depth].is_reserved_container = 0;
             }
             if (string_is((const char *)(structure + start), "memory") ||
                 string_prefix((const char *)(structure + start), "memory@"))
                 stack[depth].is_memory = 1;
             if (string_is((const char *)(structure + start), "reserved-memory") &&
-                depth > 0U)
-                stack[depth].is_reserved = 1;
+                depth == 1U) {
+                stack[depth].is_reserved_container = 1;
+                stack[depth].is_reserved_child = 0;
+            }
             ++depth;
         } else if (token == FDT_END_NODE) {
             if (depth == 0U) { FDT_TRACE("FDTDBG: END_NODE at depth zero\n"); return -13; }

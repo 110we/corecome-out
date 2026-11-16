@@ -12,7 +12,7 @@
 - [x] Validate FDT header, version, and structure/string block bounds
 - [x] Walk FDT structure tokens with bounded depth and property/string checks
 - [x] Read memory-node reg ranges and reservation-map entries
-- [ ] Validate reserved-memory child nodes and all parent cell-width combinations
+- [x] Validate direct reserved-memory child `reg` ranges using the container's address/size cell widths (host-tested)
 - [x] Add a bounded bitmap physical page allocator with reservation handling
 - [ ] Add checked physical/virtual address types
 - [x] Add initial AArch64 EL1 identity mappings for QEMU virt RAM, GIC, and PL011
