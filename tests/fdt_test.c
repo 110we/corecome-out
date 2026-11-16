@@ -31,7 +31,6 @@ static void build(void){
  p=w(p,BEGIN_NODE);p=str(p,"nested@300000");
  p=prop(p,8,40,(const uint8_t[]){0,0x30,0,0,0,0,0x10,0});
  p=w(p,END_NODE);p=w(p,END_NODE);p=w(p,END_NODE);
- p=w(p,END_NODE);
  p=w(p,BEGIN_NODE);p=str(p,"interrupt-controller@8000000");
  p=prop(p,19,44,(const uint8_t[]){'a','r','m',',','c','o','r','t','e','x','-','a','1','5','-','g','i','c',0});
  p=prop(p,32,40,(const uint8_t[]){
