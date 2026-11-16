@@ -7,6 +7,7 @@ struct audit_log { size_t count; enum coxvbn_redlab_decision last; };
 static void record(const struct coxvbn_redlab_audit_event *e,void *ctx){struct audit_log *l=ctx;assert(e&&e->version==COXVBN_REDLAB_AUDIT_VERSION);l->count++;l->last=e->decision;}
 static struct coxvbn_redlab_rule rule4(uint8_t a,uint8_t b,uint8_t c,uint8_t d,uint8_t pre,uint16_t lo,uint16_t hi,uint64_t from,uint64_t to,bool ex){
  struct coxvbn_redlab_rule r;memset(&r,0,sizeof(r));r.target.family=COXVBN_IP_V4;r.target.prefix=pre;r.target.network[0]=a;r.target.network[1]=b;r.target.network[2]=c;r.target.network[3]=d;r.first_port=lo;r.last_port=hi;r.not_before=from;r.expires_at=to;r.exclude=ex;return r;}
+static bool recovery_verify(const uint8_t *proof,size_t len,void *ctx){(void)ctx;return proof&&len==1U&&proof[0]==0x5aU;}
 static bool verify_key(const uint8_t *key,size_t kl,const uint8_t *proof,size_t pl,void *ctx){(void)ctx;return key&&proof&&kl==1U&&pl==1U&&key[0]==proof[0];}
 static struct coxvbn_ip_addr ip4(uint8_t a,uint8_t b,uint8_t c,uint8_t d){struct coxvbn_ip_addr x;memset(&x,0,sizeof(x));x.family=COXVBN_IP_V4;x.bytes[0]=a;x.bytes[1]=b;x.bytes[2]=c;x.bytes[3]=d;return x;}
 int main(void){
@@ -15,7 +16,7 @@ int main(void){
  r[0]=rule4(192,0,2,0,24,80,443,100,200,false);r[1]=rule4(192,0,2,128,25,80,443,100,200,true);
  assert(!coxvbn_redlab_policy_init(&p,r,2,&lim,false,NULL,&log));
  assert(coxvbn_redlab_policy_init(&authp,r,2,&lim,true,record,&authlog));
- coxvbn_key_vault_init(&vault,NULL,NULL);
+ const uint8_t recovery[]={0x5a};coxvbn_key_vault_init(&vault,recovery_verify,NULL);
  coxvbn_key_vault_set_receiver_verifier(&vault,verify_key,NULL);
  coxvbn_module_registry_init(&registry,&authority);
  assert(coxvbn_module_register_domain(&registry,&authority,COXVBN_DOMAIN_REDLAB,
