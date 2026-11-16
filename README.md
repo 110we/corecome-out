@@ -10,7 +10,7 @@ This repository contains three distinct product lines:
 
 OpenKernel has its own boot entry, linker layout, platform code, build system and subsystem roadmap. It does not inherit COXVBN capability masks, RedLab target-scope rules, or daily-profile restrictions. See [the OpenKernel architecture and completion plan](docs/third-kernel/open-kernel.md).
 
-Current OpenKernel implementation is an initial boot/serial-console foundation only. It has not yet been cross-compiled or boot-tested in CI. Build it separately with:
+Current OpenKernel implementation is an initial boot/serial-console foundation. Its standalone AArch64 build and QEMU serial boot test passed CI run [43846739631](https://github.com/110we/corecome-out/actions/runs/43846739631). Build it separately with:
 
 ```sh
 make -C kernels/OpenKernel
@@ -30,7 +30,7 @@ make test
 make run
 ```
 
-The root build continues to build COXVBN and RedLab. OpenKernel is intentionally built independently until its first CI/QEMU validation gate is added.
+The root build continues to build COXVBN and RedLab. OpenKernel has its own independent build target: `make openkernel`; to boot it in QEMU, run `make run-openkernel`.
 
 ## Project rules
 
