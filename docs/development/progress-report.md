@@ -37,12 +37,12 @@ This report distinguishes implemented/tested contracts from runtime capabilities
 
 ## Latest verified repository and CI state
 
-- Latest working-branch commit at report time: [d4fb77a](https://github.com/110we/corecome-out/commit/d4fb77a719c9ccda45a8a2889c8a0245e4212553)
-- Push workflow: [run 43812921962](https://github.com/110we/corecome-out/actions/runs/43812921962) — **success**
-- Pull-request workflow: [run 43812926993](https://github.com/110we/corecome-out/actions/runs/43812926993) — **success**
-- Earlier runs tested commit `c0886da1bd95103f87a689bce7e7fb2edb2dee1e`. The independent build split is under PR #5; its latest workflow run is recorded in the PR checks.
+- Latest CI-verified source commit: [5a4cd33](https://github.com/110we/corecome-out/commit/5a4cd335db412c52f0168a0732d6abf7d460f051)
+- Independent build workflow: [run 43841307094](https://github.com/110we/corecome-out/actions/runs/43841307094) — **success**
+- Both CI jobs tested source commit `5a4cd335db412c52f0168a0732d6abf7d460f051`: COXVBN host tests, AArch64 image build, vector checks, QEMU device-tree checks and QEMU serial boot; plus RedLab standalone library build and tests.
+- The change is tracked in [PR #5](https://github.com/110we/corecome-out/pull/5); it remains open and unmerged.
 - The latest workflow covered host tests, AArch64 kernel build, image/vector checks and QEMU serial boot checks.
-- Changes remain on `rewrite/corecome-from-zero`; `main` has not been modified or merged by this work.
+- Changes remain on `refactor/classify-kernel-subsystems`, targeting `rewrite/corecome-from-zero`; `main` has not been modified or merged by this work.
 
 ## Important open risks
 

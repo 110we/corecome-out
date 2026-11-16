@@ -69,6 +69,7 @@
 - [ ] POSIX compatibility as a separately tested layer
 
 ## Milestone 8 — COXVBN RedLab authorized security assessment
+- [x] Separate RedLab policy/profile sources, build target, and host tests from the COXVBN boot image (RedLab is a standalone library, not a bootable OS kernel)
 - [ ] Define immutable engagement scope schema, target exclusions, and authorization metadata
 - [x] Implement host-tested deny-by-default IPv4/IPv6 CIDR, port, and monotonic-time scope guard (no network I/O)
 - [ ] Add separate discovery, passive-capture, and active-probe capability classes
