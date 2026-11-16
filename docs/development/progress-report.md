@@ -37,9 +37,9 @@ This report distinguishes implemented/tested contracts from runtime capabilities
 
 ## Latest verified repository and CI state
 
-- Latest branch commit: [01e3d4a](https://github.com/110we/corecome-out/commit/01e3d4a4d3b925121287477d0a76b9eb69872d4b) (progress-report update; no kernel source change)
-- Latest PR workflow for that commit: [run 43841560110](https://github.com/110we/corecome-out/actions/runs/43841560110) — **success**
-- Both jobs completed successfully: COXVBN host tests, AArch64 image build, image/vector checks, QEMU device-tree and serial-boot checks; RedLab standalone library build and tests.
+- Latest fully verified kernel/build commit: [01e3d4a](https://github.com/110we/corecome-out/commit/01e3d4a4d3b925121287477d0a76b9eb69872d4b)
+- Its PR workflow [run 43841560110](https://github.com/110we/corecome-out/actions/runs/43841560110) completed successfully; both COXVBN and RedLab jobs passed.
+- The progress-report correction is commit [0509b00](https://github.com/110we/corecome-out/commit/0509b003a05c487e599a9913068c50ef732e2d7e); its documentation-only CI run [43842614477](https://github.com/110we/corecome-out/actions/runs/43842614477) is currently in progress. No kernel source changed in this documentation correction.
 - The change is tracked in [PR #5](https://github.com/110we/corecome-out/pull/5); it remains open and unmerged.
 - The latest workflow covered host tests, AArch64 kernel build, image/vector checks and QEMU serial boot checks.
 - Changes remain on `refactor/classify-kernel-subsystems`, targeting `rewrite/corecome-from-zero`; `main` has not been modified or merged by this work.
