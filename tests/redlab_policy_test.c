@@ -26,6 +26,8 @@ int main(void){
  assert(coxvbn_redlab_policy_check_authorized(&authp,&registry,&redlab_module,COXVBN_REDLAB_OP_DISCOVERY,&aq)==COXVBN_REDLAB_DENY_CAPABILITY);
  assert(coxvbn_module_activate(&registry,&authority,&vault,&redlab_module,1,key,sizeof(key),proof,sizeof(proof)));
  assert(coxvbn_redlab_policy_check_authorized(&authp,&registry,&redlab_module,COXVBN_REDLAB_OP_DISCOVERY,&aq)==COXVBN_REDLAB_ALLOW);
+ assert(coxvbn_redlab_policy_check_authorized(&authp,&registry,&redlab_module,COXVBN_REDLAB_OP_PASSIVE_CAPTURE,&aq)==COXVBN_REDLAB_DENY_CAPABILITY);
+ assert(authlog.last==COXVBN_REDLAB_DENY_CAPABILITY);
  aq.job_id=89;aq.active=true;
  assert(coxvbn_redlab_policy_check_authorized(&authp,&registry,&redlab_module,COXVBN_REDLAB_OP_ACTIVE_PROBE,&aq)==COXVBN_REDLAB_DENY_CAPABILITY);
  assert(coxvbn_module_revoke(&registry,&authority,&vault,&redlab_module));

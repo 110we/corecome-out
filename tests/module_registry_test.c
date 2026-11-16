@@ -101,6 +101,10 @@ int main(void)
         &registry, &loader_authority, COXVBN_DOMAIN_DAILY_PROFILE,
         COXVBN_CAP_REDLAB_ACTIVE_PROBE, COXVBN_CAP_REDLAB_ACTIVE_PROBE,
         &rejected));
+    assert(!coxvbn_module_register_domain(
+        &registry, &loader_authority, COXVBN_DOMAIN_REDLAB,
+        COXVBN_CAP_DAILY_PROFILE_DATA, COXVBN_CAP_DAILY_PROFILE_DATA,
+        &rejected));
     assert(coxvbn_module_register_domain(
         &registry, &loader_authority, COXVBN_DOMAIN_DAILY_PROFILE,
         COXVBN_CAP_DAILY_PROFILE_DATA | COXVBN_CAP_DAILY_PROFILE_SETTINGS,
