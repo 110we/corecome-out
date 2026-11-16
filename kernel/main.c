@@ -2,6 +2,7 @@
 #include "uart.h"
 #include "phys_alloc.h"
 #include "mmu.h"
+#include "gicv2.h"
 extern char __kernel_start[];
 extern char __kernel_end[];
 
@@ -66,7 +67,30 @@ void kernel_main(const void *boot_fdt)
         uart_write("\n");
         for (;;) __asm__ volatile("wfe");
     }
-    uart_write("COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE\n");
+    uart_write("COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE\\n");
+    if (fdt.gicv2_found != 0U) {
+        struct gicv2_state gic;
+        const uint64_t aperture_start = 0x08000000ULL;
+        const uint64_t aperture_end = 0x08200000ULL;
+        if (fdt.gicv2_distributor.size < 0x1000U ||
+            fdt.gicv2_cpu_interface.size < 0x1000U ||
+            fdt.gicv2_distributor.base < aperture_start ||
+            fdt.gicv2_cpu_interface.base < aperture_start ||
+            fdt.gicv2_distributor.base > aperture_end - 0x1000U ||
+            fdt.gicv2_cpu_interface.base > aperture_end - 0x1000U) {
+            uart_write("COXVBN: GICV2 FDT RANGES OUTSIDE BOOT MMIO APERTURE\\n");
+            for (;;) __asm__ volatile("wfe");
+        }
+        rc = gicv2_init(&gic, (uintptr_t)fdt.gicv2_distributor.base,
+                        (uintptr_t)fdt.gicv2_cpu_interface.base);
+        if (rc != GICV2_OK) {
+            uart_write("COXVBN: GICV2 QUIESCENT INIT FAILED\\n");
+            for (;;) __asm__ volatile("wfe");
+        }
+        uart_write("COXVBN: GICV2 DISCOVERED AND QUIESCED; IRQ DELIVERY DISABLED\\n");
+    } else {
+        uart_write("COXVBN: NO SUPPORTED GICV2 NODE IN FDT\\n");
+    }
     uart_write("COXVBN: BOOT COMPLETE\n");
     for (;;) __asm__ volatile("wfe");
 }

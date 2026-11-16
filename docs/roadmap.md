@@ -28,7 +28,7 @@
 - [ ] Define and test a complete exception entry/exit contract, including return semantics
 - [ ] Add safe recoverable synchronous-fault handling
 - [x] Add host-tested GICv2 quiescent initialization (disable interfaces, read line count, prepare PMR; no IRQ delivery)
-- [ ] Discover GIC distributor/CPU-interface ranges from the FDT and bind the driver to QEMU `virt,gic-version=2`
+- [x] Discover supported GICv2 compatible strings and distributor/CPU-interface `reg` ranges from FDT; validate and bind after the initial MMU map (host-tested parser; QEMU boot-tested)
 - [ ] Add a generic interrupt-controller interface and architectural timer driver
 - [x] Add host-tested GICv2 interrupt acknowledge and EOI register primitives (IRQ delivery remains disabled)
 - [ ] Add IRQ dispatch, interrupt-context rules, and safe exception return

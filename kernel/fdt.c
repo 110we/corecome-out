@@ -43,6 +43,7 @@ struct node_state {
     uint8_t is_memory;
     uint8_t is_reserved;
     uint8_t is_reserved_container;
+    uint8_t is_gicv2;
 };
 
 static uint32_t be32(const uint8_t *p)
@@ -78,6 +79,28 @@ static int string_prefix(const char *s, const char *prefix)
         ++i;
     }
     return 1;
+}
+
+static int compatible_has_gicv2(const uint8_t *value, uint32_t length)
+{
+    static const char *const names[] = {
+        "arm,cortex-a15-gic", "arm,gic-400", "arm,arm11mp-gic"
+    };
+    uint32_t offset = 0U, i;
+    while (offset < length) {
+        uint32_t end = offset;
+        while (end < length && value[end] != 0U) ++end;
+        if (end == length) return 0;
+        for (i = 0U; i < sizeof(names) / sizeof(names[0]); ++i) {
+            uint32_t n = 0U, j;
+            while (names[i][n] != 0) ++n;
+            if (end - offset != n) continue;
+            for (j = 0U; j < n && value[offset + j] == (uint8_t)names[i][j]; ++j) {}
+            if (j == n) return 1;
+        }
+        offset = end + 1U;
+    }
+    return 0;
 }
 
 static int bounded_string(const uint8_t *base, uint32_t size,
@@ -166,6 +189,12 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
     ((volatile uint32_t *)&info->memory_count)[0] = 0U;
     FDT_TRACE("FDTDBG: memory-count store ok\n");
     ((volatile uint32_t *)&info->reserved_count)[0] = 0U;
+    info->gicv2_found = 0U;
+    info->gicv2_reserved = 0U;
+    info->gicv2_distributor.base = 0U;
+    info->gicv2_distributor.size = 0U;
+    info->gicv2_cpu_interface.base = 0U;
+    info->gicv2_cpu_interface.size = 0U;
     FDT_TRACE("FDTDBG: reserved-count store ok\n");
     FDT_TRACE("FDTDBG: info counts ok\n");
     return 0;
@@ -191,6 +220,31 @@ static int parse_reservations(const uint8_t *b, uint32_t limit,
 static int collect_node(struct node_state *n, struct fdt_info *info)
 {
     uint32_t tuple, tuple_bytes, off;
+    if (n->is_gicv2) {
+        uint32_t tuple, tuple_bytes;
+        uint64_t db, ds, cb, cs;
+        if (n->reg == NULL || info->gicv2_found != 0U ||
+            n->address_cells == 0U || n->address_cells > 2U ||
+            n->size_cells == 0U || n->size_cells > 2U) return -1;
+        tuple = n->address_cells + n->size_cells;
+        tuple_bytes = tuple * 4U;
+        if (n->reg_length < tuple_bytes * 2U ||
+            n->reg_length % tuple_bytes != 0U) return -1;
+        db = be_cells(n->reg, n->address_cells);
+        ds = be_cells(n->reg + n->address_cells * 4U, n->size_cells);
+        cb = be_cells(n->reg + tuple_bytes, n->address_cells);
+        cs = be_cells(n->reg + tuple_bytes + n->address_cells * 4U,
+                      n->size_cells);
+        if (ds == 0U || cs == 0U || db > UINT64_MAX - ds ||
+            cb > UINT64_MAX - cs || (db < cb + cs && cb < db + ds))
+            return -1;
+        info->gicv2_distributor.base = db;
+        info->gicv2_distributor.size = ds;
+        info->gicv2_cpu_interface.base = cb;
+        info->gicv2_cpu_interface.size = cs;
+        info->gicv2_found = 1U;
+        return 0;
+    }
     if (n->reg == NULL || (!n->is_memory && !n->is_reserved)) return 0;
     if (n->address_cells == 0 || n->address_cells > 2 ||
         n->size_cells == 0 || n->size_cells > 2) return -1;
@@ -253,7 +307,7 @@ int fdt_parse(const void *blob, struct fdt_info *info)
             pos = (uint32_t)aligned;
             if (depth == 0) {
                 if (len != 0U) return -12;
-                stack[depth] = (struct node_state){2, 1, 0, NULL, 0, 0, 0};
+                stack[depth] = (struct node_state){2, 1, 0, NULL, 0, 0, 0, 0};
             } else {
                 stack[depth] = stack[depth - 1U];
                 stack[depth].reg = NULL;
@@ -262,6 +316,7 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                 stack[depth].is_reserved =
                     stack[depth - 1U].is_reserved_container;
                 stack[depth].is_reserved_container = 0;
+                stack[depth].is_gicv2 = 0;
             }
             if (string_is((const char *)(structure + start), "memory") ||
                 string_prefix((const char *)(structure + start), "memory@"))
@@ -302,6 +357,8 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                 n->address_cells = be32(value);
             else if (string_is(name, "#size-cells") && len == 4U)
                 n->size_cells = be32(value);
+            else if (string_is(name, "compatible"))
+                n->is_gicv2 = (uint8_t)compatible_has_gicv2(value, len);
             else if (string_is(name, "reg")) {
                 n->reg = value;
                 n->reg_length = len;

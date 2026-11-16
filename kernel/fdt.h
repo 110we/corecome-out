@@ -22,6 +22,10 @@ struct fdt_info {
     uint32_t size_cells;
     uint32_t memory_count;
     uint32_t reserved_count;
+    uint32_t gicv2_found;
+    uint32_t gicv2_reserved;
+    struct fdt_range gicv2_distributor;
+    struct fdt_range gicv2_cpu_interface;
     struct fdt_range memory[COXVBN_FDT_MAX_RANGES];
     struct fdt_range reserved[COXVBN_FDT_MAX_RANGES];
 };

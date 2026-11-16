@@ -31,11 +31,19 @@ static void build(void){
  p=w(p,BEGIN_NODE);p=str(p,"nested@300000");
  p=prop(p,8,40,(const uint8_t[]){0,0x30,0,0,0,0,0x10,0});
  p=w(p,END_NODE);p=w(p,END_NODE);p=w(p,END_NODE);
+ p=w(p,END_NODE);
+ p=w(p,BEGIN_NODE);p=str(p,"interrupt-controller@8000000");
+ p=prop(p,19,44,(const uint8_t[]){'a','r','m',',','c','o','r','t','e','x','-','a','1','5','-','g','i','c',0});
+ p=prop(p,32,40,(const uint8_t[]){
+  0,0,0,0,8,0,0,0, 0,0,0,0,0,1,0,0,
+  0,0,0,0,8,1,0,0, 0,0,0,0,0,1,0,0
+ });
+ p=w(p,END_NODE);
  p=w(p,END_NODE);p=w(p,END);ss=p-so;
- sto=p;p=str(p,"#address-cells");p=str(p,"#size-cells");p=str(p,"device_type");p=str(p,"reg");sts=p-sto;
+ sto=p;p=str(p,"#address-cells");p=str(p,"#size-cells");p=str(p,"device_type");p=str(p,"reg");p=str(p,"compatible");sts=p-sto;
  put32(blob,0xd00dfeedU);put32(blob+4,p);put32(blob+8,so);put32(blob+12,sto);put32(blob+16,H);put32(blob+20,17);put32(blob+24,16);put32(blob+28,0);put32(blob+32,sts);put32(blob+36,ss);
 }
-static void valid(void){struct fdt_info i;build();assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1);assert(i.memory[0].base==0x40000000ULL);assert(i.memory[0].size==0x1000ULL);assert(i.reserved_count==2);assert(i.reserved[0].base==0x1000ULL);assert(i.reserved[1].base==0x200000ULL);assert(i.reserved[1].size==0x1000ULL);}
+static void valid(void){struct fdt_info i;build();assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1);assert(i.memory[0].base==0x40000000ULL);assert(i.memory[0].size==0x1000ULL);assert(i.reserved_count==2);assert(i.reserved[0].base==0x1000ULL);assert(i.reserved[1].base==0x200000ULL);assert(i.reserved[1].size==0x1000ULL);assert(i.gicv2_found==1U);assert(i.gicv2_distributor.base==0x08000000ULL);assert(i.gicv2_distributor.size==0x10000ULL);assert(i.gicv2_cpu_interface.base==0x08010000ULL);assert(i.gicv2_cpu_interface.size==0x10000ULL);}
 static void bad_magic(void){struct fdt_info i;build();put32(blob,0);assert(fdt_parse(blob,&i)==-3);}
 static void overlap(void){struct fdt_info i;build();put32(blob+12,get32(blob+8));assert(fdt_inspect(blob,&i)==-6);}
 static void bad_token(void){struct fdt_info i;build();put32(blob+get32(blob+8),0xdeadbeefU);assert(fdt_parse(blob,&i)==-19);}
