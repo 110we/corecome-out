@@ -16,7 +16,7 @@ int phys_allocator_init(const struct fdt_info *f,uintptr_t ks,uintptr_t ke,uintp
  managed_pages = 0U;
  free_pages = 0U;
  ready = 0;
- for(i=0;i<f->memory_count;++i){uint64_t b=f->memory[i].base,s=f->memory[i].size,e,first,last,p;if(!s||b>UINT64_MAX-s)return -2;e=b+s;first=up(b)/4096U;last=e/4096U;if(first>=COXVBN_PHYS_MAX_PAGES)continue;if(last>COXVBN_PHYS_MAX_PAGES)last=COXVBN_PHYS_MAX_PAGES;if(first>last)continue;if(last>limit_pages)limit_pages=(uint32_t)last;for(p=first;p<last;++p)available((uint32_t)p);}
+ for(i=0;i<f->memory_count;++i){uint64_t b=f->memory[i].base,s=f->memory[i].size,e,first,last,p;if(!s||b>UINT64_MAX-s)return -2;e=b+s;/* This allocator only tracks physical pages below 4 GiB. Skip higher regions before alignment: up(b) can wrap near UINT64_MAX and alias high memory into low pages. */if(b>=(uint64_t)COXVBN_PHYS_MAX_PAGES*COXVBN_PAGE_SIZE)continue;first=up(b)/4096U;last=e/4096U;if(first>=COXVBN_PHYS_MAX_PAGES)continue;if(last>COXVBN_PHYS_MAX_PAGES)last=COXVBN_PHYS_MAX_PAGES;if(first>last)continue;if(last>limit_pages)limit_pages=(uint32_t)last;for(p=first;p<last;++p)available((uint32_t)p);}
  if (!limit_pages || !free_pages) return -3;
  managed_pages = free_pages;
  for(i=0;i<f->reserved_count;++i)reserve(f->reserved[i].base,f->reserved[i].size);
