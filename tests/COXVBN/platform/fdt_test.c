@@ -22,7 +22,7 @@ static void build(void){
  const uint8_t reg[16]={0,0,0,0,0x40,0,0,0,0,0,0,0,0,0,0x10,0};
  memset(blob,0,sizeof(blob));put32(blob+p,0);put32(blob+p+4,0x1000);put32(blob+p+8,0);put32(blob+p+12,0x1000);p+=32;
  so=p;p=w(p,BEGIN_NODE);p=str(p,"");p=prop(p,4,0,ac);p=prop(p,4,16,sc);
- p=w(p,BEGIN_NODE);p=str(p,"memory@40000000");p=prop(p,7,28,dt);if(disable_memory_node)p=prop(p,9,66,(const uint8_t*)"disabled");p=prop(p,16,40,reg);
+ p=w(p,BEGIN_NODE);p=str(p,"memory@40000000");p=prop(p,7,28,dt);if(disable_memory_node)p=prop(p,9,55,(const uint8_t*)"disabled");p=prop(p,16,40,reg);
  p=w(p,END_NODE);
  p=w(p,BEGIN_NODE);p=str(p,"reserved-memory");
  p=prop(p,4,0,(const uint8_t[]){0,0,0,1});
