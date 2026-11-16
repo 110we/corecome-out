@@ -7,7 +7,7 @@ HOST_CC ?= cc
 BUILD   := build
 ARCH    := arch/aarch64
 CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin \
-           -fno-stack-protector -fno-pic -mgeneral-regs-only
+           -fno-stack-protector -fno-pic -mgeneral-regs-only -mno-outline-atomics
 ASFLAGS := $(CFLAGS)
 LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 
