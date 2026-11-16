@@ -27,6 +27,7 @@
 | 位置 | 内容 |
 |---|---|
 | `kernels/COXVBN/` | **内核主线**：AArch64 EL0/EL1、4K 页表、COW fork、clone 线程、信号、ramfs + ext2、virtio-blk、DTB 只读解析；`make test-m4` 跑通 EL0 init + shell（ls/cat）。M0–M4 已通，M5 进行中 |
+| `kernels/RedLab/` | COXVBN 的授权安全测试与隐私保护扩展，独立维护策略、工具适配和测试；当前先建立目录边界，尚未形成独立启动镜像 |
 | `kernels/COXVBN/core/` | 入口 `system.c`、panic、运行时信息 |
 | `kernels/COXVBN/arch/aarch64/` | `boot/`（入口汇编 + 链接脚本）、`exception/`、`context/`、`mmu/` |
 | `drivers/` | `bus/fdt.c`、`storage/virtio_blk.c`；timer / interrupt 等仍在内核主体里，待拆 |
@@ -115,7 +116,7 @@ Kernel 装配
   保险的名字应该说明边界，而不是暗示强度。
 - 令牌双头：`Authorization: Bearer` 或 `X-NetOS-Token`。
 - 豁免两处：`GET` + 五个观测路径（`/`、`/api/kernel`、
-  `/api/kernels/COXVBN/routes`、`/api/kernels/COXVBN/config`、`/api/security`）；本机回环。
+  `/api/kernel/routes`、`/api/kernel/config`、`/api/security`）；本机回环。
   观测豁免是**字面匹配**，禁止前缀通配 —— `"/api/"` 会把未来的写接口一起放进去。
 - 拿不到来源地址（`"-"`）**不算本机**。这一条曾是真实漏洞。
 - **没有**令牌过期、撤销、并发会话：令牌是静态配置，轮换 = 重启。
