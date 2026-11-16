@@ -47,4 +47,14 @@ static void bad_magic(void){struct fdt_info i;build();put32(blob,0);assert(fdt_p
 static void overlap(void){struct fdt_info i;build();put32(blob+12,get32(blob+8));assert(fdt_inspect(blob,&i)==-6);}
 static void bad_token(void){struct fdt_info i;build();put32(blob+get32(blob+8),0xdeadbeefU);assert(fdt_parse(blob,&i)==-19);}
 static void no_reservation_terminator(void){struct fdt_info i;build();put32(blob+8,H+16U);put32(blob+12,H+16U+get32(blob+36));assert(fdt_parse(blob,&i)!=0);}
-int main(void){valid();bad_magic();overlap();bad_token();no_reservation_terminator();puts("COXVBN host FDT tests: PASS");return 0;}
+
+static void undersized_total(void){struct fdt_info i;build();put32(blob+4,H-1U);assert(fdt_inspect(blob,&i)==-4);}
+static void structure_out_of_bounds(void){struct fdt_info i;build();put32(blob+36,0xfffffff0U);assert(fdt_inspect(blob,&i)==-5);}
+static void strings_out_of_bounds(void){struct fdt_info i;build();put32(blob+12,0xfffffff0U);assert(fdt_inspect(blob,&i)==-5);}
+static void unclosed_root(void){struct fdt_info i;uint32_t so,ss,p,last=0;build();so=get32(blob+8);ss=get32(blob+36);for(p=0;p+4U<=ss;p+=4U)if(get32(blob+so+p)==END)break;assert(p+4U<=ss&&p>=4U);last=so+p-4U;put32(blob+last,4U);assert(fdt_parse(blob,&i)==-18);}
+static void missing_root_close(void){struct fdt_info i;uint32_t so,ss,p;build();so=get32(blob+8);ss=get32(blob+36);for(p=0;p+4U<=ss;p+=4U)if(get32(blob+so+p)==END_NODE) { /* the final END_NODE closes the root */ } 
+ /* Replace the last END_NODE before FDT_END with NOP. */
+ for(p=ss-8U;;p-=4U){if(get32(blob+so+p)==END_NODE){put32(blob+so+p,4U);break;}assert(p>=4U);}
+ assert(fdt_parse(blob,&i)==-18);}
+
+int main(void){valid();bad_magic();overlap();bad_token();no_reservation_terminator();undersized_total();structure_out_of_bounds();strings_out_of_bounds();unclosed_root();missing_root_close();puts("COXVBN host FDT tests: PASS");return 0;}
