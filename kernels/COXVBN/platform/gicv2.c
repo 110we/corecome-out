@@ -29,22 +29,30 @@ static void mmio_barrier(void)
 #endif
 }
 
+static int region_valid(uintptr_t base, uintptr_t size, uintptr_t required)
+{
+    return base != 0U && (base & 3U) == 0U && size >= required &&
+           base <= UINTPTR_MAX - size;
+}
+
 int gicv2_init(struct gicv2_state *state,
-               uintptr_t distributor_base,
-               uintptr_t cpu_interface_base)
+               uintptr_t distributor_base, uintptr_t distributor_size,
+               uintptr_t cpu_interface_base, uintptr_t cpu_interface_size)
 {
     uint32_t typer;
     uint32_t lines;
 
-    if (state == NULL || distributor_base == 0U ||
-        cpu_interface_base == 0U ||
-        (distributor_base & 3U) != 0U ||
-        (cpu_interface_base & 3U) != 0U ||
-        distributor_base == cpu_interface_base)
+    if (state == NULL ||
+        !region_valid(distributor_base, distributor_size, GICD_TYPER + sizeof(uint32_t)) ||
+        !region_valid(cpu_interface_base, cpu_interface_size, GICC_EOIR + sizeof(uint32_t)) ||
+        (distributor_base < cpu_interface_base + cpu_interface_size &&
+         cpu_interface_base < distributor_base + distributor_size))
         return GICV2_ERR_ARGUMENT;
 
     state->distributor_base = distributor_base;
     state->cpu_interface_base = cpu_interface_base;
+    state->distributor_size = distributor_size;
+    state->cpu_interface_size = cpu_interface_size;
     state->interrupt_lines = 0U;
     state->initialized = 0U;
 
@@ -78,7 +86,8 @@ int gicv2_acknowledge(struct gicv2_state *state, uint32_t *acknowledge)
     uint32_t interrupt_id;
 
     if (state == NULL || acknowledge == NULL ||
-        state->initialized != 1U || state->cpu_interface_base == 0U)
+        state->initialized != 1U || state->cpu_interface_base == 0U ||
+        state->cpu_interface_size < GICC_IAR + sizeof(uint32_t))
         return GICV2_ERR_ARGUMENT;
 
     token = *reg32(state->cpu_interface_base, GICC_IAR);
@@ -100,6 +109,7 @@ int gicv2_end_interrupt(struct gicv2_state *state, uint32_t acknowledge)
 
     if (state == NULL || state->initialized != 1U ||
         state->cpu_interface_base == 0U ||
+        state->cpu_interface_size < GICC_EOIR + sizeof(uint32_t) ||
         (interrupt_id >= GICV2_MAX_LINES ||
          interrupt_id >= state->interrupt_lines))
         return GICV2_ERR_ARGUMENT;
