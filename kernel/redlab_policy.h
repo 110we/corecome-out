@@ -61,10 +61,11 @@ struct coxvbn_redlab_request {
 bool coxvbn_redlab_policy_init(struct coxvbn_redlab_policy *,
  const struct coxvbn_redlab_rule *, size_t, const struct coxvbn_redlab_limits *,
  bool, coxvbn_redlab_audit_fn, void *);
- /* Pure policy admission; never performs network I/O. Owner serializes calls.
-  * Audit callback must be nonblocking and must not re-enter this policy. */
+ #ifdef COXVBN_REDLAB_TESTING
+/* Host-test hook only; not exported by production kernel builds. */
 enum coxvbn_redlab_decision coxvbn_redlab_policy_check(
  struct coxvbn_redlab_policy *, const struct coxvbn_redlab_request *);
+#endif
 enum coxvbn_redlab_decision coxvbn_redlab_policy_check_authorized(
  struct coxvbn_redlab_policy *, const struct coxvbn_module_registry *,
  const struct coxvbn_module_ref *, enum coxvbn_redlab_operation,

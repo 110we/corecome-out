@@ -66,7 +66,7 @@ bool coxvbn_redlab_job_finish(struct coxvbn_redlab_policy *p,uint64_t id){
  struct coxvbn_redlab_job_state *j=&p->jobs[s];if(j->target_slot>=COXVBN_REDLAB_MAX_TARGETS)return false;
  struct coxvbn_redlab_target_state *t=&p->targets[j->target_slot];if(t->active_jobs)--t->active_jobs;j->used=false;return true;
 }
-enum coxvbn_redlab_decision coxvbn_redlab_policy_check(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q){
+static enum coxvbn_redlab_decision policy_check_scoped(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q){
  enum coxvbn_redlab_decision d;size_t ts,js;bool found;struct coxvbn_redlab_target_state *t;struct coxvbn_redlab_job_state *j;
  if(!p)return COXVBN_REDLAB_DENY_INVALID;
  if(!q||!q->job_id||!address_valid(&q->target)||!q->port)return deny(p,q,COXVBN_REDLAB_DENY_INVALID);
@@ -114,5 +114,13 @@ enum coxvbn_redlab_decision coxvbn_redlab_policy_check_authorized(
   return deny(p,q,COXVBN_REDLAB_DENY_CAPABILITY);
  if((op==COXVBN_REDLAB_OP_ACTIVE_PROBE)!=(q!=NULL && q->active))
   return deny(p,q,COXVBN_REDLAB_DENY_CAPABILITY);
- return coxvbn_redlab_policy_check(p,q);
+ return policy_check_scoped(p,q);
 }
+#ifdef COXVBN_REDLAB_TESTING
+enum coxvbn_redlab_decision coxvbn_redlab_policy_check(
+ struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q)
+{
+ return policy_check_scoped(p,q);
+}
+#endif
+
