@@ -70,7 +70,7 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
 
     n = (u64)(blob_end - blob);
     if (n > 4096) {
-        kputs("[kern] user: blob too big\\n");
+        kputs("[kern] user: blob too big\n");
         goto fail;
     }
     for (i = 0; i < n; i++) {
@@ -78,17 +78,17 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     }
 
     if (pg_map_user(l1, USER_WIN_BASE, (u64)code, PG_USER_RX) != 0) {
-        kputs("[kern] user: code map failed\\n");
+        kputs("[kern] user: code map failed\n");
         goto fail;
     }
     code_mapped = 1;
     if (pg_map_user(l1, USER_WIN_BASE + 0x1000, (u64)stk, PG_USER_RW) != 0) {
-        kputs("[kern] user: stack map failed\\n");
+        kputs("[kern] user: stack map failed\n");
         goto fail;
     }
     stack_mapped = 1;
 
-    printk("[kern] user: enter el0 tag=%s pc=%x sp=%x bytes=%u\\n",
+    printk("[kern] user: enter el0 tag=%s pc=%x sp=%x bytes=%u\n",
            tag, (u32)USER_WIN_BASE, (u32)(USER_WIN_BASE + 0x2000), (u32)n);
 
     /* 地址空间登记到线程上：从这以后，抢占/恢复由调度器负责切 TTBR0，
@@ -103,7 +103,7 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     user_enter(USER_WIN_BASE, USER_WIN_BASE + 0x2000);
 
     /* 走到这里说明 eret 之后又回到了 EL1 —— exit 没生效，是 bug。 */
-    kputs("[kern] user: eret returned (BUG)\\n");
+    kputs("[kern] user: eret returned (BUG)\n");
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
@@ -121,7 +121,7 @@ fail:
         mm_page_free(stk);
     }
     pg_activate((u64 *)0);
-    kputs("[kern] user: launch aborted; resources reclaimed\\n");
+    kputs("[kern] user: launch aborted; resources reclaimed\n");
     kthread_exit();
 }
 
