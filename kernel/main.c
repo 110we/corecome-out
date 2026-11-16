@@ -3,6 +3,7 @@
 #include "phys_alloc.h"
 #include "mmu.h"
 #include "gicv2.h"
+#include "exception.h"
 extern char __kernel_start[];
 extern char __kernel_end[];
 
@@ -67,7 +68,7 @@ void kernel_main(const void *boot_fdt)
         uart_write("\n");
         for (;;) __asm__ volatile("wfe");
     }
-    uart_write("COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE\\n");
+    uart_write("COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE\n");
     if (fdt.gicv2_found != 0U) {
         struct gicv2_state gic;
         const uint64_t aperture_start = 0x08000000ULL;
@@ -87,7 +88,8 @@ void kernel_main(const void *boot_fdt)
             uart_write("COXVBN: GICV2 QUIESCENT INIT FAILED\\n");
             for (;;) __asm__ volatile("wfe");
         }
-        uart_write("COXVBN: GICV2 DISCOVERED AND QUIESCED; IRQ DELIVERY DISABLED\\n");
+        exception_set_gicv2(&gic);
+        uart_write("COXVBN: GICV2 DISCOVERED AND QUIESCED; IRQ DELIVERY DISABLED\n");
     } else {
         uart_write("COXVBN: NO SUPPORTED GICV2 NODE IN FDT\\n");
     }

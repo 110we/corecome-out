@@ -79,10 +79,10 @@ __exception_vectors:
  * 304-byte allocation preserves the 16-byte stack alignment at the C ABI.
  */
 .macro VECTOR_ENTRY number
-exception_vector_\number:
+exception_vector_\\number:
     sub     sp, sp, #304
     stp     x0, x1, [sp, #0]
-    mov     x0, #\number
+    mov     x0, #\\number
     str     x0, [sp, #280]
     b       exception_save_rest
 .endm
@@ -128,8 +128,32 @@ exception_save_rest:
     str     x1, [sp, #264]
     mrs     x1, far_el1
     str     x1, [sp, #272]
+
+    /* C dispatcher either handles a registered IRQ or panics. */
     mov     x0, sp
-    bl      exception_panic
-4:
-    wfe
-    b       4b
+    bl      exception_dispatch
+
+    /* Return state is taken from the saved frame, not C caller registers. */
+    ldr     x1, [sp, #248]
+    msr     elr_el1, x1
+    ldr     x1, [sp, #256]
+    msr     spsr_el1, x1
+    ldp     x0, x1, [sp, #0]
+    ldp     x2, x3, [sp, #16]
+    ldp     x4, x5, [sp, #32]
+    ldp     x6, x7, [sp, #48]
+    ldp     x8, x9, [sp, #64]
+    ldp     x10, x11, [sp, #80]
+    ldp     x12, x13, [sp, #96]
+    ldp     x14, x15, [sp, #112]
+    ldp     x16, x17, [sp, #128]
+    ldp     x18, x19, [sp, #144]
+    ldp     x20, x21, [sp, #160]
+    ldp     x22, x23, [sp, #176]
+    ldp     x24, x25, [sp, #192]
+    ldp     x26, x27, [sp, #208]
+    ldp     x28, x29, [sp, #224]
+    ldr     x30, [sp, #240]
+    add     sp, sp, #304
+    eret
+
