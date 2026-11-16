@@ -559,10 +559,10 @@ int kmain(u64 dtb)
     printk("[bare] entry=%x  dtb=%x\n", (u64)(void *)kmain, dtb);
     fdt_dump();
     if (dti->ok && device_model_init(dti) == 0) {
-        printk("[drv] device model: %u DT devices\\n", device_count());
+        printk("[drv] device model: %u DT devices\n", device_count());
     } else {
         (void)device_model_init((const struct dtb_info *)0);
-        puts_("[drv] device model: unavailable\\n");
+        puts_("[drv] device model: unavailable\n");
     }
 
     puts_("[bare] check: sp ");

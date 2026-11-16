@@ -111,7 +111,7 @@ static int virtio_blk_probe(struct device *dev)
     if (r[R_MAGIC / 4] != 0x74726976UL || r[R_DEVID / 4] != 2) {
         return -1;
     }
-    printk("[blk] probe %s at %x\\n", dev->name, dev->base);
+    printk("[blk] probe %s at %x\n", dev->name, dev->base);
     regs = r;
     wr(R_GUESTPAGE, 4096);
     wr(R_STATUS, 0);

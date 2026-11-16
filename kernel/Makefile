@@ -102,7 +102,7 @@ test-driver-host: | $(BUILD)
 >     tests/driver_registry_test.c ../drivers/core/driver_model.c -o $(BUILD)/driver_registry_test
 > $(BUILD)/driver_registry_test
 
-test: test-driver-host $(BUILD)/kernel.bin $(DISK)
+test: $(BUILD)/kernel.bin $(DISK) test-driver-host
 > @rm -f $(BUILD)/serial.log
 > @timeout 10 $(QEMU) $(QEMUFLAGS) $(DISKFLAGS) $(QEMU_EXTRA) -serial file:$(BUILD)/serial.log -kernel $< || true
 > @cat $(BUILD)/serial.log
