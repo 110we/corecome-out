@@ -65,4 +65,14 @@
 - [ ] Native system-call ABI
 - [ ] POSIX compatibility as a separately tested layer
 
+## Milestone 8 — COXVBN RedLab authorized security assessment
+- [ ] Define immutable engagement scope schema, target exclusions, and authorization metadata
+- [ ] Implement host-tested deny-by-default CIDR/port/time scope guard (no network I/O)
+- [ ] Add separate discovery, passive-capture, and active-probe capability classes
+- [ ] Add per-target rate/resource limits, audit callbacks, and global stop semantics
+- [ ] Bind scope and policy checks to trusted module identity and revocable capabilities
+- [ ] Add isolated user-space assessment runner after scheduler, address-space isolation, and syscall/IPC ABI
+- [ ] Add bounded discovery, service enumeration, TLS/configuration, and web/API assessment tools
+- [ ] Add evidence redaction, report generation, and QEMU lab regression tests
+
 A checkbox is checked only when implementation and automated evidence exist.
