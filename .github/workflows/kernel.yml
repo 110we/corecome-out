@@ -1,7 +1,7 @@
 name: COXVBN kernel
 on:
   push:
-    branches: [main, "rewrite/**", "refactor/**", "feature/**"]
+    branches: [main, "rewrite/**", "refactor/**", "feature/**", "fix/**"]
   pull_request:
     branches: [main, "rewrite/**", "refactor/**"]
 permissions:
