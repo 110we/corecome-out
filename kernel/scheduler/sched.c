@@ -398,8 +398,10 @@ int sched_signal_self(void)
 int sched_wait_child(int pid, int *code)
 {
     int i;
+    int j;
+    u64 dead_ftab;
 
-    if (cur == (tcb_t *)0) {
+    if (cur == (tcb_t *)0 || code == (int *)0) {
         return 0;
     }
     for (i = 0; i < nth; i++) {
@@ -412,14 +414,25 @@ int sched_wait_child(int pid, int *code)
             continue;
         }
         *code = (int)t->code;
+        dead_ftab = t->ftab;
         t->state = ST_FREE;
         t->ppid = -1;
-        /* 收尸时释放子进程独占的 fd 表，并归还地址空间引用。
-         * fork 的 filetable 是深拷贝，不能随 TCB 一起丢失；clone 线程
-         * 共享父线程的表，因此 sched_clone_thread 不创建新的 filetable。 */
-        if (t->ftab != 0) {
-            kfree((void *)t->ftab);
-            t->ftab = 0;
+        t->ftab = 0;
+        /* fork 子进程拥有独立 fd 表；clone 线程与同组线程共享 fd 表。
+         * 因此只有最后一个持有该指针的 TCB 被收尸后，才能释放它。
+         * 不能仅凭 tgid==pid 判断：组长可能先于其他线程被父进程 wait。 */
+        if (dead_ftab != 0) {
+            int ftab_in_use = 0;
+            for (j = 0; j < nth; j++) {
+                if (tcbs[j].state != ST_FREE &&
+                    tcbs[j].ftab == dead_ftab) {
+                    ftab_in_use = 1;
+                    break;
+                }
+            }
+            if (!ftab_in_use) {
+                kfree((void *)dead_ftab);
+            }
         }
         pg_aspace_unref(t->l1);
         t->l1 = (u64 *)0;
