@@ -18,8 +18,8 @@ int main(void)
     assert(coxvbn_mmu_range_mapped(l2, 4U, BASE, BASE + 1U));
     assert(coxvbn_mmu_range_mapped(l2, 4U, BASE + 17U,
                                    BASE + BLOCK + 9U));
-    assert(!coxvbn_mmu_range_mapped(l2, 4U, BASE + BLOCK,
-                                    BASE + 2U * BLOCK));
+    assert(!coxvbn_mmu_range_mapped(l2, 4U, BASE + 2U * BLOCK,
+                                    BASE + 3U * BLOCK));
     assert(!coxvbn_mmu_range_mapped(l2, 4U, BASE + 3U * BLOCK,
                                     BASE + 4U * BLOCK + 1U));
     assert(!coxvbn_mmu_range_mapped(l2, 4U, BASE + 2U * BLOCK,
