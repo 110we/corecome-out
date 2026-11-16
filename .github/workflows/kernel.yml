@@ -78,12 +78,12 @@ jobs:
           aarch64-linux-gnu-gcc --version | head -1
 
       - name: 编译
-        run: make -C kernel
+        run: make -C kernels/COXVBN
 
       - name: 开机与 P0 断言
         run: |
           set -o pipefail
-          bash .github/scripts/bare-qemu-test.sh 2>&1 | tee kernel/build/ci.log
+          bash .github/scripts/bare-qemu-test.sh 2>&1 | tee kernels/COXVBN/build/ci.log
 
       - name: 汇总串口
         if: always()
@@ -91,8 +91,8 @@ jobs:
           {
             echo "## 裸机 QEMU"
             echo '```'
-            if [ -s kernel/build/serial.log ]; then
-              tail -n 60 kernel/build/serial.log
+            if [ -s kernels/COXVBN/build/serial.log ]; then
+              tail -n 60 kernels/COXVBN/build/serial.log
             else
               echo "(无串口输出)"
             fi
@@ -105,10 +105,10 @@ jobs:
         with:
           name: kernel-qemu-logs
           path: |
-            kernel/build/serial.log
-            kernel/build/qemu.log
-            kernel/build/qemu.err
-            kernel/build/ci.log
+            kernels/COXVBN/build/serial.log
+            kernels/COXVBN/build/qemu.log
+            kernels/COXVBN/build/qemu.err
+            kernels/COXVBN/build/ci.log
           if-no-files-found: warn
 
       - name: 回写诊断（失败时）
@@ -119,7 +119,7 @@ jobs:
           set -eu
           rm -rf /tmp/diag && mkdir -p /tmp/diag
           for f in serial.log qemu.log qemu.err ci.log; do
-            cp "kernel/build/$f" "/tmp/diag/$f" 2>/dev/null || true
+            cp "kernels/COXVBN/build/$f" "/tmp/diag/$f" 2>/dev/null || true
           done
           {
             echo "run=$GITHUB_RUN_ID"
@@ -127,7 +127,7 @@ jobs:
             echo "qemu=$(qemu-system-aarch64 --version | head -1)"
             echo "gcc=$(aarch64-linux-gnu-gcc --version | head -1)"
             echo "uname=$(uname -a)"
-            echo "serial_bytes=$(wc -c < kernel/build/serial.log 2>/dev/null || echo 0)"
+            echo "serial_bytes=$(wc -c < kernels/COXVBN/build/serial.log 2>/dev/null || echo 0)"
           } > /tmp/diag/meta.txt
           cd /tmp/diag
           git init -q
