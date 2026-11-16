@@ -151,6 +151,21 @@ bool coxvbn_module_activate(
     return true;
 }
 
+bool coxvbn_module_resolve_identity(
+    const struct coxvbn_module_registry *registry,
+    const struct coxvbn_module_ref *ref,
+    struct coxvbn_module_ref *canonical_out,
+    enum coxvbn_module_domain *domain_out,
+    enum coxvbn_module_state *state_out)
+{
+    const struct coxvbn_module_record *record = find_record_const(registry, ref);
+    if (record == NULL) return false;
+    if (canonical_out != NULL) *canonical_out = record->ref;
+    if (domain_out != NULL) *domain_out = record->domain;
+    if (state_out != NULL) *state_out = record->state;
+    return true;
+}
+
 bool coxvbn_module_is_active(
     const struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref)

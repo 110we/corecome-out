@@ -71,6 +71,7 @@
 - [ ] Add separate discovery, passive-capture, and active-probe capability classes
 - [x] Add host-tested per-target rate/concurrency limits, per-job time/byte budgets, audit callbacks, and sticky global stop (kernel identity/locking integration remains open)
 - [x] Bind host-tested scope/policy admission to active module identity and revocable, domain-separated capabilities (kernel execution-context plumbing remains open)
+- [x] Record canonical module identity and operation in RedLab audit events (host-tested; persistent audit storage remains open)
 - [ ] Add isolated user-space assessment runner after scheduler, address-space isolation, and syscall/IPC ABI
 - [ ] Add bounded discovery, service enumeration, TLS/configuration, and web/API assessment tools
 - [ ] Add evidence redaction, report generation, and QEMU lab regression tests

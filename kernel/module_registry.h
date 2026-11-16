@@ -92,6 +92,13 @@ bool coxvbn_module_activate(
     const uint8_t *public_key, size_t public_key_len,
     const uint8_t *proof, size_t proof_len);
 
+bool coxvbn_module_resolve_identity(
+    const struct coxvbn_module_registry *registry,
+    const struct coxvbn_module_ref *ref,
+    struct coxvbn_module_ref *canonical_out,
+    enum coxvbn_module_domain *domain_out,
+    enum coxvbn_module_state *state_out);
+
 bool coxvbn_module_is_active(
     const struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref);

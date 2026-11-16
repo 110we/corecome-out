@@ -6,7 +6,7 @@
 #define COXVBN_REDLAB_MAX_RULES 32U
 #define COXVBN_REDLAB_MAX_TARGETS 32U
 #define COXVBN_REDLAB_MAX_JOBS 64U
-#define COXVBN_REDLAB_AUDIT_VERSION 1U
+#define COXVBN_REDLAB_AUDIT_VERSION 2U
 enum coxvbn_ip_family { COXVBN_IP_V4 = 4, COXVBN_IP_V6 = 6 };
 struct coxvbn_ip_addr { uint8_t family; uint8_t bytes[16]; };
 struct coxvbn_cidr { uint8_t family; uint8_t prefix; uint8_t network[16]; };
@@ -27,7 +27,8 @@ enum coxvbn_redlab_decision {
  COXVBN_REDLAB_DENY_CAPACITY=10, COXVBN_REDLAB_DENY_CAPABILITY=11
 };
 struct coxvbn_redlab_audit_event {
- uint32_t version; uint64_t job_id, monotonic_seconds;
+ uint32_t version; uint64_t module_id, module_generation;
+ uint32_t operation; uint64_t job_id, monotonic_seconds;
  struct coxvbn_ip_addr target; uint16_t port;
  enum coxvbn_redlab_decision decision; bool active;
 };
@@ -54,6 +55,10 @@ enum coxvbn_redlab_operation {
 };
 struct coxvbn_module_registry;
 struct coxvbn_module_ref;
+struct coxvbn_redlab_audit_context {
+ uint64_t module_id, module_generation;
+ enum coxvbn_redlab_operation operation;
+};
 struct coxvbn_redlab_request {
  uint64_t job_id; struct coxvbn_ip_addr target; uint16_t port;
  uint64_t now, bytes; bool active;

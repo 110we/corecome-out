@@ -28,13 +28,15 @@ static bool address_equal(const struct coxvbn_ip_addr *a,const struct coxvbn_ip_
  for(size_t i=0;i<n;i++)if(a->bytes[i]!=b->bytes[i])return false;
  return true;
 }
-static void audit(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q,enum coxvbn_redlab_decision d){
+static void audit(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q,enum coxvbn_redlab_decision d,const struct coxvbn_redlab_audit_context *identity){
  struct coxvbn_redlab_audit_event e;if(!p->audit)return;e.version=COXVBN_REDLAB_AUDIT_VERSION;
+ e.module_id=identity?identity->module_id:0U;e.module_generation=identity?identity->module_generation:0U;
+ e.operation=identity?(uint32_t)identity->operation:UINT32_MAX;
  e.job_id=q?q->job_id:0U;e.monotonic_seconds=q?q->now:p->last_observed_time;
  if(q)e.target=q->target;else{e.target.family=0U;for(size_t i=0;i<16U;i++)e.target.bytes[i]=0U;}
  e.port=q?q->port:0U;e.decision=d;e.active=q&&q->active;p->audit(&e,p->audit_context);
 }
-static enum coxvbn_redlab_decision deny(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q,enum coxvbn_redlab_decision d){audit(p,q,d);return d;}
+static enum coxvbn_redlab_decision deny(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q,enum coxvbn_redlab_decision d,const struct coxvbn_redlab_audit_context *identity){audit(p,q,d,identity);return d;}
 bool coxvbn_redlab_policy_init(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_rule *r,size_t n,const struct coxvbn_redlab_limits *l,bool active,coxvbn_redlab_audit_fn fn,void *ctx){
  if(!p||!l||!fn||n>COXVBN_REDLAB_MAX_RULES||(n&&!r)||!l->requests_per_second||!l->max_concurrent_jobs_per_target||!l->max_job_duration_seconds||!l->max_job_bytes)return false;
  for(size_t i=0;i<n;i++)if(!coxvbn_redlab_cidr_valid(&r[i].target)||!r[i].first_port||r[i].first_port>r[i].last_port||r[i].not_before>=r[i].expires_at)return false;
@@ -66,33 +68,33 @@ bool coxvbn_redlab_job_finish(struct coxvbn_redlab_policy *p,uint64_t id){
  struct coxvbn_redlab_job_state *j=&p->jobs[s];if(j->target_slot>=COXVBN_REDLAB_MAX_TARGETS)return false;
  struct coxvbn_redlab_target_state *t=&p->targets[j->target_slot];if(t->active_jobs)--t->active_jobs;j->used=false;return true;
 }
-static enum coxvbn_redlab_decision policy_check_scoped(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q){
+static enum coxvbn_redlab_decision policy_check_scoped(struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q,const struct coxvbn_redlab_audit_context *identity){
  enum coxvbn_redlab_decision d;size_t ts,js;bool found;struct coxvbn_redlab_target_state *t;struct coxvbn_redlab_job_state *j;
  if(!p)return COXVBN_REDLAB_DENY_INVALID;
- if(!q||!q->job_id||!address_valid(&q->target)||!q->port)return deny(p,q,COXVBN_REDLAB_DENY_INVALID);
- if(p->stopped)return deny(p,q,COXVBN_REDLAB_DENY_STOPPED);
- if(p->time_initialized&&q->now<p->last_observed_time)return deny(p,q,COXVBN_REDLAB_DENY_TIME);
+ if(!q||!q->job_id||!address_valid(&q->target)||!q->port)return deny(p,q,COXVBN_REDLAB_DENY_INVALID,identity);
+ if(p->stopped)return deny(p,q,COXVBN_REDLAB_DENY_STOPPED,identity);
+ if(p->time_initialized&&q->now<p->last_observed_time)return deny(p,q,COXVBN_REDLAB_DENY_TIME,identity);
  p->last_observed_time=q->now;p->time_initialized=true;
- if(q->active&&!p->active_enabled)return deny(p,q,COXVBN_REDLAB_DENY_ACTIVE_DISABLED);
- d=scope(p,q);if(d!=COXVBN_REDLAB_ALLOW)return deny(p,q,d);
+ if(q->active&&!p->active_enabled)return deny(p,q,COXVBN_REDLAB_DENY_ACTIVE_DISABLED,identity);
+ d=scope(p,q);if(d!=COXVBN_REDLAB_ALLOW)return deny(p,q,d,identity);
  js=find_job(p,q->job_id);
- if(js!=COXVBN_REDLAB_MAX_JOBS){size_t old=p->jobs[js].target_slot;if(old>=COXVBN_REDLAB_MAX_TARGETS||!address_equal(&p->targets[old].address,&q->target))return deny(p,q,COXVBN_REDLAB_DENY_INVALID);}
- ts=find_target(p,&q->target,&found);if(!found)return deny(p,q,COXVBN_REDLAB_DENY_CAPACITY);
+ if(js!=COXVBN_REDLAB_MAX_JOBS){size_t old=p->jobs[js].target_slot;if(old>=COXVBN_REDLAB_MAX_TARGETS||!address_equal(&p->targets[old].address,&q->target))return deny(p,q,COXVBN_REDLAB_DENY_INVALID,identity);}
+ ts=find_target(p,&q->target,&found);if(!found)return deny(p,q,COXVBN_REDLAB_DENY_CAPACITY,identity);
  t=&p->targets[ts];if(!t->used){t->used=true;t->address=q->target;t->rate_window=q->now;t->requests_in_window=0;t->active_jobs=0;}
  if(q->now!=t->rate_window){t->rate_window=q->now;t->requests_in_window=0;}
- if(t->requests_in_window>=p->limits.requests_per_second)return deny(p,q,COXVBN_REDLAB_DENY_RATE);
+ if(t->requests_in_window>=p->limits.requests_per_second)return deny(p,q,COXVBN_REDLAB_DENY_RATE,identity);
  if(js==COXVBN_REDLAB_MAX_JOBS){
- if(t->active_jobs>=p->limits.max_concurrent_jobs_per_target)return deny(p,q,COXVBN_REDLAB_DENY_CONCURRENCY);
- js=free_job(p);if(js==COXVBN_REDLAB_MAX_JOBS)return deny(p,q,COXVBN_REDLAB_DENY_CAPACITY);
+ if(t->active_jobs>=p->limits.max_concurrent_jobs_per_target)return deny(p,q,COXVBN_REDLAB_DENY_CONCURRENCY,identity);
+ js=free_job(p);if(js==COXVBN_REDLAB_MAX_JOBS)return deny(p,q,COXVBN_REDLAB_DENY_CAPACITY,identity);
  j=&p->jobs[js];j->used=true;j->job_id=q->job_id;j->started_at=q->now;j->bytes_used=0;j->target_slot=ts;++t->active_jobs;
  }else j=&p->jobs[js];
- if(q->now<j->started_at||q->now-j->started_at>=p->limits.max_job_duration_seconds||j->bytes_used>p->limits.max_job_bytes||q->bytes>p->limits.max_job_bytes-j->bytes_used){(void)coxvbn_redlab_job_finish(p,q->job_id);return deny(p,q,COXVBN_REDLAB_DENY_JOB_LIMIT);}
- ++t->requests_in_window;j->bytes_used+=q->bytes;audit(p,q,COXVBN_REDLAB_ALLOW);return COXVBN_REDLAB_ALLOW;
+ if(q->now<j->started_at||q->now-j->started_at>=p->limits.max_job_duration_seconds||j->bytes_used>p->limits.max_job_bytes||q->bytes>p->limits.max_job_bytes-j->bytes_used){(void)coxvbn_redlab_job_finish(p,q->job_id);return deny(p,q,COXVBN_REDLAB_DENY_JOB_LIMIT,identity);}
+ ++t->requests_in_window;j->bytes_used+=q->bytes;audit(p,q,COXVBN_REDLAB_ALLOW,identity);return COXVBN_REDLAB_ALLOW;
 }
 void coxvbn_redlab_global_stop(struct coxvbn_redlab_policy *p){
  if(!p||p->stopped)return;
  p->stopped=true;
- audit(p,NULL,COXVBN_REDLAB_DENY_STOPPED);
+ audit(p,NULL,COXVBN_REDLAB_DENY_STOPPED,NULL);
  for(size_t i=0;i<COXVBN_REDLAB_MAX_JOBS;i++)if(p->jobs[i].used)(void)coxvbn_redlab_job_finish(p,p->jobs[i].job_id);
  for(size_t i=0;i<COXVBN_REDLAB_MAX_TARGETS;i++){p->targets[i].active_jobs=0;p->targets[i].used=false;}
 }
@@ -103,24 +105,30 @@ enum coxvbn_redlab_decision coxvbn_redlab_policy_check_authorized(
  const struct coxvbn_redlab_request *q)
 {
  coxvbn_capability_t required;
+ struct coxvbn_redlab_audit_context identity;
+ struct coxvbn_module_ref canonical;
+ identity.module_id=0U;identity.module_generation=0U;identity.operation=op;
  if(!p)return COXVBN_REDLAB_DENY_INVALID;
+ if(coxvbn_module_resolve_identity(registry,module,&canonical,NULL,NULL)){
+  identity.module_id=canonical.module_id;identity.module_generation=canonical.generation;
+ }
  switch(op){
  case COXVBN_REDLAB_OP_DISCOVERY: required=COXVBN_CAP_REDLAB_DISCOVERY; break;
  case COXVBN_REDLAB_OP_PASSIVE_CAPTURE: required=COXVBN_CAP_REDLAB_PASSIVE_CAPTURE; break;
  case COXVBN_REDLAB_OP_ACTIVE_PROBE: required=COXVBN_CAP_REDLAB_ACTIVE_PROBE; break;
- default: return deny(p,q,COXVBN_REDLAB_DENY_CAPABILITY);
+ default: return deny(p,q,COXVBN_REDLAB_DENY_CAPABILITY,&identity);
  }
  if(!coxvbn_module_authorize(registry,module,required))
-  return deny(p,q,COXVBN_REDLAB_DENY_CAPABILITY);
+  return deny(p,q,COXVBN_REDLAB_DENY_CAPABILITY,&identity);
  if((op==COXVBN_REDLAB_OP_ACTIVE_PROBE)!=(q!=NULL && q->active))
-  return deny(p,q,COXVBN_REDLAB_DENY_CAPABILITY);
- return policy_check_scoped(p,q);
+  return deny(p,q,COXVBN_REDLAB_DENY_CAPABILITY,&identity);
+ return policy_check_scoped(p,q,&identity);
 }
 #ifdef COXVBN_REDLAB_TESTING
 enum coxvbn_redlab_decision coxvbn_redlab_policy_check(
  struct coxvbn_redlab_policy *p,const struct coxvbn_redlab_request *q)
 {
- return policy_check_scoped(p,q);
+ return policy_check_scoped(p,q,NULL);
 }
 #endif
 
