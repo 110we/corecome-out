@@ -14,7 +14,7 @@ LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 SOURCES_C := kernel/main.c kernel/uart.c kernel/fdt.c kernel/key_vault.c \
              kernel/information_store.c kernel/emergency_recovery.c \
              kernel/phys_alloc.c kernel/mmu.c kernel/module_registry.c kernel/exception.c \
-             kernel/exception_decode.c kernel/gicv2.c
+             kernel/exception_decode.c kernel/gicv2.c kernel/arm_timer.c
 SOURCES_S := $(ARCH)/boot.S
 OBJECTS   := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES_C)) \
              $(patsubst %.S,$(BUILD)/%.o,$(SOURCES_S))
@@ -56,6 +56,8 @@ test-host:
 	$(BUILD)/exception_dispatch_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/gicv2_test.c kernel/gicv2.c -o $(BUILD)/gicv2_test
 	$(BUILD)/gicv2_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/arm_timer_test.c kernel/arm_timer.c -o $(BUILD)/arm_timer_test
+	$(BUILD)/arm_timer_test
 
 run: all
 	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/coxvbn.bin

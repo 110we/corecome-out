@@ -30,7 +30,8 @@
 - [ ] Add safe recoverable synchronous-fault handling
 - [x] Add host-tested GICv2 quiescent initialization (disable interfaces, read line count, prepare PMR; no IRQ delivery)
 - [x] Discover supported GICv2 compatible strings and distributor/CPU-interface `reg` ranges from FDT; validate and bind after the initial MMU map (host-tested parser; QEMU boot-tested)
-- [ ] Add a generic interrupt-controller interface and architectural timer driver
+- [ ] Add a generic interrupt-controller interface and timer PPI binding/dispatch
+- [x] Add EL1 physical Generic Timer frequency/counter access and masked one-shot programming (host-tested conversion; timer IRQ remains masked)
 - [x] Add host-tested GICv2 interrupt acknowledge and EOI register primitives (IRQ delivery remains disabled)
 - [x] Add bounded IRQ handler registration/dispatch, full-token GICv2 EOI, spurious IRQ handling, and fail-closed unhandled IRQ policy (host-tested; hardware delivery remains disabled)
 - [ ] Enable and QEMU-test hardware IRQ delivery after timer and exception-return runtime validation

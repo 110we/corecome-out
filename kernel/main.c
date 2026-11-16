@@ -4,6 +4,7 @@
 #include "mmu.h"
 #include "gicv2.h"
 #include "exception.h"
+#include "arm_timer.h"
 extern char __kernel_start[];
 extern char __kernel_end[];
 
@@ -68,7 +69,17 @@ void kernel_main(const void *boot_fdt)
         uart_write("\n");
         for (;;) __asm__ volatile("wfe");
     }
-    uart_write("COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE\n");
+    uart_write("COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE\\n");
+    rc = arm_timer_init();
+    if (rc != ARM_TIMER_OK) {
+        uart_write("COXVBN: ARM GENERIC TIMER INIT FAILED\\n");
+        for (;;) __asm__ volatile("wfe");
+    }
+    uart_write("COXVBN: ARM GENERIC TIMER READY; CNTFRQ ");
+    uart_write_hex((uintptr_t)arm_timer_frequency());
+    uart_write(" CNT ");
+    uart_write_hex((uintptr_t)arm_timer_now());
+    uart_write("; PHYSICAL TIMER IRQ MASKED\\n");
     if (fdt.gicv2_found != 0U) {
         struct gicv2_state gic;
         const uint64_t aperture_start = 0x08000000ULL;
