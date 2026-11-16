@@ -44,6 +44,7 @@ struct node_state {
     uint8_t is_reserved;
     uint8_t is_reserved_container;
     uint8_t is_gicv2;
+    uint8_t is_disabled;
 };
 
 static uint32_t be32(const uint8_t *p)
@@ -220,6 +221,7 @@ static int parse_reservations(const uint8_t *b, uint32_t limit,
 static int collect_node(struct node_state *n, struct fdt_info *info)
 {
     uint32_t tuple, tuple_bytes, off;
+    if (n->is_disabled) return 0;
     if (n->is_gicv2) {
         uint32_t tuple, tuple_bytes;
         uint64_t db, ds, cb, cs;
@@ -307,7 +309,7 @@ int fdt_parse(const void *blob, struct fdt_info *info)
             pos = (uint32_t)aligned;
             if (depth == 0) {
                 if (len != 0U) return -12;
-                stack[depth] = (struct node_state){2, 1, 0, NULL, 0, 0, 0, 0};
+                stack[depth] = (struct node_state){2, 1, 0, NULL, 0, 0, 0, 0, 0};
             } else {
                 stack[depth] = stack[depth - 1U];
                 stack[depth].reg = NULL;
@@ -317,6 +319,7 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                     stack[depth - 1U].is_reserved_container;
                 stack[depth].is_reserved_container = 0;
                 stack[depth].is_gicv2 = 0;
+                stack[depth].is_disabled = 0;
             }
             if (string_is((const char *)(structure + start), "memory") ||
                 string_prefix((const char *)(structure + start), "memory@"))
@@ -359,6 +362,9 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                 n->size_cells = be32(value);
             else if (string_is(name, "compatible"))
                 n->is_gicv2 = (uint8_t)compatible_has_gicv2(value, len);
+            else if (string_is(name, "status") && len == 9U &&
+                     string_is((const char *)value, "disabled"))
+                n->is_disabled = 1U;
             else if (string_is(name, "reg")) {
                 n->reg = value;
                 n->reg_length = len;
