@@ -48,6 +48,7 @@
 - [ ] Central Security Plugin request interface backed by kernel-enforced policy
 - [x] Define bounded receiver-key enrollment, forward-only rotation, and terminal revocation contract (host-tested)
 - [x] Add bounded kernel module registry with requested/granted capability checks and terminal revocation (host-tested)
+- [x] Serialize module registry registration, activation, authorization, identity lookup, and revocation with an acquire/release lock (host-tested concurrent registration; IRQ/preemption integration remains open)
 - [ ] Bind active execution context to module identity and enforce capabilities at every privileged subsystem boundary
 - [ ] Integrate audited cryptography and persistent anti-rollback key storage
 

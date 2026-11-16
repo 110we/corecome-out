@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <pthread.h>
 #include "module_registry.h"
 
 static bool receiver_proof(const uint8_t *key, size_t key_len,
@@ -15,6 +16,64 @@ static bool recovery_proof(const uint8_t *proof, size_t len, void *context)
 {
     (void)context;
     return proof != NULL && len == 1U && proof[0] == 0x5aU;
+}
+
+
+#define REGISTRY_WORKERS 4U
+#define REGISTRATIONS_PER_WORKER 7U
+
+struct registry_worker {
+    struct coxvbn_module_registry *registry;
+    const void *authority;
+    struct coxvbn_module_ref refs[REGISTRATIONS_PER_WORKER];
+    bool ok;
+};
+
+static void *register_worker(void *argument)
+{
+    struct registry_worker *worker = argument;
+    size_t i;
+    worker->ok = true;
+    for (i = 0U; i < REGISTRATIONS_PER_WORKER; ++i) {
+        enum coxvbn_module_state state;
+        if (!coxvbn_module_register(worker->registry, worker->authority,
+                COXVBN_CAP_DEVICE_READ, COXVBN_CAP_DEVICE_READ,
+                &worker->refs[i]) ||
+            !coxvbn_module_resolve_identity(worker->registry,
+                &worker->refs[i], NULL, NULL, &state) ||
+            state != COXVBN_MODULE_PENDING) {
+            worker->ok = false;
+            break;
+        }
+    }
+    return NULL;
+}
+
+static void test_concurrent_registry_registration(
+    struct coxvbn_module_registry *registry, const void *authority)
+{
+    pthread_t threads[REGISTRY_WORKERS];
+    struct registry_worker workers[REGISTRY_WORKERS];
+    size_t i, j, a, b;
+
+    for (i = 0U; i < REGISTRY_WORKERS; ++i) {
+        workers[i].registry = registry;
+        workers[i].authority = authority;
+        workers[i].ok = false;
+        assert(pthread_create(&threads[i], NULL, register_worker,
+                              &workers[i]) == 0);
+    }
+    for (i = 0U; i < REGISTRY_WORKERS; ++i) {
+        assert(pthread_join(threads[i], NULL) == 0);
+        assert(workers[i].ok);
+    }
+    for (i = 0U; i < REGISTRY_WORKERS; ++i)
+        for (a = 0U; a < REGISTRATIONS_PER_WORKER; ++a)
+            for (j = i; j < REGISTRY_WORKERS; ++j)
+                for (b = (j == i ? a + 1U : 0U);
+                     b < REGISTRATIONS_PER_WORKER; ++b)
+                    assert(workers[i].refs[a].module_id !=
+                           workers[j].refs[b].module_id);
 }
 
 int main(void)
@@ -137,6 +196,8 @@ int main(void)
     assert(!coxvbn_module_authorize(
         &registry, &rejected, COXVBN_CAP_REDLAB_DISCOVERY));
 
-    puts("COXVBN module registry and Key Vault activation tests: PASS");
+    test_concurrent_registry_registration(&registry, &loader_authority);
+
+    puts("COXVBN module registry, concurrent registration, and Key Vault tests: PASS");
     return 0;
 }

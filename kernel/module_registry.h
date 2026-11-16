@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include "key_vault.h"
 
 #define COXVBN_MODULE_CAPACITY 32U
@@ -57,6 +58,8 @@ struct coxvbn_module_record {
 };
 
 struct coxvbn_module_registry {
+    /* Acquire/release spinlock; APIs are thread-context only. */
+    atomic_bool locked;
     /* Identity of a kernel-owned authority object; never expose it to modules. */
     const void *loader_authority;
     uint64_t next_module_id;
@@ -93,23 +96,23 @@ bool coxvbn_module_activate(
     const uint8_t *proof, size_t proof_len);
 
 bool coxvbn_module_resolve_identity(
-    const struct coxvbn_module_registry *registry,
+    struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref,
     struct coxvbn_module_ref *canonical_out,
     enum coxvbn_module_domain *domain_out,
     enum coxvbn_module_state *state_out);
 
 bool coxvbn_module_is_active(
-    const struct coxvbn_module_registry *registry,
+    struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref);
 
 bool coxvbn_module_has_capability(
-    const struct coxvbn_module_registry *registry,
+    struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref,
     coxvbn_capability_t required);
 
 bool coxvbn_module_authorize(
-    const struct coxvbn_module_registry *registry,
+    struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref,
     coxvbn_capability_t required);
 

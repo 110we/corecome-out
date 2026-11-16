@@ -1,5 +1,16 @@
 #include "module_registry.h"
 
+static void registry_lock(struct coxvbn_module_registry *registry)
+{
+    while (atomic_exchange_explicit(&registry->locked, true,
+                                    memory_order_acquire)) { }
+}
+
+static void registry_unlock(struct coxvbn_module_registry *registry)
+{
+    atomic_store_explicit(&registry->locked, false, memory_order_release);
+}
+
 static bool ref_equal(const struct coxvbn_module_ref *a,
                       const struct coxvbn_module_ref *b)
 {
@@ -42,6 +53,7 @@ void coxvbn_module_registry_init(struct coxvbn_module_registry *registry,
 {
     size_t i;
     if (registry == NULL) return;
+    atomic_init(&registry->locked, false);
     registry->loader_authority = loader_authority;
     registry->next_module_id = 1U;
     for (i = 0U; i < COXVBN_MODULE_CAPACITY; ++i) {
@@ -59,7 +71,7 @@ void coxvbn_module_registry_init(struct coxvbn_module_registry *registry,
     }
 }
 
-bool coxvbn_module_register_domain(
+static bool module_register_domain_locked(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,
     enum coxvbn_module_domain domain,
@@ -119,7 +131,7 @@ bool coxvbn_module_register(
         requested, granted, out);
 }
 
-bool coxvbn_module_activate(
+static bool module_activate_locked(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,
     struct coxvbn_key_vault *vault,
@@ -151,8 +163,8 @@ bool coxvbn_module_activate(
     return true;
 }
 
-bool coxvbn_module_resolve_identity(
-    const struct coxvbn_module_registry *registry,
+static bool module_resolve_identity_locked(
+    struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref,
     struct coxvbn_module_ref *canonical_out,
     enum coxvbn_module_domain *domain_out,
@@ -166,8 +178,8 @@ bool coxvbn_module_resolve_identity(
     return true;
 }
 
-bool coxvbn_module_is_active(
-    const struct coxvbn_module_registry *registry,
+static bool module_is_active_locked(
+    struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref)
 {
     const struct coxvbn_module_record *record =
@@ -175,8 +187,8 @@ bool coxvbn_module_is_active(
     return record != NULL && record->state == COXVBN_MODULE_ACTIVE;
 }
 
-bool coxvbn_module_has_capability(
-    const struct coxvbn_module_registry *registry,
+static bool module_has_capability_locked(
+    struct coxvbn_module_registry *registry,
     const struct coxvbn_module_ref *ref,
     coxvbn_capability_t required)
 {
@@ -209,7 +221,7 @@ bool coxvbn_module_authorize(
     return coxvbn_module_has_capability(registry, ref, required);
 }
 
-bool coxvbn_module_revoke(
+static bool module_revoke_locked(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,
     struct coxvbn_key_vault *vault,
@@ -235,4 +247,87 @@ bool coxvbn_module_revoke(
     record->state = COXVBN_MODULE_REVOKED;
     record->granted = COXVBN_CAP_NONE;
     return true;
+}
+
+
+bool coxvbn_module_register_domain(
+    struct coxvbn_module_registry *registry,
+    const void *loader_authority, enum coxvbn_module_domain domain,
+    coxvbn_capability_t requested, coxvbn_capability_t granted,
+    struct coxvbn_module_ref *out)
+{
+    bool result;
+    if (registry == NULL) return false;
+    registry_lock(registry);
+    result = module_register_domain_locked(registry, loader_authority,
+        domain, requested, granted, out);
+    registry_unlock(registry);
+    return result;
+}
+
+bool coxvbn_module_activate(
+    struct coxvbn_module_registry *registry, const void *loader_authority,
+    struct coxvbn_key_vault *vault, const struct coxvbn_module_ref *ref,
+    uint64_t receiver_id, const uint8_t *public_key, size_t public_key_len,
+    const uint8_t *proof, size_t proof_len)
+{
+    bool result;
+    if (registry == NULL) return false;
+    registry_lock(registry);
+    result = module_activate_locked(registry, loader_authority, vault, ref,
+        receiver_id, public_key, public_key_len, proof, proof_len);
+    registry_unlock(registry);
+    return result;
+}
+
+bool coxvbn_module_resolve_identity(
+    struct coxvbn_module_registry *registry,
+    const struct coxvbn_module_ref *ref,
+    struct coxvbn_module_ref *canonical_out,
+    enum coxvbn_module_domain *domain_out,
+    enum coxvbn_module_state *state_out)
+{
+    bool result;
+    if (registry == NULL) return false;
+    registry_lock(registry);
+    result = module_resolve_identity_locked(registry, ref, canonical_out,
+        domain_out, state_out);
+    registry_unlock(registry);
+    return result;
+}
+
+bool coxvbn_module_is_active(
+    struct coxvbn_module_registry *registry,
+    const struct coxvbn_module_ref *ref)
+{
+    bool result;
+    if (registry == NULL) return false;
+    registry_lock(registry);
+    result = module_is_active_locked(registry, ref);
+    registry_unlock(registry);
+    return result;
+}
+
+bool coxvbn_module_has_capability(
+    struct coxvbn_module_registry *registry,
+    const struct coxvbn_module_ref *ref, coxvbn_capability_t required)
+{
+    bool result;
+    if (registry == NULL) return false;
+    registry_lock(registry);
+    result = module_has_capability_locked(registry, ref, required);
+    registry_unlock(registry);
+    return result;
+}
+
+bool coxvbn_module_revoke(
+    struct coxvbn_module_registry *registry, const void *loader_authority,
+    struct coxvbn_key_vault *vault, const struct coxvbn_module_ref *ref)
+{
+    bool result;
+    if (registry == NULL) return false;
+    registry_lock(registry);
+    result = module_revoke_locked(registry, loader_authority, vault, ref);
+    registry_unlock(registry);
+    return result;
 }

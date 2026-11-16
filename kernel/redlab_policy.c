@@ -100,7 +100,7 @@ void coxvbn_redlab_global_stop(struct coxvbn_redlab_policy *p){
 }
 
 enum coxvbn_redlab_decision coxvbn_redlab_policy_check_authorized(
- struct coxvbn_redlab_policy *p,const struct coxvbn_module_registry *registry,
+ struct coxvbn_redlab_policy *p,struct coxvbn_module_registry *registry,
  const struct coxvbn_module_ref *module,enum coxvbn_redlab_operation op,
  const struct coxvbn_redlab_request *q)
 {
