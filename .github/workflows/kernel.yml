@@ -1,9 +1,9 @@
 name: COXVBN kernel
 on:
   push:
-    branches: [main, "rewrite/**"]
+    branches: [main, "rewrite/**", "refactor/**"]
   pull_request:
-    branches: [main]
+    branches: [main, "rewrite/**"]
 permissions:
   contents: read
 jobs:
@@ -15,10 +15,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu qemu-system-arm device-tree-compiler
-      - name: Host FDT parser tests
+      - name: COXVBN host tests
         run: make test-host
-      - name: Build kernel
-        run: make clean all
+      - name: Build COXVBN image
+        run: make clean coxvbn
       - name: Verify image format
         run: |
           aarch64-linux-gnu-readelf -h build/coxvbn.elf | grep -E 'Machine:.*AArch64'
@@ -60,3 +60,12 @@ jobs:
             exit 1
           fi
           if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then exit "$status"; fi
+
+  redlab-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build RedLab independently
+        run: make -C kernels/RedLab clean all
+      - name: Run RedLab standalone tests
+        run: make -C kernels/RedLab test

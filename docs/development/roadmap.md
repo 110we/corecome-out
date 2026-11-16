@@ -46,10 +46,11 @@
 - [ ] IPC and capability-based resource handles
 - [ ] Implement COXVBN Direct Port Communication: paired endpoints, direct shared-channel data path, no bridge/relay
 - [ ] Central Security Plugin request interface backed by kernel-enforced policy
-- [x] Define bounded receiver-key enrollment, forward-only rotation, and terminal revocation contract (host-tested)
+- [x] Define bounded receiver-key enrollment, forward-only rotation, and terminal revocation contract (host-tested)\n- [x] Serialize receiver-key table transitions with an atomic lock and PENDING/ROTATING states; run proof callbacks outside the lock and test re-entry/concurrent enrollment (host-tested; IRQ/preemption/SMP integration and verifier-context lifetime remain open)
 - [x] Add bounded kernel module registry with requested/granted capability checks and terminal revocation (host-tested)
 - [x] Serialize registry metadata and use ACTIVATING/REVOKING transitions so Key Vault callbacks run outside the registry lock (host-tested reentrant proof callback; IRQ/preemption integration remains open)
-- [x] Add a fail-closed current-module execution-context provider contract and route the production RedLab admission entry through it (host-tested; scheduler provider and privileged-boundary rollout remain open)
+- [x] Define the COXVBN current-module execution-context provider contract (host-tested in isolation)
+- [ ] Implement a scheduler-backed COXVBN adapter for RedLab's platform-neutral authority callback; do not accept caller-supplied module identity
 - [ ] Bind scheduler-owned active execution context to module identity and enforce capabilities at every privileged subsystem boundary
 - [ ] Integrate audited cryptography and persistent anti-rollback key storage
 
@@ -68,12 +69,13 @@
 - [ ] POSIX compatibility as a separately tested layer
 
 ## Milestone 8 — COXVBN RedLab authorized security assessment
+- [x] Separate RedLab policy/profile sources, build target, and host tests from the COXVBN boot image (RedLab is a standalone library, not a bootable OS kernel)
 - [ ] Define immutable engagement scope schema, target exclusions, and authorization metadata
 - [x] Implement host-tested deny-by-default IPv4/IPv6 CIDR, port, and monotonic-time scope guard (no network I/O)
 - [ ] Add separate discovery, passive-capture, and active-probe capability classes
 - [x] Add host-tested per-target rate/concurrency limits, per-job time/byte budgets, audit callbacks, and sticky global stop (kernel identity/locking integration remains open)
-- [x] Bind host-tested scope/policy admission to active module identity and revocable, domain-separated capabilities (kernel execution-context plumbing remains open)
-- [x] Record canonical module identity and operation in RedLab audit events (host-tested; persistent audit storage remains open)
+- [ ] Connect RedLab policy admission to COXVBN's active module identity and revocable, domain-separated capabilities through a trusted scheduler-backed adapter
+- [x] Record authority-callback identity and operation in RedLab audit events (host-tested; trusted kernel adapter and persistent audit storage remain open)
 - [ ] Add isolated user-space assessment runner after scheduler, address-space isolation, and syscall/IPC ABI
 - [ ] Add bounded discovery, service enumeration, TLS/configuration, and web/API assessment tools
 - [ ] Add evidence redaction, report generation, and QEMU lab regression tests

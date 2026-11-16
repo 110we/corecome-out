@@ -29,7 +29,7 @@ RedLab is the security-assessment environment planned on top of the `rewrite/cor
 
 ## Relationship to the Daily Privacy Profile
 
-RedLab and the Daily Privacy Profile are separate security domains, not two labels for the same mode. Daily privacy settings cannot grant assessment permissions. Entering RedLab requires explicit authorization and a scoped engagement; leaving RedLab requires stopping jobs, revoking assessment capabilities, and recording the transition. See [docs/privacy-mode.md](privacy-mode.md) for the daily profile contract and transition requirements.
+RedLab and the Daily Privacy Profile are separate security domains, not two labels for the same mode. Daily privacy settings cannot grant assessment permissions. Entering RedLab requires explicit authorization and a scoped engagement; leaving RedLab requires stopping jobs, revoking assessment capabilities, and recording the transition. See [docs/redlab/privacy-mode.md](privacy-mode.md) for the daily profile contract and transition requirements.
 
 ## Planned architecture
 
@@ -53,17 +53,17 @@ Kernel security boundary
      Network stack / drivers
 ```
 
-The diagram is a target architecture, not a claim that these components already exist. The current kernel has a module registry and a host-tested RedLab admission adapter that checks active module identity and distinct discovery/passive/active capabilities before policy admission. Daily-profile modules are barred from requesting RedLab capabilities. Trusted execution-context plumbing at a syscall/network boundary remains unimplemented; the kernel also lacks user mode, a syscall ABI, a network stack, persistent audit storage, or a production cryptographic backend.
+The diagram is a target architecture, not a claim that these components already exist. COXVBN has a host-tested module registry with domain-separated capability grants. RedLab is now a separate host library and accepts a platform-neutral authority callback, but no adapter currently connects that callback to COXVBN's registry or scheduler identity. Daily-profile modules are barred by the COXVBN registry from requesting RedLab capabilities. Trusted execution-context plumbing at a syscall/network boundary remains unimplemented; the kernel also lacks user mode, a syscall ABI, a network stack, persistent audit storage, or a production cryptographic backend.
 
 ## R1 policy-core status
 
-The initial R1 policy library is implemented in kernel/redlab_policy.c and host-tested. It supports canonical IPv4/IPv6 CIDR matching, allow/exclusion precedence, port ranges, monotonic engagement windows, default-deny decisions, active-test default-off, per-target request/concurrency limits, per-job duration/byte budgets, audit callbacks, and a sticky global stop. It performs no DNS resolution or network I/O. Kernel-owned caller identity, locking, and integration with a future network/syscall boundary remain unimplemented; see docs/redlab-policy-core.md.
+The initial R1 policy library is implemented in `kernels/RedLab/policy/` and independently host-tested through `make -C kernels/RedLab test`. It supports canonical IPv4/IPv6 CIDR matching, allow/exclusion precedence, port ranges, monotonic engagement windows, default-deny decisions, active-test default-off, per-target request/concurrency limits, per-job duration/byte budgets, audit callbacks, and a sticky global stop. It performs no DNS resolution or network I/O. Its authority callback is an integration seam, not a trusted kernel identity source; the COXVBN adapter, locking, and network/syscall integration remain unimplemented; see `redlab-policy-core.md`.
 
 ## Delivery stages
 
 - **R0 — design and boundaries:** document threat model, scope schema, capability classes, audit event schema, and kill-switch semantics.
 - **R1 — policy core:** implement and host-test CIDR/port/time scope checks, deny-by-default behavior, rate limiting, and audit callbacks without sending network traffic.
-- **R2 — kernel integration:** host-tested module identity/capability admission and revocation are implemented; trusted execution-context binding, kernel locking, and persistent audit integration remain open.
+- **R2 — kernel integration:** COXVBN's module registry and RedLab's authority callback are separately host-tested; connecting them through a trusted scheduler-backed adapter, kernel locking, and persistent audit integration remains open.
 - **R3 — isolated user space:** implement a minimal RedLab process and narrow syscall/IPC interface after address-space isolation and scheduler work.
 - **R4 — passive assessment:** add local inventory and passive protocol/configuration analysis.
 - **R5 — controlled active assessment:** add explicitly authorized, rate-limited checks against lab targets; test out-of-scope denial and emergency stop in QEMU.

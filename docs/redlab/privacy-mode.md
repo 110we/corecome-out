@@ -4,7 +4,7 @@
 
 The Daily Privacy Profile is an ordinary, user-controlled operating profile for reducing incidental disclosure during everyday use. It is not an evasion mode, covert mode, or identity-spoofing feature. It must remain compatible with platform security controls, endpoint protection, audit requirements, and applicable organizational policy.
 
-This document defines a design contract. The module registry now has a host-tested domain boundary that prevents Daily Profile modules from requesting or receiving RedLab assessment capabilities. The current kernel does not yet implement user sessions, a desktop, application sandboxing, notification services, or profile switching.
+This document defines a design contract. The module registry now has a host-tested domain boundary that prevents Daily Profile modules from requesting or receiving RedLab assessment capabilities. The RedLab profile state-machine library is independently host-tested, but the current COXVBN kernel does not yet implement user sessions, a desktop, application sandboxing, notification services, or runtime profile switching.
 
 ## Intended controls
 
@@ -80,8 +80,8 @@ Until those stages are implemented and tested, this remains a design contract, n
 
 ## Host-tested transition controller
 
-The kernel-side transition controller now defines DAILY_ACTIVE, SWITCHING_TO_REDLAB, REDLAB_ACTIVE, SWITCHING_TO_DAILY, and RESTRICTED states. Entering RedLab requires an explicit confirmation flag plus a kernel-provided authorization callback and a successful audit event. Returning to Daily requires stop-and-revoke success before the return audit event and state change. Any uncertain stop/revoke or audit result enters RESTRICTED, from which no profile handle is issued and no further transition is accepted.
+The RedLab profile library defines DAILY_ACTIVE, SWITCHING_TO_REDLAB, REDLAB_ACTIVE, SWITCHING_TO_DAILY, and RESTRICTED states. Entering RedLab requires an explicit confirmation flag plus a kernel-provided authorization callback and a successful audit event. Returning to Daily requires stop-and-revoke success before the return audit event and state change. Any uncertain stop/revoke or audit result enters RESTRICTED, from which no profile handle is issued and no further transition is accepted.
 
 Profile handles carry a profile ID, generation, and domain. A transition increments the generation, invalidating handles from the previous profile. A handle is valid only for the currently active domain, so a Daily handle cannot authorize RedLab and vice versa.
 
-This is a host-tested state-machine contract, not yet an authenticated UI or production isolation boundary. The callbacks must be wired to trusted kernel authentication, actual RedLab job cancellation and capability revocation, and durable audit storage. The controller currently has no scheduler-backed locking; callers must serialize access until kernel synchronization is implemented. Handles must remain kernel-owned and must not be exposed as forgeable user-space structs.
+This is a host-tested library state-machine contract, not yet a COXVBN kernel service, authenticated UI, or production isolation boundary. The callbacks must be wired to trusted kernel authentication, actual RedLab job cancellation and capability revocation, and durable audit storage. The controller currently has no scheduler-backed locking; callers must serialize access until kernel synchronization is implemented. Handles must remain kernel-owned and must not be exposed as forgeable user-space structs.

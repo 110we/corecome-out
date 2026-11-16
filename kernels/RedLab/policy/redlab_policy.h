@@ -53,8 +53,14 @@ enum coxvbn_redlab_operation {
  COXVBN_REDLAB_OP_PASSIVE_CAPTURE=1,
  COXVBN_REDLAB_OP_ACTIVE_PROBE=2
 };
-struct coxvbn_module_registry;
-struct coxvbn_module_ref;
+/* Platform-neutral authority seam. The embedding platform provides a
+ * trusted adapter; untrusted callers cannot supply module identity. */
+struct coxvbn_redlab_authority {
+ bool (*authorize)(enum coxvbn_redlab_operation operation,
+                   uint64_t *module_id, uint64_t *module_generation,
+                   void *context);
+ void *context;
+};
 struct coxvbn_redlab_audit_context {
  uint64_t module_id, module_generation;
  enum coxvbn_redlab_operation operation;
@@ -71,16 +77,9 @@ bool coxvbn_redlab_policy_init(struct coxvbn_redlab_policy *,
 enum coxvbn_redlab_decision coxvbn_redlab_policy_check(
  struct coxvbn_redlab_policy *, const struct coxvbn_redlab_request *);
 #endif
-enum coxvbn_redlab_decision coxvbn_redlab_policy_check_current(
- struct coxvbn_redlab_policy *, struct coxvbn_module_registry *,
- enum coxvbn_redlab_operation, const struct coxvbn_redlab_request *);
-#ifdef COXVBN_REDLAB_TESTING
-/* Host-test hook only; production callers use current execution context. */
 enum coxvbn_redlab_decision coxvbn_redlab_policy_check_authorized(
- struct coxvbn_redlab_policy *, struct coxvbn_module_registry *,
- const struct coxvbn_module_ref *, enum coxvbn_redlab_operation,
- const struct coxvbn_redlab_request *);
-#endif
+ struct coxvbn_redlab_policy *, const struct coxvbn_redlab_authority *,
+ enum coxvbn_redlab_operation, const struct coxvbn_redlab_request *);
 bool coxvbn_redlab_job_finish(struct coxvbn_redlab_policy *, uint64_t);
 void coxvbn_redlab_global_stop(struct coxvbn_redlab_policy *);
 bool coxvbn_redlab_cidr_valid(const struct coxvbn_cidr *);

@@ -1,4 +1,4 @@
-#include "../kernel/phys_alloc.h"
+#include "phys_alloc.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
