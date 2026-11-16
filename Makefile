@@ -64,7 +64,7 @@ test-host:
 	$(BUILD)/recovery_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $(KERNEL_INCLUDES) tests/COXVBN/security/receiver_key_test.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/receiver_key_test
 	$(BUILD)/receiver_key_test
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $(KERNEL_INCLUDES) tests/COXVBN/security/module_registry_test.c kernels/COXVBN/security/module_registry.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/module_registry_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $(KERNEL_INCLUDES) tests/COXVBN/security/module_registry_test.c kernels/COXVBN/core/execution_context.c kernels/COXVBN/security/module_registry.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/module_registry_test
 	$(BUILD)/module_registry_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/architecture/exception_frame_test.c -o $(BUILD)/exception_frame_test
 	$(BUILD)/exception_frame_test
