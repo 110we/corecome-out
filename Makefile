@@ -44,6 +44,8 @@ test-host:
 	$(BUILD)/fdt_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/recovery_test.c kernel/key_vault.c kernel/information_store.c kernel/emergency_recovery.c -o $(BUILD)/recovery_test
 	$(BUILD)/recovery_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/receiver_key_test.c kernel/key_vault.c -o $(BUILD)/receiver_key_test
+	$(BUILD)/receiver_key_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/exception_frame_test.c -o $(BUILD)/exception_frame_test
 	$(BUILD)/exception_frame_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/exception_decode_test.c kernel/exception_decode.c -o $(BUILD)/exception_decode_test

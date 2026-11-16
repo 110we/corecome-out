@@ -42,6 +42,9 @@
 - [ ] IPC and capability-based resource handles
 - [ ] Implement COXVBN Direct Port Communication: paired endpoints, direct shared-channel data path, no bridge/relay
 - [ ] Central Security Plugin request interface backed by kernel-enforced policy
+- [x] Define bounded receiver-key enrollment, forward-only rotation, and terminal revocation contract (host-tested)
+- [ ] Integrate authenticated module identity/capability checks with module registry
+- [ ] Integrate audited cryptography and persistent anti-rollback key storage
 
 ## Milestone 6 — isolated recovery foundations
 - [x] Separate Key Vault, Information Store, and Emergency Recovery module interfaces
