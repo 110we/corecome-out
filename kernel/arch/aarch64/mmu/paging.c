@@ -297,23 +297,25 @@ u64 *pg_aspace_clone(u64 *src)
         va = USER_WIN_BASE + i * 4096;
 
         if ((e & UXN) == 0) {          /* 代码页：只读可执行，共享 */
-            mm_page_ref((void *)pa);
             if (pg_map_user(dst, va, pa, PG_USER_RX) != 0) {
                 pg_aspace_unref(dst);
                 return (u64 *)0;
             }
+            /* 先完成映射，再取得引用；失败回滚不会遗留孤儿引用。 */
+            mm_page_ref((void *)pa);
             cow_shared++;
             continue;
         }
         /* 数据页：父子的 PTE 都改成只读，标记 COW，等写故障再分家 */
         ls[i] = pa | ATTR_USER_RO;
         mm_page_set_cow((void *)pa, 1);
-        mm_page_ref((void *)pa);
         if (pg_map_user(dst, va, pa, PG_USER_RO) != 0) {
-            /* 父页保持只读是安全的（COW 标记仍有效）；回收子空间已接管的引用。 */
+            /* 当前页尚未取得子引用；回收子空间不会漏掉未映射页。 */
             pg_aspace_unref(dst);
+            tlb_flush_all();
             return (u64 *)0;
         }
+        mm_page_ref((void *)pa);
         cow_shared++;
     }
     /* 父进程的 PTE 刚被降成只读，TLB 里还留着可写的旧项 —— 必须刷掉，
