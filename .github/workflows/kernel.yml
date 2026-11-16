@@ -1,136 +1,62 @@
-name: kernel
-
+name: COXVBN kernel
 on:
   push:
-    branches: [main]
+    branches: [main, "rewrite/**"]
   pull_request:
-  workflow_dispatch:
-
+    branches: [main]
 permissions:
   contents: read
-
-concurrency:
-  group: kernel-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  java:
-    name: Java 内核与自检
+  aarch64-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: 编译
-        run: bash tools/build/build.sh
-
-      - name: NetOS 自检
-        timeout-minutes: 5
-        run: timeout 180 python3 tests/integration/selftest.py 18131
-
-      - name: 安全面三档
-        timeout-minutes: 5
-        run: timeout 180 python3 tests/security/security_test.py 18211
-
-      - name: 服务器契约冒烟（面/路由/信封）
-        timeout-minutes: 5
-        run: timeout 120 python3 tests/integration/server_smoke.py
-
-      - name: 失败路径（端口竞态/空令牌/强杀残留）
-        timeout-minutes: 6
-        run: timeout 240 python3 tests/integration/failure_test.py
-
-      - name: Astra 能力总线
-        timeout-minutes: 5
-        run: timeout 180 python3 tests/integration/astra_selftest.py 18411
-
-      - name: 兼容验收（Astra 跑同一套断言）
-        timeout-minutes: 8
+      - name: Install toolchain
         run: |
-          KERNEL_MAIN=services.astra.compat.CompatMain timeout 180 python3 tests/integration/selftest.py 18511
-          KERNEL_MAIN=services.astra.compat.CompatMain timeout 180 python3 tests/security/security_test.py 18512
-
-  kernel:
-    name: 裸机（AArch64 / QEMU）
-    # QEMU 10 / GCC 15（ubuntu-latest = 26.04）下该内核无串口输出；
-    # 固定 24.04：QEMU 8.2.2 + GCC 13.3，与本地验证环境一致。
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: 安装交叉编译器与 QEMU
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu qemu-system-arm device-tree-compiler
+      - name: Host FDT parser tests
+        run: make test-host
+      - name: Build kernel
+        run: make clean all
+      - name: Verify image format
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq gcc-aarch64-linux-gnu qemu-system-arm e2fsprogs
-          qemu-system-aarch64 --version | head -1
-          aarch64-linux-gnu-gcc --version | head -1
-
-      - name: 编译
-        run: make -C kernel
-
-      - name: 开机与 P0 断言
+          aarch64-linux-gnu-readelf -h build/coxvbn.elf | grep -E 'Machine:.*AArch64'
+          test -s build/coxvbn.bin
+      - name: Verify exception vector table
         run: |
-          set -o pipefail
-          bash .github/scripts/bare-qemu-test.sh 2>&1 | tee kernel/build/ci.log
-
-      - name: 汇总串口
-        if: always()
+          vector_addr=$(aarch64-linux-gnu-nm build/coxvbn.elf | awk '$3 == "__exception_vectors" { print $1 }')
+          test -n "$vector_addr"
+          test "$((16#$vector_addr % 2048))" -eq 0
+          aarch64-linux-gnu-objdump -d build/coxvbn.elf | grep -qi 'msr[[:space:]]*vbar_el1'
+      - name: Dump boot diagnostics
         run: |
-          {
-            echo "## 裸机 QEMU"
-            echo '```'
-            if [ -s kernel/build/serial.log ]; then
-              tail -n 60 kernel/build/serial.log
-            else
-              echo "(无串口输出)"
-            fi
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: 上传日志
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: kernel-qemu-logs
-          path: |
-            kernel/build/serial.log
-            kernel/build/qemu.log
-            kernel/build/qemu.err
-            kernel/build/ci.log
-          if-no-files-found: warn
-
-      - name: 回写诊断（失败时）
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
+          aarch64-linux-gnu-nm -n build/coxvbn.elf
+          aarch64-linux-gnu-objdump -d --start-address=0x40080400 --stop-address=0x40080480 build/coxvbn.elf
+          aarch64-linux-gnu-readelf -lS build/coxvbn.elf
+      - name: Verify QEMU GICv2 device tree
         run: |
-          set -eu
-          rm -rf /tmp/diag && mkdir -p /tmp/diag
-          for f in serial.log qemu.log qemu.err ci.log; do
-            cp "kernel/build/$f" "/tmp/diag/$f" 2>/dev/null || true
-          done
-          {
-            echo "run=$GITHUB_RUN_ID"
-            echo "commit=$GITHUB_SHA"
-            echo "qemu=$(qemu-system-aarch64 --version | head -1)"
-            echo "gcc=$(aarch64-linux-gnu-gcc --version | head -1)"
-            echo "uname=$(uname -a)"
-            echo "serial_bytes=$(wc -c < kernel/build/serial.log 2>/dev/null || echo 0)"
-          } > /tmp/diag/meta.txt
-          cd /tmp/diag
-          git init -q
-          git add -A
-          git -c user.name=github-actions -c user.email=actions@github.com commit -q -m "ci diag run $GITHUB_RUN_ID"
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci/diag
+          qemu-system-aarch64 -M virt,gic-version=2,dumpdtb=build/virt-gicv2.dtb -cpu cortex-a57 -display none
+          dtc -I dtb -O dts build/virt-gicv2.dtb > build/virt-gicv2.dts
+          grep -q 'arm,cortex-a15-gic' build/virt-gicv2.dts
+          grep -q 'interrupt-controller' build/virt-gicv2.dts
+      - name: QEMU serial boot test
+        run: |
+          set +e
+          timeout 15s qemu-system-aarch64 -M virt,gic-version=2 -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel build/coxvbn.bin -d int -D qemu-int.log > qemu.log 2>&1
+          status=$?
+          set -e
+          cat qemu.log
+          if [ -f qemu-int.log ]; then tail -n 120 qemu-int.log; fi
+          grep -q "COXVBN: UART READY" qemu.log
+          grep -q "COXVBN: FDT PARSED" qemu.log
+          grep -q "COXVBN: MEMORY DISCOVERY READY" qemu.log
+          grep -q "COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS" qemu.log
+          grep -q "COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE" qemu.log
+          grep -q "COXVBN: BOOT COMPLETE" qemu.log
+          grep -Eq "COXVBN: RAM regions 0x0*[1-9a-f][0-9a-f]*" qemu.log
+          if grep -q "ELR 0x200" qemu-int.log; then
+            echo "Unexpected exception vector at address 0x200"
+            exit 1
+          fi
+          if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then exit "$status"; fi
