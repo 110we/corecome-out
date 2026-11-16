@@ -57,7 +57,7 @@ The diagram is a target architecture, not a claim that these components already 
 
 ## R1 policy-core status
 
-The initial R1 policy library is implemented in kernels/RedLab/policy/redlab_policy.c and host-tested. It supports canonical IPv4/IPv6 CIDR matching, allow/exclusion precedence, port ranges, monotonic engagement windows, default-deny decisions, active-test default-off, per-target request/concurrency limits, per-job duration/byte budgets, audit callbacks, and a sticky global stop. It performs no DNS resolution or network I/O. Kernel-owned caller identity, locking, and integration with a future network/syscall boundary remain unimplemented; see docs/redlab/redlab-policy-core.md.
+The initial R1 policy library is implemented in kernels/RedLab/policy/redlab_policy.c and host-tested. It supports canonical IPv4/IPv6 CIDR matching, allow/exclusion precedence, port ranges, monotonic engagement windows, default-deny decisions, active-test default-off, per-target request/concurrency limits, per-job duration/byte budgets, audit callbacks, and a sticky global stop. It performs no DNS resolution or network I/O. Kernel-owned caller identity, locking, and integration with a future network/syscall boundary remain unimplemented; see redlab-policy-core.md.
 
 ## Delivery stages
 

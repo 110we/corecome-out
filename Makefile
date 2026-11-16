@@ -9,8 +9,8 @@ ARCH    := kernels/COXVBN/arch/aarch64
 CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin \
            -fno-stack-protector -fno-pic -mgeneral-regs-only -mno-outline-atomics
 ASFLAGS := $(CFLAGS)
-KERNEL_INCLUDES := -Ikernels/COXVBN/core -Ikernels/COXVBN/memory -Ikernels/COXVBN/platform \\
-                   -Ikernels/COXVBN/security -Ikernels/COXVBN/recovery \\
+KERNEL_INCLUDES := -Ikernels/COXVBN/core -Ikernels/COXVBN/memory -Ikernels/COXVBN/platform \
+                   -Ikernels/COXVBN/security -Ikernels/COXVBN/recovery \
                    -Ikernels/RedLab/policy -Ikernels/RedLab/profile
 LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 
@@ -46,11 +46,11 @@ test-host:
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/memory/phys_alloc_test.c kernels/COXVBN/memory/phys_alloc.c -o $(BUILD)/phys_alloc_test
 	$(BUILD)/phys_alloc_test
 	$(BUILD)/fdt_test
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/security-recovery/recovery_test.c kernels/COXVBN/security/key_vault.c kernels/COXVBN/recovery/information_store.c kernels/COXVBN/recovery/emergency_recovery.c -o $(BUILD)/recovery_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/recovery/recovery_test.c kernels/COXVBN/security/key_vault.c kernels/COXVBN/recovery/information_store.c kernels/COXVBN/recovery/emergency_recovery.c -o $(BUILD)/recovery_test
 	$(BUILD)/recovery_test
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/security-recovery/receiver_key_test.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/receiver_key_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/security/receiver_key_test.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/receiver_key_test
 	$(BUILD)/receiver_key_test
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $(KERNEL_INCLUDES) tests/COXVBN/security-recovery/module_registry_test.c kernels/COXVBN/security/module_registry.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/module_registry_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $(KERNEL_INCLUDES) tests/COXVBN/security/module_registry_test.c kernels/COXVBN/security/module_registry.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/module_registry_test
 	$(BUILD)/module_registry_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/architecture/exception_frame_test.c -o $(BUILD)/exception_frame_test
 	$(BUILD)/exception_frame_test
@@ -58,9 +58,9 @@ test-host:
 	$(BUILD)/exception_decode_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/architecture/exception_dispatch_test.c kernels/COXVBN/core/exception.c kernels/COXVBN/core/exception_decode.c kernels/COXVBN/platform/gicv2.c -o $(BUILD)/exception_dispatch_test
 	$(BUILD)/exception_dispatch_test
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/architecture/gicv2_test.c kernels/COXVBN/platform/gicv2.c -o $(BUILD)/gicv2_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/platform/gicv2_test.c kernels/COXVBN/platform/gicv2.c -o $(BUILD)/gicv2_test
 	$(BUILD)/gicv2_test
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/architecture/arm_timer_test.c kernels/COXVBN/platform/arm_timer.c -o $(BUILD)/arm_timer_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/platform/arm_timer_test.c kernels/COXVBN/platform/arm_timer.c -o $(BUILD)/arm_timer_test
 	$(BUILD)/arm_timer_test
 	$(HOST_CC) -DCOXVBN_REDLAB_TESTING -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/RedLab/policy/redlab_policy_test.c kernels/RedLab/policy/redlab_policy.c kernels/COXVBN/core/execution_context.c kernels/COXVBN/security/module_registry.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/redlab_policy_test
 	$(BUILD)/redlab_policy_test
