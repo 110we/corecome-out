@@ -19,7 +19,20 @@ typedef uint64_t coxvbn_capability_t;
 #define COXVBN_CAP_KEY_ENROLL    (UINT64_C(1) << 5)
 #define COXVBN_CAP_KEY_ROTATE    (UINT64_C(1) << 6)
 #define COXVBN_CAP_RECOVERY      (UINT64_C(1) << 7)
-#define COXVBN_CAP_ALL           ((UINT64_C(1) << 8) - UINT64_C(1))
+#define COXVBN_CAP_REDLAB_DISCOVERY (UINT64_C(1) << 8)
+#define COXVBN_CAP_REDLAB_PASSIVE_CAPTURE (UINT64_C(1) << 9)
+#define COXVBN_CAP_REDLAB_ACTIVE_PROBE (UINT64_C(1) << 10)
+#define COXVBN_CAP_DAILY_PROFILE_DATA (UINT64_C(1) << 11)
+#define COXVBN_CAP_DAILY_PROFILE_SETTINGS (UINT64_C(1) << 12)
+#define COXVBN_CAP_REDLAB_MASK (COXVBN_CAP_REDLAB_DISCOVERY | COXVBN_CAP_REDLAB_PASSIVE_CAPTURE | COXVBN_CAP_REDLAB_ACTIVE_PROBE)
+#define COXVBN_CAP_DAILY_MASK (COXVBN_CAP_DAILY_PROFILE_DATA | COXVBN_CAP_DAILY_PROFILE_SETTINGS)
+#define COXVBN_CAP_ALL           ((UINT64_C(1) << 13) - UINT64_C(1))
+
+enum coxvbn_module_domain {
+    COXVBN_DOMAIN_SYSTEM = 0,
+    COXVBN_DOMAIN_DAILY_PROFILE = 1,
+    COXVBN_DOMAIN_REDLAB = 2
+};
 
 enum coxvbn_module_state {
     COXVBN_MODULE_UNUSED = 0,
@@ -39,6 +52,7 @@ struct coxvbn_module_record {
     coxvbn_capability_t requested;
     coxvbn_capability_t granted;
     enum coxvbn_module_state state;
+    enum coxvbn_module_domain domain;
 };
 
 struct coxvbn_module_registry {
@@ -60,6 +74,14 @@ bool coxvbn_module_register(
     struct coxvbn_module_ref *out);
 
 /* Activation is loader-only and succeeds only after Key Vault PoP enrollment. */
+bool coxvbn_module_register_domain(
+    struct coxvbn_module_registry *registry,
+    const void *loader_authority,
+    enum coxvbn_module_domain domain,
+    coxvbn_capability_t requested,
+    coxvbn_capability_t granted,
+    struct coxvbn_module_ref *out);
+
 bool coxvbn_module_activate(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,

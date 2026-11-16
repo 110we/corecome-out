@@ -55,12 +55,14 @@ void coxvbn_module_registry_init(struct coxvbn_module_registry *registry,
         record->requested = COXVBN_CAP_NONE;
         record->granted = COXVBN_CAP_NONE;
         record->state = COXVBN_MODULE_UNUSED;
+        record->domain = COXVBN_DOMAIN_SYSTEM;
     }
 }
 
-bool coxvbn_module_register(
+bool coxvbn_module_register_domain(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,
+    enum coxvbn_module_domain domain,
     coxvbn_capability_t requested,
     coxvbn_capability_t granted,
     struct coxvbn_module_ref *out)
@@ -69,6 +71,15 @@ bool coxvbn_module_register(
     if (registry == NULL || loader_authority == NULL ||
         loader_authority != registry->loader_authority || out == NULL ||
         registry->next_module_id == 0U ||
+        (domain != COXVBN_DOMAIN_SYSTEM &&
+         domain != COXVBN_DOMAIN_DAILY_PROFILE &&
+         domain != COXVBN_DOMAIN_REDLAB) ||
+        (domain == COXVBN_DOMAIN_DAILY_PROFILE &&
+         ((requested & ~COXVBN_CAP_DAILY_MASK) != 0U ||
+          (granted & ~COXVBN_CAP_DAILY_MASK) != 0U)) ||
+        (domain == COXVBN_DOMAIN_REDLAB &&
+         ((requested & ~COXVBN_CAP_REDLAB_MASK) != 0U ||
+          (granted & ~COXVBN_CAP_REDLAB_MASK) != 0U)) ||
         (requested & ~COXVBN_CAP_ALL) != 0U ||
         (granted & ~requested) != 0U)
         return false;
@@ -84,12 +95,25 @@ bool coxvbn_module_register(
             record->receiver_key.key_version = 0U;
             record->requested = requested;
             record->granted = granted;
+            record->domain = domain;
             record->state = COXVBN_MODULE_PENDING;
             *out = record->ref;
             return true;
         }
     }
     return false;
+}
+
+bool coxvbn_module_register(
+    struct coxvbn_module_registry *registry,
+    const void *loader_authority,
+    coxvbn_capability_t requested,
+    coxvbn_capability_t granted,
+    struct coxvbn_module_ref *out)
+{
+    return coxvbn_module_register_domain(
+        registry, loader_authority, COXVBN_DOMAIN_SYSTEM,
+        requested, granted, out);
 }
 
 bool coxvbn_module_activate(
