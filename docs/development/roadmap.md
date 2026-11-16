@@ -46,7 +46,7 @@
 - [ ] IPC and capability-based resource handles
 - [ ] Implement COXVBN Direct Port Communication: paired endpoints, direct shared-channel data path, no bridge/relay
 - [ ] Central Security Plugin request interface backed by kernel-enforced policy
-- [x] Define bounded receiver-key enrollment, forward-only rotation, and terminal revocation contract (host-tested)
+- [x] Define bounded receiver-key enrollment, forward-only rotation, and terminal revocation contract (host-tested)\n- [x] Serialize receiver-key table transitions with an atomic lock and PENDING/ROTATING states; run proof callbacks outside the lock and test re-entry/concurrent enrollment (host-tested; IRQ/preemption/SMP integration and verifier-context lifetime remain open)
 - [x] Add bounded kernel module registry with requested/granted capability checks and terminal revocation (host-tested)
 - [x] Serialize registry metadata and use ACTIVATING/REVOKING transitions so Key Vault callbacks run outside the registry lock (host-tested reentrant proof callback; IRQ/preemption integration remains open)
 - [x] Define the COXVBN current-module execution-context provider contract (host-tested in isolation)
