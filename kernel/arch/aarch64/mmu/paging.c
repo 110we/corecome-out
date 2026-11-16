@@ -187,36 +187,63 @@ void pg_activate(u64 *l1)
  * 这一步过了才谈得上 EL0 —— 页表要是错，EL0 只会给你一串 fault。 */
 int pg_selftest(void)
 {
-    u64 *l1 = pg_aspace_new();
-    u8 *page = (u8 *)mm_page_alloc();
+    u64 *l1 = (u64 *)0;
+    u8 *page = (u8 *)0;
     u64 i;
     int ok = 1;
+    int mapped = 0;
+    int active = 0;
 
-    if (l1 == (u64 *)0 || page == (u8 *)0) {
+    l1 = pg_aspace_new();
+    if (l1 == (u64 *)0) {
         return 0;
+    }
+    page = (u8 *)mm_page_alloc();
+    if (page == (u8 *)0) {
+        ok = 0;
+        goto out;
     }
     for (i = 0; i < PG_SIZE; i++) {
         page[i] = (u8)(i & 0xFF);
     }
-    if (pg_map_user(l1, 0x10000000UL, (u64)page, PG_USER_RW) != 0) {
-        return 0;
-    }
-    if (pg_user_pa(l1, 0x10000000UL) != (u64)page) {
+    if (pg_map_user(l1, USER_WIN_BASE, (u64)page, PG_USER_RW) != 0) {
         ok = 0;
+        goto out;
+    }
+    mapped = 1;
+    if (pg_user_pa(l1, USER_WIN_BASE) != (u64)page) {
+        ok = 0;
+        goto out;
     }
 
     pg_activate(l1);
+    active = 1;
     for (i = 0; i < PG_SIZE; i += 97) {
-        if (*(volatile u8 *)(0x10000000UL + i) != (u8)(i & 0xFF)) {
+        if (*(volatile u8 *)(USER_WIN_BASE + i) != (u8)(i & 0xFF)) {
             ok = 0;
             break;
         }
     }
-    *(volatile u64 *)0x10000FF8UL = 0x5A5AA5A5UL;
+    if (ok) {
+        *(volatile u64 *)(USER_WIN_BASE + PG_SIZE - 8) = 0x5A5AA5A5UL;
+    }
     pg_activate((u64 *)0);
+    active = 0;
 
-    if (*(volatile u64 *)(page + PG_SIZE - 8) != 0x5A5AA5A5UL) {
+    if (ok && *(volatile u64 *)(page + PG_SIZE - 8) != 0x5A5AA5A5UL) {
         ok = 0;
+    }
+
+out:
+    if (active) {
+        pg_activate((u64 *)0);
+    }
+    if (l1 != (u64 *)0) {
+        /* 已映射页由 aspace 归还；未映射页由本函数单独归还。 */
+        pg_aspace_unref(l1);
+    }
+    if (page != (u8 *)0 && !mapped) {
+        mm_page_free(page);
     }
     return ok;
 }
