@@ -168,6 +168,11 @@ int main(void)
     assert(!coxvbn_module_activate(
         &registry, &loader_authority, &vault, &driver, 9U,
         key, sizeof(key), proof, sizeof(proof)));
+    /* A failed Key Vault revoke must restore ACTIVE rather than strand the
+     * module in REVOKING or falsely report a terminal revocation. */
+    assert(!coxvbn_module_revoke(
+        &registry, &loader_authority, NULL, &driver));
+    assert(coxvbn_module_is_active(&registry, &driver));
 
     assert(coxvbn_module_register(
         &registry, &loader_authority,
