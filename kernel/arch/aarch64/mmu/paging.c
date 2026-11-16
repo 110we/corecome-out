@@ -438,7 +438,7 @@ int pg_aspace_ref(u64 *l1)
         return -1;
     }
     if (asp[s].l1 == l1) {
-        if (asp[s].refs == 0xFFFFFFFFU) {
+        if (asp[s].refs == 0x7FFFFFFFU) {
             printk("[paging] aspace ref overflow\n");
             return -1;
         }
