@@ -22,6 +22,8 @@ COXVBN plans two distinct user-facing profiles built on the same isolation and c
 
 These profiles are deliberately separate. Daily privacy mode does not inherit assessment capabilities. Profile changes must be visible, user-authorized, reversible, and auditable. Privacy controls must not hide processes, evade security tools, defeat audit, or impersonate another person or organization. RedLab active tests remain off by default, scoped, rate-limited, logged, and stoppable. Out-of-scope targets are denied by default.
 
+The current host-tested foundation includes the R1 scope/resource policy core, domain-separated module capability registration, and a RedLab admission adapter that checks active module identity plus distinct discovery, passive-capture, and active-probe grants. Daily Profile modules are rejected if they request RedLab capability bits. This is not yet a runtime security boundary: trusted execution-context binding, kernel locking, user mode, syscalls, and network integration remain unimplemented.
+
 RedLab assessment architecture: [docs/penetration-testing.md](docs/penetration-testing.md). Daily privacy profile contract: [docs/privacy-mode.md](docs/privacy-mode.md).
 
 ## Isolated recovery subsystems
