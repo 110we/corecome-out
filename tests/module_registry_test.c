@@ -76,6 +76,27 @@ static void test_concurrent_registry_registration(
                            workers[j].refs[b].module_id);
 }
 
+struct reentrant_verify_context {
+    struct coxvbn_module_registry *registry;
+    struct coxvbn_module_ref ref;
+    bool called;
+    bool observed_activating;
+};
+static bool reentrant_receiver_proof(
+    const uint8_t *key, size_t key_len, const uint8_t *proof,
+    size_t proof_len, void *opaque)
+{
+    struct reentrant_verify_context *ctx = opaque;
+    enum coxvbn_module_state state = COXVBN_MODULE_UNUSED;
+    ctx->called = true;
+    ctx->observed_activating =
+        coxvbn_module_resolve_identity(ctx->registry, &ctx->ref,
+                                       NULL, NULL, &state) &&
+        state == COXVBN_MODULE_ACTIVATING;
+    return key != NULL && proof != NULL && key_len == 1U &&
+           proof_len == 1U && key[0] == proof[0];
+}
+
 int main(void)
 {
     struct coxvbn_module_registry registry;
@@ -86,6 +107,7 @@ int main(void)
     const uint8_t key[] = {0x31U};
     const uint8_t proof[] = {0x31U};
     const uint8_t bad_proof[] = {0xffU};
+    struct reentrant_verify_context reentrant = {0};
 
     coxvbn_key_vault_init(&vault, recovery_proof, NULL);
     coxvbn_key_vault_set_receiver_verifier(&vault, receiver_proof, NULL);
@@ -129,9 +151,15 @@ int main(void)
     assert(!coxvbn_module_authorize(
         &registry, &driver, COXVBN_CAP_DEVICE_READ));
 
+    reentrant.registry = &registry;
+    reentrant.ref = driver;
+    coxvbn_key_vault_set_receiver_verifier(
+        &vault, reentrant_receiver_proof, &reentrant);
     assert(coxvbn_module_activate(
         &registry, &loader_authority, &vault, &driver, 9U,
         key, sizeof(key), proof, sizeof(proof)));
+    assert(reentrant.called && reentrant.observed_activating);
+    coxvbn_key_vault_set_receiver_verifier(&vault, receiver_proof, NULL);
     assert(coxvbn_module_is_active(&registry, &driver));
     assert(coxvbn_module_authorize(
         &registry, &driver, COXVBN_CAP_DEVICE_READ));

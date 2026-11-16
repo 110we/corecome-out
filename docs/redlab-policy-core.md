@@ -25,3 +25,10 @@ This lock protects registry metadata only. Registry APIs are thread-context-only
 The production RedLab admission entry now obtains the module reference only through the kernel execution-context provider. If no provider is installed, or the provider cannot return a nonzero module ID and generation, admission fails closed and the audit record carries zero identity. The provider is install-once during boot and must be backed by trusted per-CPU scheduler state when a scheduler exists. It is not installed by the current boot path, because no scheduler/current-task implementation exists yet.
 
 The explicit-module admission wrapper is compiled only with COXVBN_REDLAB_TESTING. It is a host-test hook, not a production syscall or user-facing API. The provider callback and installation function are kernel-internal contracts; they must never be exposed to user space. Host tests verify unbound denial, successful provider-backed admission, and rejection of a second provider installation. This is interface hardening, not proof of runtime task isolation.
+
+
+## Registry and Key Vault lock ordering
+
+Module activation and revocation use explicit transitional states. The registry lock protects only short metadata transitions. Proof-of-possession verification/enrollment and Key Vault revocation execute after releasing the registry lock, avoiding callback re-entry deadlocks. While activation or revocation is in progress, the module is not ACTIVE and authorization fails closed. Failed enrollment returns the record to PENDING; failed key revocation restores ACTIVE because the Key Vault reports that its key remains active.
+
+Host coverage includes a proof-verifier callback that re-enters the registry and observes ACTIVATING, demonstrating that the registry lock is not held across that callback. This remains a bounded in-memory Key Vault contract, not a persistent or hardware-backed key store.

@@ -131,35 +131,40 @@ bool coxvbn_module_register(
         requested, granted, out);
 }
 
-static bool module_activate_locked(
+static bool module_begin_activation_locked(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,
-    struct coxvbn_key_vault *vault,
     const struct coxvbn_module_ref *ref,
-    uint64_t receiver_id,
-    const uint8_t *public_key, size_t public_key_len,
-    const uint8_t *proof, size_t proof_len)
+    uint64_t *module_id_out)
 {
     struct coxvbn_module_record *record;
-    struct coxvbn_receiver_key_ref key_ref;
     if (registry == NULL || loader_authority == NULL ||
-        loader_authority != registry->loader_authority || vault == NULL ||
-        receiver_id == 0U || ref == NULL)
+        loader_authority != registry->loader_authority || ref == NULL ||
+        module_id_out == NULL)
         return false;
-
     record = find_record(registry, ref);
     if (record == NULL || record->state != COXVBN_MODULE_PENDING)
         return false;
+    record->state = COXVBN_MODULE_ACTIVATING;
+    *module_id_out = record->ref.module_id;
+    return true;
+}
 
-    /* Enrollment is the last fallible operation. The record becomes ACTIVE
-     * only after the Key Vault has accepted proof of possession. */
-    if (!coxvbn_key_vault_enroll_receiver(
-            vault, record->ref.module_id, receiver_id,
-            public_key, public_key_len, proof, proof_len, &key_ref))
+static bool module_finish_activation_locked(
+    struct coxvbn_module_registry *registry,
+    const struct coxvbn_module_ref *ref,
+    bool enrolled,
+    const struct coxvbn_receiver_key_ref *key_ref)
+{
+    struct coxvbn_module_record *record = find_record(registry, ref);
+    if (record == NULL || record->state != COXVBN_MODULE_ACTIVATING)
         return false;
-
-    record->receiver_key = key_ref;
-    record->state = COXVBN_MODULE_ACTIVE;
+    if (enrolled && key_ref != NULL) {
+        record->receiver_key = *key_ref;
+        record->state = COXVBN_MODULE_ACTIVE;
+    } else {
+        record->state = COXVBN_MODULE_PENDING;
+    }
     return true;
 }
 
@@ -221,33 +226,50 @@ bool coxvbn_module_authorize(
     return coxvbn_module_has_capability(registry, ref, required);
 }
 
-static bool module_revoke_locked(
+static bool module_begin_revoke_locked(
     struct coxvbn_module_registry *registry,
     const void *loader_authority,
-    struct coxvbn_key_vault *vault,
-    const struct coxvbn_module_ref *ref)
+    const struct coxvbn_module_ref *ref,
+    struct coxvbn_receiver_key_ref *key_ref_out,
+    bool *needs_vault_out)
 {
     struct coxvbn_module_record *record;
     if (registry == NULL || loader_authority == NULL ||
-        loader_authority != registry->loader_authority || ref == NULL)
+        loader_authority != registry->loader_authority || ref == NULL ||
+        key_ref_out == NULL || needs_vault_out == NULL)
         return false;
-
     record = find_record(registry, ref);
-    if (record == NULL || record->state == COXVBN_MODULE_REVOKED ||
-        record->state == COXVBN_MODULE_UNUSED)
+    if (record == NULL || (record->state != COXVBN_MODULE_PENDING &&
+                           record->state != COXVBN_MODULE_ACTIVE))
         return false;
-
-    if (record->state == COXVBN_MODULE_ACTIVE) {
-        if (vault == NULL ||
-            !coxvbn_key_vault_revoke_receiver(
-                vault, record->ref.module_id, &record->receiver_key))
-            return false;
+    *needs_vault_out = record->state == COXVBN_MODULE_ACTIVE;
+    if (*needs_vault_out) {
+        *key_ref_out = record->receiver_key;
+        record->state = COXVBN_MODULE_REVOKING;
+    } else {
+        record->state = COXVBN_MODULE_REVOKED;
+        record->granted = COXVBN_CAP_NONE;
     }
-
-    record->state = COXVBN_MODULE_REVOKED;
-    record->granted = COXVBN_CAP_NONE;
     return true;
 }
+
+static bool module_finish_revoke_locked(
+    struct coxvbn_module_registry *registry,
+    const struct coxvbn_module_ref *ref,
+    bool revoked)
+{
+    struct coxvbn_module_record *record = find_record(registry, ref);
+    if (record == NULL || record->state != COXVBN_MODULE_REVOKING)
+        return false;
+    if (revoked) {
+        record->state = COXVBN_MODULE_REVOKED;
+        record->granted = COXVBN_CAP_NONE;
+    } else {
+        record->state = COXVBN_MODULE_ACTIVE;
+    }
+    return true;
+}
+
 
 
 bool coxvbn_module_register_domain(
@@ -271,13 +293,28 @@ bool coxvbn_module_activate(
     uint64_t receiver_id, const uint8_t *public_key, size_t public_key_len,
     const uint8_t *proof, size_t proof_len)
 {
-    bool result;
-    if (registry == NULL) return false;
+    bool begun, enrolled, finalized;
+    uint64_t module_id = 0U;
+    struct coxvbn_receiver_key_ref key_ref;
+    if (registry == NULL || vault == NULL || receiver_id == 0U)
+        return false;
     registry_lock(registry);
-    result = module_activate_locked(registry, loader_authority, vault, ref,
-        receiver_id, public_key, public_key_len, proof, proof_len);
+    begun = module_begin_activation_locked(
+        registry, loader_authority, ref, &module_id);
     registry_unlock(registry);
-    return result;
+    if (!begun) return false;
+    enrolled = coxvbn_key_vault_enroll_receiver(
+        vault, module_id, receiver_id, public_key, public_key_len,
+        proof, proof_len, &key_ref);
+    registry_lock(registry);
+    finalized = module_finish_activation_locked(
+        registry, ref, enrolled, enrolled ? &key_ref : NULL);
+    registry_unlock(registry);
+    if (enrolled && !finalized) {
+        (void)coxvbn_key_vault_revoke_receiver(vault, module_id, &key_ref);
+        return false;
+    }
+    return enrolled && finalized;
 }
 
 bool coxvbn_module_resolve_identity(
@@ -324,10 +361,20 @@ bool coxvbn_module_revoke(
     struct coxvbn_module_registry *registry, const void *loader_authority,
     struct coxvbn_key_vault *vault, const struct coxvbn_module_ref *ref)
 {
-    bool result;
+    bool begun, needs_vault, revoked = true, finalized;
+    struct coxvbn_receiver_key_ref key_ref;
     if (registry == NULL) return false;
     registry_lock(registry);
-    result = module_revoke_locked(registry, loader_authority, vault, ref);
+    begun = module_begin_revoke_locked(
+        registry, loader_authority, ref, &key_ref, &needs_vault);
     registry_unlock(registry);
-    return result;
+    if (!begun) return false;
+    if (!needs_vault) return true;
+    if (vault == NULL) revoked = false;
+    else revoked = coxvbn_key_vault_revoke_receiver(
+        vault, key_ref.module_id, &key_ref);
+    registry_lock(registry);
+    finalized = module_finish_revoke_locked(registry, ref, revoked);
+    registry_unlock(registry);
+    return finalized && revoked;
 }

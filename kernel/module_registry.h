@@ -40,7 +40,9 @@ enum coxvbn_module_state {
     COXVBN_MODULE_UNUSED = 0,
     COXVBN_MODULE_PENDING = 1,
     COXVBN_MODULE_ACTIVE = 2,
-    COXVBN_MODULE_REVOKED = 3
+    COXVBN_MODULE_ACTIVATING = 3,
+    COXVBN_MODULE_REVOKING = 4,
+    COXVBN_MODULE_REVOKED = 5
 };
 
 struct coxvbn_module_ref {
