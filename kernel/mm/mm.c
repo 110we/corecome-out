@@ -103,15 +103,17 @@ void mm_page_free(void *p)
 }
 
 /* ---- 引用计数：COW 的账本 ---- */
-void mm_page_ref(void *p)
+int mm_page_ref(void *p)
 {
     int i = page_idx(p);
 
-    if (i >= 0 &&
-        (bitmap[i / 64] & (1UL << (i % 64))) != 0 &&
-        refs[i] != 0 && refs[i] < 0xFFFF) {
-        refs[i]++;
+    if (i < 0 ||
+        (bitmap[i / 64] & (1UL << (i % 64))) == 0 ||
+        refs[i] == 0 || refs[i] == 0xFFFF) {
+        return -1;
     }
+    refs[i]++;
+    return (int)refs[i];
 }
 
 /* 归还一次引用；返回剩余引用数。归零才真正还池子。 */
