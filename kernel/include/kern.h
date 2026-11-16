@@ -28,7 +28,7 @@ u64 mm_pages_total(void);
 void *mm_page_alloc(void);   /* 4K，已清零；页表/用户页都从这里出 */
 void mm_page_free(void *p);
 /* 页引用计数：COW 的地基。共享一页 = ref+1；最后一个使用者归还才回池子。 */
-void mm_page_ref(void *p);
+int  mm_page_ref(void *p);
 int  mm_page_unref(void *p);
 u64  mm_page_refcnt(void *p);
 void mm_page_set_cow(void *p, int on);
@@ -87,7 +87,7 @@ u64 *pg_aspace_clone(u64 *src);
 int pg_cow_fault(u64 far);
 u64 pg_cow_faults(void);
 void pg_cow_stats(u64 *copies, u64 *shared);
-void pg_aspace_ref(u64 *l1);
+int  pg_aspace_ref(u64 *l1);
 void pg_aspace_unref(u64 *l1);
 /* ---- 进程：fork / 僵尸 / wait / 每进程 fd 表 ---- */
 int sched_fork_from(u64 *f, u64 *child_l1, u64 ftab, const char *nm);

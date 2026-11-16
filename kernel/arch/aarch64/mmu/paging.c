@@ -87,10 +87,13 @@ u64 *pg_aspace_new(void)
     }
     l2 = (u64 *)mm_page_alloc();
     if (l2 == (u64 *)0) {
+        mm_page_free(l1);
         return (u64 *)0;
     }
     l3 = (u64 *)mm_page_alloc();
     if (l3 == (u64 *)0) {
+        mm_page_free(l2);
+        mm_page_free(l1);
         return (u64 *)0;
     }
 
@@ -104,8 +107,13 @@ u64 *pg_aspace_new(void)
     for (i = 0; i < 512; i++) {
         l3[i] = 0;
     }
+    if (pg_aspace_ref(l1) < 0) {
+        mm_page_free(l3);
+        mm_page_free(l2);
+        mm_page_free(l1);
+        return (u64 *)0;
+    }
     last_aspace = l1;
-    pg_aspace_ref(l1);   /* 出生即持有 1 次引用 */
     return l1;
 }
 
@@ -184,36 +192,63 @@ void pg_activate(u64 *l1)
  * 这一步过了才谈得上 EL0 —— 页表要是错，EL0 只会给你一串 fault。 */
 int pg_selftest(void)
 {
-    u64 *l1 = pg_aspace_new();
-    u8 *page = (u8 *)mm_page_alloc();
+    u64 *l1 = (u64 *)0;
+    u8 *page = (u8 *)0;
     u64 i;
     int ok = 1;
+    int mapped = 0;
+    int active = 0;
 
-    if (l1 == (u64 *)0 || page == (u8 *)0) {
+    l1 = pg_aspace_new();
+    if (l1 == (u64 *)0) {
         return 0;
+    }
+    page = (u8 *)mm_page_alloc();
+    if (page == (u8 *)0) {
+        ok = 0;
+        goto out;
     }
     for (i = 0; i < PG_SIZE; i++) {
         page[i] = (u8)(i & 0xFF);
     }
-    if (pg_map_user(l1, 0x10000000UL, (u64)page, PG_USER_RW) != 0) {
-        return 0;
-    }
-    if (pg_user_pa(l1, 0x10000000UL) != (u64)page) {
+    if (pg_map_user(l1, USER_WIN_BASE, (u64)page, PG_USER_RW) != 0) {
         ok = 0;
+        goto out;
+    }
+    mapped = 1;
+    if (pg_user_pa(l1, USER_WIN_BASE) != (u64)page) {
+        ok = 0;
+        goto out;
     }
 
     pg_activate(l1);
+    active = 1;
     for (i = 0; i < PG_SIZE; i += 97) {
-        if (*(volatile u8 *)(0x10000000UL + i) != (u8)(i & 0xFF)) {
+        if (*(volatile u8 *)(USER_WIN_BASE + i) != (u8)(i & 0xFF)) {
             ok = 0;
             break;
         }
     }
-    *(volatile u64 *)0x10000FF8UL = 0x5A5AA5A5UL;
+    if (ok) {
+        *(volatile u64 *)(USER_WIN_BASE + PG_SIZE - 8) = 0x5A5AA5A5UL;
+    }
     pg_activate((u64 *)0);
+    active = 0;
 
-    if (*(volatile u64 *)(page + PG_SIZE - 8) != 0x5A5AA5A5UL) {
+    if (ok && *(volatile u64 *)(page + PG_SIZE - 8) != 0x5A5AA5A5UL) {
         ok = 0;
+    }
+
+out:
+    if (active) {
+        pg_activate((u64 *)0);
+    }
+    if (l1 != (u64 *)0) {
+        /* 已映射页由 aspace 归还；未映射页由本函数单独归还。 */
+        pg_aspace_unref(l1);
+    }
+    if (page != (u8 *)0 && !mapped) {
+        mm_page_free(page);
     }
     return ok;
 }
@@ -267,20 +302,31 @@ u64 *pg_aspace_clone(u64 *src)
         va = USER_WIN_BASE + i * 4096;
 
         if ((e & UXN) == 0) {          /* 代码页：只读可执行，共享 */
-            mm_page_ref((void *)pa);
+            if (mm_page_ref((void *)pa) < 0) {
+                pg_aspace_unref(dst);
+                return (u64 *)0;
+            }
             if (pg_map_user(dst, va, pa, PG_USER_RX) != 0) {
+                mm_page_unref((void *)pa);
+                pg_aspace_unref(dst);
                 return (u64 *)0;
             }
             cow_shared++;
             continue;
         }
         /* 数据页：父子的 PTE 都改成只读，标记 COW，等写故障再分家 */
-        ls[i] = pa | ATTR_USER_RO;
-        mm_page_set_cow((void *)pa, 1);
-        mm_page_ref((void *)pa);
-        if (pg_map_user(dst, va, pa, PG_USER_RO) != 0) {
+        if (mm_page_ref((void *)pa) < 0) {
+            pg_aspace_unref(dst);
             return (u64 *)0;
         }
+        if (pg_map_user(dst, va, pa, PG_USER_RO) != 0) {
+            mm_page_unref((void *)pa);
+            pg_aspace_unref(dst);
+            tlb_flush_all();
+            return (u64 *)0;
+        }
+        ls[i] = pa | ATTR_USER_RO;
+        mm_page_set_cow((void *)pa, 1);
         cow_shared++;
     }
     /* 父进程的 PTE 刚被降成只读，TLB 里还留着可写的旧项 —— 必须刷掉，
@@ -379,20 +425,29 @@ static int asp_slot(u64 *l1, int create)
     return create ? free_slot : -1;
 }
 
-void pg_aspace_ref(u64 *l1)
+int pg_aspace_ref(u64 *l1)
 {
     int s;
 
     if (l1 == (u64 *)0) {
-        return;
+        return -1;
     }
     s = asp_slot(l1, 1);
     if (s < 0) {
         printk("[paging] aspace table full\n");
-        return;
+        return -1;
     }
-    asp[s].l1 = l1;
-    asp[s].refs++;
+    if (asp[s].l1 == l1) {
+        if (asp[s].refs == 0x7FFFFFFFU) {
+            printk("[paging] aspace ref overflow\n");
+            return -1;
+        }
+        asp[s].refs++;
+    } else {
+        asp[s].l1 = l1;
+        asp[s].refs = 1;
+    }
+    return (int)asp[s].refs;
 }
 
 void pg_aspace_unref(u64 *l1)

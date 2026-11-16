@@ -10,6 +10,7 @@
 #define POOL_PAGES  128UL
 #define MAGIC       0xA5A5A5A5UL
 #define NCLASS      7
+#define BLK_ALLOC   (1UL << 63)
 
 static u8 pool[POOL_PAGES * PAGE_SIZE] __attribute__((aligned(4096)));
 static u64 bitmap[POOL_PAGES / 64];
@@ -91,19 +92,28 @@ void mm_page_free(void *p)
     if (i < 0) {
         return; /* 不是池里的页，宁可泄漏也不改位图 */
     }
+    /* 只允许释放仍分配且仅有本调用者一份引用的页。
+     * 共享页必须走 mm_page_unref()，不能绕过 COW 引用计数。 */
+    if ((bitmap[i / 64] & (1UL << (i % 64))) == 0 || refs[i] != 1) {
+        return;
+    }
     bitmap[i / 64] &= ~(1UL << (i % 64));
     refs[i] = 0;
     cowf[i] = 0;
 }
 
 /* ---- 引用计数：COW 的账本 ---- */
-void mm_page_ref(void *p)
+int mm_page_ref(void *p)
 {
     int i = page_idx(p);
 
-    if (i >= 0 && refs[i] < 0xFFFF) {
-        refs[i]++;
+    if (i < 0 ||
+        (bitmap[i / 64] & (1UL << (i % 64))) == 0 ||
+        refs[i] == 0 || refs[i] == 0xFFFF) {
+        return -1;
     }
+    refs[i]++;
+    return (int)refs[i];
 }
 
 /* 归还一次引用；返回剩余引用数。归零才真正还池子。 */
@@ -111,8 +121,10 @@ int mm_page_unref(void *p)
 {
     int i = page_idx(p);
 
-    if (i < 0) {
-        return -1;
+    if (i < 0 ||
+        (bitmap[i / 64] & (1UL << (i % 64))) == 0 ||
+        refs[i] == 0) {
+        return -1; /* 未分配页或重复归还：拒绝修改分配状态 */
     }
     if (refs[i] > 1) {
         refs[i]--;
@@ -197,6 +209,7 @@ void *kmalloc(u64 n)
         b = (blk_t *)freelist[ci];
         freelist[ci] = b->next;
     }
+    b->meta |= BLK_ALLOC;
     return (void *)((u8 *)b + sizeof(blk_t));
 }
 
@@ -209,13 +222,15 @@ void kfree(void *p)
         return;
     }
     b = (blk_t *)((u8 *)p - sizeof(blk_t));
-    if ((b->meta >> 8) != MAGIC) {
-        return; /* 不是这里面的块，宁可泄漏也不写坏 */
+    if (((b->meta & ~BLK_ALLOC) >> 8) != MAGIC ||
+        (b->meta & BLK_ALLOC) == 0) {
+        return; /* 非法指针或重复释放：不污染 freelist */
     }
     cls = b->meta & 0xFFUL;
     if (cls >= NCLASS) {
         return;
     }
+    b->meta &= ~BLK_ALLOC;
     b->next = (blk_t *)freelist[cls];
     freelist[cls] = b;
 }
