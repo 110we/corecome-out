@@ -24,7 +24,7 @@ enum coxvbn_redlab_decision {
  COXVBN_REDLAB_DENY_TIME=4, COXVBN_REDLAB_DENY_ACTIVE_DISABLED=5,
  COXVBN_REDLAB_DENY_RATE=6, COXVBN_REDLAB_DENY_CONCURRENCY=7,
  COXVBN_REDLAB_DENY_JOB_LIMIT=8, COXVBN_REDLAB_DENY_STOPPED=9,
- COXVBN_REDLAB_DENY_CAPACITY=10
+ COXVBN_REDLAB_DENY_CAPACITY=10, COXVBN_REDLAB_DENY_CAPABILITY=11
 };
 struct coxvbn_redlab_audit_event {
  uint32_t version; uint64_t job_id, monotonic_seconds;
@@ -47,6 +47,13 @@ struct coxvbn_redlab_policy {
  coxvbn_redlab_audit_fn audit; void *audit_context;
  uint64_t last_observed_time; bool time_initialized, active_enabled, stopped;
 };
+enum coxvbn_redlab_operation {
+ COXVBN_REDLAB_OP_DISCOVERY=0,
+ COXVBN_REDLAB_OP_PASSIVE_CAPTURE=1,
+ COXVBN_REDLAB_OP_ACTIVE_PROBE=2
+};
+struct coxvbn_module_registry;
+struct coxvbn_module_ref;
 struct coxvbn_redlab_request {
  uint64_t job_id; struct coxvbn_ip_addr target; uint16_t port;
  uint64_t now, bytes; bool active;
@@ -58,6 +65,10 @@ bool coxvbn_redlab_policy_init(struct coxvbn_redlab_policy *,
   * Audit callback must be nonblocking and must not re-enter this policy. */
 enum coxvbn_redlab_decision coxvbn_redlab_policy_check(
  struct coxvbn_redlab_policy *, const struct coxvbn_redlab_request *);
+enum coxvbn_redlab_decision coxvbn_redlab_policy_check_authorized(
+ struct coxvbn_redlab_policy *, const struct coxvbn_module_registry *,
+ const struct coxvbn_module_ref *, enum coxvbn_redlab_operation,
+ const struct coxvbn_redlab_request *);
 bool coxvbn_redlab_job_finish(struct coxvbn_redlab_policy *, uint64_t);
 void coxvbn_redlab_global_stop(struct coxvbn_redlab_policy *);
 bool coxvbn_redlab_cidr_valid(const struct coxvbn_cidr *);
