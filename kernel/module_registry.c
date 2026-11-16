@@ -80,6 +80,9 @@ bool coxvbn_module_register_domain(
         (domain == COXVBN_DOMAIN_REDLAB &&
          ((requested & ~COXVBN_CAP_REDLAB_MASK) != 0U ||
           (granted & ~COXVBN_CAP_REDLAB_MASK) != 0U)) ||
+        (domain == COXVBN_DOMAIN_SYSTEM &&
+         ((requested & ~COXVBN_CAP_SYSTEM_MASK) != 0U ||
+          (granted & ~COXVBN_CAP_SYSTEM_MASK) != 0U)) ||
         (requested & ~COXVBN_CAP_ALL) != 0U ||
         (granted & ~requested) != 0U)
         return false;
@@ -167,8 +170,20 @@ bool coxvbn_module_has_capability(
         (required & ~COXVBN_CAP_ALL) != 0U)
         return false;
     record = find_record_const(registry, ref);
-    return record != NULL && record->state == COXVBN_MODULE_ACTIVE &&
-           (record->granted & required) == required;
+    if (record == NULL || record->state != COXVBN_MODULE_ACTIVE ||
+        (record->granted & required) != required)
+        return false;
+    /* Re-check the domain at the authorization boundary as defense in depth.
+     * Registration policy alone must never become the only isolation guard. */
+    if ((required & COXVBN_CAP_REDLAB_MASK) != 0U &&
+        (record->domain != COXVBN_DOMAIN_REDLAB ||
+         (required & ~COXVBN_CAP_REDLAB_MASK) != 0U))
+        return false;
+    if ((required & COXVBN_CAP_DAILY_MASK) != 0U &&
+        (record->domain != COXVBN_DOMAIN_DAILY_PROFILE ||
+         (required & ~COXVBN_CAP_DAILY_MASK) != 0U))
+        return false;
+    return true;
 }
 
 bool coxvbn_module_authorize(
