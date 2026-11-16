@@ -3,12 +3,21 @@
 #include <string.h>
 #include "redlab_policy.h"
 #include "module_registry.h"
+#include "execution_context.h"
 struct audit_log { size_t count; enum coxvbn_redlab_decision last; uint64_t module_id, module_generation; uint32_t operation; };
 static void record(const struct coxvbn_redlab_audit_event *e,void *ctx){struct audit_log *l=ctx;assert(e&&e->version==COXVBN_REDLAB_AUDIT_VERSION);l->count++;l->last=e->decision;l->module_id=e->module_id;l->module_generation=e->module_generation;l->operation=e->operation;}
 static struct coxvbn_redlab_rule rule4(uint8_t a,uint8_t b,uint8_t c,uint8_t d,uint8_t pre,uint16_t lo,uint16_t hi,uint64_t from,uint64_t to,bool ex){
  struct coxvbn_redlab_rule r;memset(&r,0,sizeof(r));r.target.family=COXVBN_IP_V4;r.target.prefix=pre;r.target.network[0]=a;r.target.network[1]=b;r.target.network[2]=c;r.target.network[3]=d;r.first_port=lo;r.last_port=hi;r.not_before=from;r.expires_at=to;r.exclude=ex;return r;}
 static bool recovery_verify(const uint8_t *proof,size_t len,void *ctx){(void)ctx;return proof&&len==1U&&proof[0]==0x5aU;}
 static bool verify_key(const uint8_t *key,size_t kl,const uint8_t *proof,size_t pl,void *ctx){(void)ctx;return key&&proof&&kl==1U&&pl==1U&&key[0]==proof[0];}
+static struct coxvbn_module_ref provider_module;
+static bool test_current_module_provider(
+    struct coxvbn_module_ref *out, void *context)
+{
+    (void)context;
+    *out = provider_module;
+    return true;
+}
 static struct coxvbn_ip_addr ip4(uint8_t a,uint8_t b,uint8_t c,uint8_t d){struct coxvbn_ip_addr x;memset(&x,0,sizeof(x));x.family=COXVBN_IP_V4;x.bytes[0]=a;x.bytes[1]=b;x.bytes[2]=c;x.bytes[3]=d;return x;}
 int main(void){
  struct coxvbn_redlab_policy p,authp;struct coxvbn_module_registry registry;struct coxvbn_key_vault vault;struct coxvbn_module_ref redlab_module;static const int authority=1;const uint8_t key[]={0x42},proof[]={0x42};struct coxvbn_redlab_request aq;struct audit_log authlog={0,COXVBN_REDLAB_ALLOW,0,0,0};struct audit_log log={0,COXVBN_REDLAB_ALLOW,0,0,0};struct coxvbn_redlab_limits lim={2,1,10,100};
@@ -25,6 +34,12 @@ int main(void){
  memset(&aq,0,sizeof(aq));aq.job_id=88;aq.target=ip4(192,0,2,10);aq.port=443;aq.now=100;aq.bytes=1;
  assert(coxvbn_redlab_policy_check_authorized(&authp,&registry,&redlab_module,COXVBN_REDLAB_OP_DISCOVERY,&aq)==COXVBN_REDLAB_DENY_CAPABILITY);
  assert(coxvbn_module_activate(&registry,&authority,&vault,&redlab_module,1,key,sizeof(key),proof,sizeof(proof)));
+ assert(coxvbn_redlab_policy_check_current(&authp,&registry,COXVBN_REDLAB_OP_DISCOVERY,&aq)==COXVBN_REDLAB_DENY_CAPABILITY);
+ assert(authlog.module_id==0U);
+ provider_module=redlab_module;
+ assert(coxvbn_execution_context_install_provider(test_current_module_provider,NULL));
+ assert(!coxvbn_execution_context_install_provider(test_current_module_provider,NULL));
+ assert(coxvbn_redlab_policy_check_current(&authp,&registry,COXVBN_REDLAB_OP_DISCOVERY,&aq)==COXVBN_REDLAB_ALLOW);
  assert(coxvbn_redlab_policy_check_authorized(&authp,&registry,&redlab_module,COXVBN_REDLAB_OP_DISCOVERY,&aq)==COXVBN_REDLAB_ALLOW);
  assert(authlog.module_id==redlab_module.module_id);
  assert(authlog.module_generation==redlab_module.generation);

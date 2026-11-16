@@ -1,5 +1,6 @@
 #include "redlab_policy.h"
 #include "module_registry.h"
+#include "execution_context.h"
 static size_t address_bytes(uint8_t f){return f==COXVBN_IP_V4?4U:(f==COXVBN_IP_V6?16U:0U);}
 bool coxvbn_redlab_cidr_valid(const struct coxvbn_cidr *c){
  size_t n,full,rem,i;if(!c)return false;n=address_bytes(c->family);
@@ -99,7 +100,7 @@ void coxvbn_redlab_global_stop(struct coxvbn_redlab_policy *p){
  for(size_t i=0;i<COXVBN_REDLAB_MAX_TARGETS;i++){p->targets[i].active_jobs=0;p->targets[i].used=false;}
 }
 
-enum coxvbn_redlab_decision coxvbn_redlab_policy_check_authorized(
+static enum coxvbn_redlab_decision policy_check_for_module(
  struct coxvbn_redlab_policy *p,struct coxvbn_module_registry *registry,
  const struct coxvbn_module_ref *module,enum coxvbn_redlab_operation op,
  const struct coxvbn_redlab_request *q)
@@ -132,3 +133,23 @@ enum coxvbn_redlab_decision coxvbn_redlab_policy_check(
 }
 #endif
 
+
+enum coxvbn_redlab_decision coxvbn_redlab_policy_check_current(
+    struct coxvbn_redlab_policy *p, struct coxvbn_module_registry *registry,
+    enum coxvbn_redlab_operation op, const struct coxvbn_redlab_request *q)
+{
+    struct coxvbn_module_ref current;
+    if (!coxvbn_execution_context_current_module(&current))
+        return policy_check_for_module(p, registry, NULL, op, q);
+    return policy_check_for_module(p, registry, &current, op, q);
+}
+
+#ifdef COXVBN_REDLAB_TESTING
+enum coxvbn_redlab_decision coxvbn_redlab_policy_check_authorized(
+    struct coxvbn_redlab_policy *p, struct coxvbn_module_registry *registry,
+    const struct coxvbn_module_ref *module, enum coxvbn_redlab_operation op,
+    const struct coxvbn_redlab_request *q)
+{
+    return policy_check_for_module(p, registry, module, op, q);
+}
+#endif

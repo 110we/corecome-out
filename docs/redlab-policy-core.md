@@ -18,3 +18,10 @@ Host tests cover IPv4/IPv6 CIDR, exclusions, ports, time windows, default-off ac
 The module registry now serializes registration, activation, identity resolution, active-state checks, capability authorization, and revocation with a C11 acquire/release atomic lock. Host tests exercise concurrent registration from four threads and verify that module IDs remain unique and returned records remain resolvable.
 
 This lock protects registry metadata only. Registry APIs are thread-context-only: they must not be called from interrupt handlers, and the current kernel has no scheduler/preemption-control layer to integrate with yet. Before enabling preemptive scheduling or IRQ callers, add architecture-aware preemption/interrupt exclusion and verify lock ordering with the Key Vault. Trusted caller identity is also not complete: loader authority remains a kernel-owned pointer contract, not a scheduler-derived current-task identity. No user-facing syscall may expose these raw authority parameters.
+
+
+## Current execution-context gate
+
+The production RedLab admission entry now obtains the module reference only through the kernel execution-context provider. If no provider is installed, or the provider cannot return a nonzero module ID and generation, admission fails closed and the audit record carries zero identity. The provider is install-once during boot and must be backed by trusted per-CPU scheduler state when a scheduler exists. It is not installed by the current boot path, because no scheduler/current-task implementation exists yet.
+
+The explicit-module admission wrapper is compiled only with COXVBN_REDLAB_TESTING. It is a host-test hook, not a production syscall or user-facing API. The provider callback and installation function are kernel-internal contracts; they must never be exposed to user space. Host tests verify unbound denial, successful provider-backed admission, and rejection of a second provider installation. This is interface hardening, not proof of runtime task isolation.

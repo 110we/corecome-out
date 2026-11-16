@@ -11,7 +11,7 @@ CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin \
 ASFLAGS := $(CFLAGS)
 LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 
-SOURCES_C := kernel/main.c kernel/uart.c kernel/fdt.c kernel/key_vault.c \
+SOURCES_C := kernel/main.c kernel/execution_context.c kernel/uart.c kernel/fdt.c kernel/key_vault.c \
              kernel/information_store.c kernel/emergency_recovery.c \
              kernel/phys_alloc.c kernel/mmu.c kernel/module_registry.c kernel/exception.c \
              kernel/exception_decode.c kernel/gicv2.c kernel/arm_timer.c kernel/redlab_policy.c \
@@ -59,7 +59,7 @@ test-host:
 	$(BUILD)/gicv2_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/arm_timer_test.c kernel/arm_timer.c -o $(BUILD)/arm_timer_test
 	$(BUILD)/arm_timer_test
-	$(HOST_CC) -DCOXVBN_REDLAB_TESTING -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/redlab_policy_test.c kernel/redlab_policy.c kernel/module_registry.c kernel/key_vault.c -o $(BUILD)/redlab_policy_test
+	$(HOST_CC) -DCOXVBN_REDLAB_TESTING -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/redlab_policy_test.c kernel/redlab_policy.c kernel/execution_context.c kernel/module_registry.c kernel/key_vault.c -o $(BUILD)/redlab_policy_test
 	$(BUILD)/redlab_policy_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/privacy_profile_test.c kernel/privacy_profile.c -o $(BUILD)/privacy_profile_test
 	$(BUILD)/privacy_profile_test
