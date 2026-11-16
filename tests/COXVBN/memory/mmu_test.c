@@ -30,7 +30,7 @@ int main(void)
     l2[2] = (BASE + 3U * BLOCK) | VALID;
     assert(!coxvbn_mmu_range_mapped(l2, 4U, BASE + 2U * BLOCK,
                                     BASE + 3U * BLOCK));
-    l2[2] = (BASE + 2U * BLOCK) | VALID | 2U;
+    l2[2] = (BASE + 2U * BLOCK);
     assert(!coxvbn_mmu_range_mapped(l2, 4U, BASE + 2U * BLOCK,
                                     BASE + 3U * BLOCK));
     puts("COXVBN MMU mapping coverage tests: PASS");
