@@ -76,3 +76,12 @@ Implementation is not complete until tests prove:
 6. Add cross-profile isolation, transition-failure, and audit regression tests.
 
 Until those stages are implemented and tested, this remains a design contract, not a working privacy feature.
+
+
+## Host-tested transition controller
+
+The kernel-side transition controller now defines DAILY_ACTIVE, SWITCHING_TO_REDLAB, REDLAB_ACTIVE, SWITCHING_TO_DAILY, and RESTRICTED states. Entering RedLab requires an explicit confirmation flag plus a kernel-provided authorization callback and a successful audit event. Returning to Daily requires stop-and-revoke success before the return audit event and state change. Any uncertain stop/revoke or audit result enters RESTRICTED, from which no profile handle is issued and no further transition is accepted.
+
+Profile handles carry a profile ID, generation, and domain. A transition increments the generation, invalidating handles from the previous profile. A handle is valid only for the currently active domain, so a Daily handle cannot authorize RedLab and vice versa.
+
+This is a host-tested state-machine contract, not yet an authenticated UI or production isolation boundary. The callbacks must be wired to trusted kernel authentication, actual RedLab job cancellation and capability revocation, and durable audit storage. The controller currently has no scheduler-backed locking; callers must serialize access until kernel synchronization is implemented. Handles must remain kernel-owned and must not be exposed as forgeable user-space structs.

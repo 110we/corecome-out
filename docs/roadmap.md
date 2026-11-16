@@ -77,9 +77,9 @@
 - [ ] Add evidence redaction, report generation, and QEMU lab regression tests
 
 ## Milestone 9 — Daily Privacy Profile
-- [ ] Define profile identity, data ownership, and cross-profile isolation contracts
-- [ ] Add profile-scoped capability handles; daily profile cannot inherit RedLab permissions
-- [ ] Implement authenticated, visible, reversible profile transitions
+- [x] Define a host-tested profile identity, generation-bound handles, and domain-specific handle validation contract (cross-profile data isolation remains open)
+- [x] Add host-tested profile-scoped handles; daily profile cannot inherit RedLab domain authority
+- [x] Implement a host-tested fail-closed transition controller (trusted authentication/UI and runtime revocation integration remain open)
 - [ ] Add lock-screen/notification sensitive-preview controls without suppressing security alerts
 - [ ] Add permission review and revocation UI
 - [ ] Add explicit telemetry preferences with mandatory security-event exceptions
