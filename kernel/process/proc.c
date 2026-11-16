@@ -72,7 +72,10 @@ int proc_clone(u64 *f)
         printk("[kern] proc: clone without aspace\n");
         return -1;
     }
-    pg_aspace_ref(l1);
+    if (pg_aspace_ref(l1) < 0) {
+        printk("[kern] proc: clone address-space ref failed\n");
+        return -1;
+    }
     tid = sched_clone_thread(f, l1, sched_get_ftab(), f[1], f[2], f[3]);
     if (tid < 0) {
         pg_aspace_unref(l1);
