@@ -9,7 +9,7 @@
 #define PROP 3U
 #define END 9U
 static _Alignas(8) uint8_t blob[1024];
-static int disable_memory_node;
+static const char *memory_status;
 static void put32(uint8_t*p,uint32_t v){p[0]=(uint8_t)(v>>24);p[1]=(uint8_t)(v>>16);p[2]=(uint8_t)(v>>8);p[3]=(uint8_t)v;}
 static uint32_t get32(const uint8_t*p){return ((uint32_t)p[0]<<24)|((uint32_t)p[1]<<16)|((uint32_t)p[2]<<8)|p[3];}
 static uint32_t w(uint32_t p,uint32_t v){put32(blob+p,v);return p+4;}
@@ -22,7 +22,7 @@ static void build(void){
  const uint8_t reg[16]={0,0,0,0,0x40,0,0,0,0,0,0,0,0,0,0x10,0};
  memset(blob,0,sizeof(blob));put32(blob+p,0);put32(blob+p+4,0x1000);put32(blob+p+8,0);put32(blob+p+12,0x1000);p+=32;
  so=p;p=w(p,BEGIN_NODE);p=str(p,"");p=prop(p,4,0,ac);p=prop(p,4,16,sc);
- p=w(p,BEGIN_NODE);p=str(p,"memory@40000000");p=prop(p,7,28,dt);if(disable_memory_node)p=prop(p,9,56,(const uint8_t*)"disabled");p=prop(p,16,40,reg);
+ p=w(p,BEGIN_NODE);p=str(p,"memory@40000000");p=prop(p,7,28,dt);if(memory_status)p=prop(p,(uint32_t)strlen(memory_status)+1U,56,(const uint8_t*)memory_status);p=prop(p,16,40,reg);
  p=w(p,END_NODE);
  p=w(p,BEGIN_NODE);p=str(p,"reserved-memory");
  p=prop(p,4,0,(const uint8_t[]){0,0,0,1});
@@ -58,5 +58,6 @@ static void missing_root_close(void){struct fdt_info i;uint32_t so,ss,p;build();
  for(p=ss-8U;;p-=4U){if(get32(blob+so+p)==END_NODE){put32(blob+so+p,4U);break;}assert(p>=4U);}
  assert(fdt_parse(blob,&i)==-18);}
 
-static void disabled_memory_is_ignored(void){struct fdt_info i;disable_memory_node=1;build();disable_memory_node=0;assert(fdt_parse(blob,&i)==-22);assert(i.memory_count==0U);}
-int main(void){valid();bad_magic();overlap();bad_token();no_reservation_terminator();undersized_total();structure_out_of_bounds();strings_out_of_bounds();unclosed_root();missing_root_close();disabled_memory_is_ignored();puts("COXVBN host FDT tests: PASS");return 0;}
+static void unavailable_memory_status_is_ignored(void){struct fdt_info i;memory_status="disabled";build();memory_status=NULL;assert(fdt_parse(blob,&i)==-22);assert(i.memory_count==0U);memory_status="fail";build();memory_status=NULL;assert(fdt_parse(blob,&i)==-22);assert(i.memory_count==0U);memory_status="fail-clock";build();memory_status=NULL;assert(fdt_parse(blob,&i)==-22);assert(i.memory_count==0U);}
+static void available_memory_status_is_kept(void){struct fdt_info i;memory_status="okay";build();memory_status=NULL;assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1U);memory_status="ok";build();memory_status=NULL;assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1U);}
+int main(void){valid();bad_magic();overlap();bad_token();no_reservation_terminator();undersized_total();structure_out_of_bounds();strings_out_of_bounds();unclosed_root();missing_root_close();unavailable_memory_status_is_ignored();available_memory_status_is_kept();puts("COXVBN host FDT tests: PASS");return 0;}

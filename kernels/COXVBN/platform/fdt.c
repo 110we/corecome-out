@@ -362,9 +362,12 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                 n->size_cells = be32(value);
             else if (string_is(name, "compatible"))
                 n->is_gicv2 = (uint8_t)compatible_has_gicv2(value, len);
-            else if (string_is(name, "status") && len == 9U &&
-                     string_is((const char *)value, "disabled"))
-                n->is_disabled = 1U;
+            else if (string_is(name, "status")) {
+                if (len == 0U || value[len - 1U] != 0U) return -17;
+                if (!((len == 5U && string_is((const char *)value, "okay")) ||
+                      (len == 3U && string_is((const char *)value, "ok"))))
+                    n->is_disabled = 1U;
+            }
             else if (string_is(name, "reg")) {
                 n->reg = value;
                 n->reg_length = len;
