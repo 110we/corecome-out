@@ -25,13 +25,15 @@
 - [x] Preserve general-purpose registers and capture ELR/SPSR/ESR/FAR for fatal diagnostics
 - [x] Record and report the architectural vector index without clobbering the interrupted register state
 - [x] Define and host-test the exception-frame field offsets and payload size
-- [x] Define and test the exception entry/exit contract: 304-byte aligned save frame, ELR/SPSR restore, full GPR restore, and `eret` return path (assembly + host ABI checks)
+- [x] Implement the exception entry/exit assembly path: 304-byte aligned save frame, ELR/SPSR restore, full GPR restore, and `eret` return
+- [ ] Runtime-test exception entry/return with injected synchronous and IRQ exceptions
 - [ ] Add safe recoverable synchronous-fault handling
 - [x] Add host-tested GICv2 quiescent initialization (disable interfaces, read line count, prepare PMR; no IRQ delivery)
 - [x] Discover supported GICv2 compatible strings and distributor/CPU-interface `reg` ranges from FDT; validate and bind after the initial MMU map (host-tested parser; QEMU boot-tested)
 - [ ] Add a generic interrupt-controller interface and architectural timer driver
 - [x] Add host-tested GICv2 interrupt acknowledge and EOI register primitives (IRQ delivery remains disabled)
 - [x] Add bounded IRQ handler registration/dispatch, full-token GICv2 EOI, spurious IRQ handling, and fail-closed unhandled IRQ policy (host-tested; hardware delivery remains disabled)
+- [ ] Enable and QEMU-test hardware IRQ delivery after timer and exception-return runtime validation
 
 ## Milestone 4 — execution
 - [ ] Add per-CPU state, kernel threads, context switching, and a scheduler
