@@ -3,7 +3,7 @@ on:
   push:
     branches: [main, "rewrite/**", "refactor/**", "feature/**", "fix/**"]
   pull_request:
-    branches: [main, "rewrite/**", "refactor/**"]
+    branches: [main, "rewrite/**", "refactor/**", "feature/**", "fix/**"]
 permissions:
   contents: read
 jobs:
