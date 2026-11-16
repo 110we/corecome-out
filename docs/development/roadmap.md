@@ -93,9 +93,9 @@
 ## Milestone 10 — OpenKernel (third independent kernel)
 - [x] Create independent `kernels/OpenKernel/` source tree and standalone AArch64 build
 - [x] Add independent boot entry, linker layout, kernel entry and PL011 serial output
-- [x] Add standalone build and QEMU boot CI job (verification pending first workflow run)
-- [ ] Validate AArch64 cross-build and QEMU serial boot; fix any startup issues
-- [ ] Add FDT platform discovery and host tests
+- [x] Cross-compile the image and pass the QEMU serial boot assertion in CI run [43846739631](https://github.com/110we/corecome-out/actions/runs/43846739631)
+- [ ] Add host tests for boot metadata parsing and foundational allocators
+- [ ] Add FDT platform discovery
 - [ ] Add physical memory discovery, reserved ranges and page allocator
 - [ ] Add exception vectors, interrupt controller and timer delivery
 - [ ] Add MMU, page tables and address-space isolation
@@ -107,4 +107,4 @@
 
 OpenKernel does not inherit COXVBN capability masks, RedLab scope restrictions, or daily-profile policy. Its feature configuration is owned by OpenKernel. Memory safety, privilege separation, resource ownership and kernel recovery remain correctness requirements.
 
-A checkbox is checked only when implementation and automated evidence exist.
+A checkbox is complete only when implementation and automated evidence exist.
