@@ -21,7 +21,7 @@ SOURCES_S := $(ARCH)/boot.S
 OBJECTS   := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES_C)) \
              $(patsubst %.S,$(BUILD)/%.o,$(SOURCES_S))
 
-.PHONY: all coxvbn redlab redlab-test test clean run disassemble test-host
+.PHONY: all coxvbn redlab redlab-test test clean clean-redlab run disassemble test-host
 all: coxvbn redlab
 
 coxvbn: $(BUILD)/coxvbn.elf $(BUILD)/coxvbn.bin
@@ -80,4 +80,6 @@ disassemble: $(BUILD)/coxvbn.elf
 
 clean:
 	rm -rf $(BUILD)
+
+clean-redlab:
 	$(MAKE) -C kernels/RedLab clean
