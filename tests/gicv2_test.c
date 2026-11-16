@@ -59,6 +59,9 @@ int main(void)
     assert(gicv2_init(&state, (uintptr_t)distributor,
                       (uintptr_t)cpu_interface) == GICV2_OK);
     assert(state.interrupt_lines == 32U);
+    cpu_interface[GICC_IAR / 4U] = 40U;
+    assert(gicv2_acknowledge(&state, &token) == GICV2_NO_INTERRUPT);
+    assert(gicv2_end_interrupt(&state, 40U) == GICV2_ERR_ARGUMENT);
     assert(cpu_interface[GICC_CTLR / 4U] == 0U);
 
     puts("COXVBN GICv2 quiescent-init and acknowledge/EOI tests: PASS");

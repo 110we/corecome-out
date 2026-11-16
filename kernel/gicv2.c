@@ -83,7 +83,8 @@ int gicv2_acknowledge(struct gicv2_state *state, uint32_t *acknowledge)
 
     token = *reg32(state->cpu_interface_base, GICC_IAR);
     interrupt_id = token & GICV2_INTERRUPT_ID_MASK;
-    if (interrupt_id >= GICV2_MAX_LINES) {
+    if (interrupt_id >= GICV2_MAX_LINES ||
+        interrupt_id >= state->interrupt_lines) {
         *acknowledge = token;
         return GICV2_NO_INTERRUPT;
     }
@@ -99,7 +100,8 @@ int gicv2_end_interrupt(struct gicv2_state *state, uint32_t acknowledge)
 
     if (state == NULL || state->initialized != 1U ||
         state->cpu_interface_base == 0U ||
-        interrupt_id >= GICV2_MAX_LINES)
+        (interrupt_id >= GICV2_MAX_LINES ||
+         interrupt_id >= state->interrupt_lines))
         return GICV2_ERR_ARGUMENT;
 
     /* GICv2 requires the original IAR token, including source CPU ID bits. */
