@@ -4,6 +4,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/../../kernel" || exit 1
 
+make test-driver-host || exit 1
 make || exit 1
 rm -f build/serial.log build/qemu.log
 
@@ -67,6 +68,7 @@ require 'vec: vbar=0x' 'vectors'
 require 'dtb: magic=0x00000000d00dfeed ok' 'dtb magic'
 require 'dtb: mem=0x0000000040000000+0x0000000008000000' 'dtb memory'
 require 'dtb: uart=0x0000000009000000+0x0000000000001000 gicd=0x0000000008000000 gicc=0x0000000008010000' 'dtb devices'
+require '\\[drv\\] device model: [1-9][0-9]* DT devices' 'DT device registry'
 require 'gic: ready' 'gic'
 require 'irq: ticks=.* ok' 'timer'
 require 'mmu: sctlr=0x.* on' 'mmu'
