@@ -10,6 +10,7 @@
 #define POOL_PAGES  128UL
 #define MAGIC       0xA5A5A5A5UL
 #define NCLASS      7
+#define BLK_ALLOC   (1UL << 63)
 
 static u8 pool[POOL_PAGES * PAGE_SIZE] __attribute__((aligned(4096)));
 static u64 bitmap[POOL_PAGES / 64];
@@ -206,6 +207,7 @@ void *kmalloc(u64 n)
         b = (blk_t *)freelist[ci];
         freelist[ci] = b->next;
     }
+    b->meta |= BLK_ALLOC;
     return (void *)((u8 *)b + sizeof(blk_t));
 }
 
@@ -218,13 +220,15 @@ void kfree(void *p)
         return;
     }
     b = (blk_t *)((u8 *)p - sizeof(blk_t));
-    if ((b->meta >> 8) != MAGIC) {
-        return; /* 不是这里面的块，宁可泄漏也不写坏 */
+    if (((b->meta & ~BLK_ALLOC) >> 8) != MAGIC ||
+        (b->meta & BLK_ALLOC) == 0) {
+        return; /* 非法指针或重复释放：不污染 freelist */
     }
     cls = b->meta & 0xFFUL;
     if (cls >= NCLASS) {
         return;
     }
+    b->meta &= ~BLK_ALLOC;
     b->next = (blk_t *)freelist[cls];
     freelist[cls] = b;
 }
