@@ -1,4 +1,4 @@
-#include "../kernel/fdt.h"
+#include "fdt.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
