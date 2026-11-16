@@ -4,7 +4,7 @@
 
 RedLab is the security-assessment environment planned on top of the `rewrite/corecome-from-zero` kernel. Its primary use is authorized penetration testing of systems that the operator owns or has explicit permission to assess.
 
-**Architectural rule:** offensive assessment tools run in isolated user space. The kernel does not become a bag of privileged scanning or exploitation routines. The kernel provides enforceable boundaries: process isolation, capability checks, scoped network access, resource limits, and audit records.
+**Architectural rule:** assessment tools run in isolated user space. The kernel provides enforceable boundaries: process isolation, capability checks, scoped network access, resource limits, and audit records.
 
 ## Functional areas
 
@@ -12,7 +12,7 @@ RedLab is the security-assessment environment planned on top of the `rewrite/cor
 2. **Discovery and enumeration** — bounded host discovery and service/protocol identification, restricted to approved targets.
 3. **Configuration assessment** — TLS settings, exposed services, security headers, and protocol configuration checks.
 4. **Web/API assessment** — safe input validation, access-control and session checks, API schema/configuration review, and non-destructive test cases.
-5. **Controlled vulnerability validation** — verify a finding with the least invasive proof possible; destructive checks require a separate explicit approval and are not enabled by default.
+5. **Controlled vulnerability validation** — verify a finding with the least invasive proof possible; destructive checks require separate explicit approval and are not enabled by default.
 6. **Evidence and reporting** — timestamped findings, reproducible evidence, severity rationale, remediation guidance, and exportable reports.
 
 ## Mandatory safety and enforcement model
@@ -26,6 +26,10 @@ RedLab is the security-assessment environment planned on top of the `rewrite/cor
 - **Global stop:** a kernel-controlled kill switch cancels queued and running jobs and blocks new assessment traffic.
 - **Isolation:** assessment tools run as unprivileged processes with no direct MMIO, arbitrary kernel memory, or unrestricted raw-device access.
 - **No stealth or persistence:** no evasion, covert persistence, credential harvesting, autonomous propagation, or out-of-scope pivoting.
+
+## Relationship to the Daily Privacy Profile
+
+RedLab and the Daily Privacy Profile are separate security domains, not two labels for the same mode. Daily privacy settings cannot grant assessment permissions. Entering RedLab requires explicit authorization and a scoped engagement; leaving RedLab requires stopping jobs, revoking assessment capabilities, and recording the transition. See [docs/privacy-mode.md](privacy-mode.md) for the daily profile contract and transition requirements.
 
 ## Planned architecture
 

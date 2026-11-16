@@ -75,4 +75,13 @@
 - [ ] Add bounded discovery, service enumeration, TLS/configuration, and web/API assessment tools
 - [ ] Add evidence redaction, report generation, and QEMU lab regression tests
 
+## Milestone 9 — Daily Privacy Profile
+- [ ] Define profile identity, data ownership, and cross-profile isolation contracts
+- [ ] Add profile-scoped capability handles; daily profile cannot inherit RedLab permissions
+- [ ] Implement authenticated, visible, reversible profile transitions
+- [ ] Add lock-screen/notification sensitive-preview controls without suppressing security alerts
+- [ ] Add permission review and revocation UI
+- [ ] Add explicit telemetry preferences with mandatory security-event exceptions
+- [ ] Test fail-closed transitions, audit retention, and profile data isolation
+
 A checkbox is checked only when implementation and automated evidence exist.

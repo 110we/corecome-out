@@ -13,13 +13,16 @@ The separate COXVBN system project is maintained here: [COXVBN-system](https://g
 - Language: freestanding C and AArch64 assembly
 - First milestone: enter the kernel, initialize a serial console, and prove the boot path in CI
 
-## COXVBN RedLab — authorized security assessment environment
+## COXVBN RedLab — security assessment and privacy workspace
 
-The refactored kernel will host a dedicated security-testing environment focused on authorized penetration testing. RedLab is designed as a **user-space assessment suite**, not as privileged attack logic inside the kernel. The kernel supplies isolation, capability checks, scoped network access, and tamper-evident audit hooks.
+COXVBN plans two distinct user-facing profiles built on the same isolation and capability foundations:
 
-Planned capabilities include asset discovery within an explicitly approved scope, service and protocol enumeration, TLS/configuration checks, web/API security checks, controlled validation of known weaknesses, evidence capture, and report generation. Active tests must be explicitly enabled for each scope, rate-limited, logged, and stoppable with a global kill switch. Out-of-scope targets are denied by default.
+- **RedLab assessment profile:** authorized penetration testing in explicitly approved scopes. Planned functions include bounded asset discovery, service enumeration, TLS/configuration checks, web/API security checks, controlled validation, evidence capture, and reporting.
+- **Daily privacy profile:** ordinary privacy controls such as separate user/app profiles, clear work-versus-test separation, user-visible appearance/profile switching, notification and sensitive-preview controls, permission review, and reduced nonessential telemetry where supported.
 
-RedLab will not include stealth/persistence, credential theft, uncontrolled exploitation, or autonomous propagation. See [docs/penetration-testing.md](docs/penetration-testing.md) for the architecture and staged implementation plan.
+These profiles are deliberately separate. Daily privacy mode does not inherit assessment capabilities. Profile changes must be visible, user-authorized, reversible, and auditable. Privacy controls must not hide processes, evade security tools, defeat audit, or impersonate another person or organization. RedLab active tests remain off by default, scoped, rate-limited, logged, and stoppable. Out-of-scope targets are denied by default.
+
+RedLab assessment architecture: [docs/penetration-testing.md](docs/penetration-testing.md). Daily privacy profile contract: [docs/privacy-mode.md](docs/privacy-mode.md).
 
 ## Isolated recovery subsystems
 
