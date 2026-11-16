@@ -185,12 +185,19 @@ static void node_reg(struct node_state *n, const u8 *d, u32 len)
 static void node_finish(struct node_state *n)
 {
     u64 end = n->base[0] + n->size[0];
+    u64 end2 = n->base[1] + n->size[1];
+    int ranges_ok = n->nseg >= 1 && n->size[0] != 0 &&
+                    end >= n->base[0] && n->base[0] < DEV_WIN_TOP &&
+                    end <= DEV_WIN_TOP;
 
-    /* 只有现有页表已映射的 MMIO 窗口可以进入设备注册表。
-     * 同时检查加法回绕，避免坏 DTB 把 probe 引向未映射地址。 */
-    if (n->compatible[0] != '\0' && n->nseg >= 1 &&
-        n->size[0] != 0 && end >= n->base[0] &&
-        n->base[0] < DEV_WIN_TOP && end <= DEV_WIN_TOP &&
+    if (n->nseg >= 2) {
+        ranges_ok = ranges_ok && n->size[1] != 0 &&
+                    end2 >= n->base[1] && n->base[1] < DEV_WIN_TOP &&
+                    end2 <= DEV_WIN_TOP;
+    }
+
+    /* 只有完整落在现有页表 MMIO 窗口内的资源才能进入注册表。 */
+    if (n->compatible[0] != '\0' && ranges_ok &&
         g_dt.device_count < DTB_DEVICE_MAX) {
         struct dtb_device *d = &g_dt.devices[g_dt.device_count++];
         copy_cstr((const u8 *)n->name, 31, d->name, sizeof(d->name));
@@ -198,6 +205,8 @@ static void node_finish(struct node_state *n)
                   sizeof(d->compatible));
         d->base = n->base[0];
         d->size = n->size[0];
+        d->base2 = n->nseg >= 2 ? n->base[1] : 0;
+        d->size2 = n->nseg >= 2 ? n->size[1] : 0;
     }
 
     if (n->kind == NODE_UART && n->nseg >= 1) {

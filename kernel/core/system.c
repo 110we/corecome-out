@@ -24,6 +24,39 @@ static volatile u32 *uart = (volatile u32 *)UART0_BASE;
 static volatile u32 *gicd = (volatile u32 *)GICD_BASE;
 static volatile u32 *gicc = (volatile u32 *)GICC_BASE;
 
+static int pl011_probe(struct device *dev)
+{
+    if (dev == (struct device *)0 || dev->base == 0 ||
+        dev->size < UART_ICR + 4) return -1;
+    uart = (volatile u32 *)dev->base;
+    return 0;
+}
+
+static int gicv2_probe(struct device *dev)
+{
+    if (dev == (struct device *)0 || dev->base == 0 ||
+        dev->size < 0x1000UL) return -1;
+    if (dev->base2 != 0) {
+        if (dev->size2 < 0x1000UL) return -1;
+        gicc = (volatile u32 *)dev->base2;
+    } else if (dev->base + 0x10000UL > dev->base &&
+               dev->base + 0x10000UL < 0x0A200000UL) {
+        gicc = (volatile u32 *)(dev->base + 0x10000UL);
+    } else return -1;
+    gicd = (volatile u32 *)dev->base;
+    return 0;
+}
+
+static const struct driver pl011_driver = {
+    "pl011", "arm,pl011", pl011_probe
+};
+static const struct driver gicv2_a15_driver = {
+    "gicv2-a15", "arm,cortex-a15-gic", gicv2_probe
+};
+static const struct driver gicv2_400_driver = {
+    "gicv2-400", "arm,gic-400", gicv2_probe
+};
+
 static void uart_putc(char c)
 {
     while (uart[UART_FR / 4] & FR_TXFF) {
@@ -544,10 +577,13 @@ int kmain(u64 dtb)
      * 解析失败就用编译期地址继续，但日志里必须留下原因。 */
     (void)fdt_init(dtb);
     dti = dtb_info();
-    if (dti->ok) {
-        uart = (volatile u32 *)dti->uart_base;
-        gicd = (volatile u32 *)dti->gicd_base;
-        gicc = (volatile u32 *)dti->gicc_base;
+    if (dti->ok && device_model_init(dti) == 0) {
+        (void)driver_register(&pl011_driver);
+        (void)driver_register(&gicv2_a15_driver);
+        (void)driver_register(&gicv2_400_driver);
+        (void)driver_bind_all();
+    } else {
+        (void)device_model_init((const struct dtb_info *)0);
     }
 
     puts_("\n[bare] aarch64 virt, PL011 UART up\n");
@@ -558,10 +594,10 @@ int kmain(u64 dtb)
     printk("[bare] el=%u  sp=%x\n", (sctlr >> 2) & 3, sp);
     printk("[bare] entry=%x  dtb=%x\n", (u64)(void *)kmain, dtb);
     fdt_dump();
-    if (dti->ok && device_model_init(dti) == 0) {
-        printk("[drv] device model: %u DT devices\n", device_count());
+    if (device_count() != 0) {
+        printk("[drv] device model: %u DT devices bound=%u\n",
+               device_count(), device_bound_count());
     } else {
-        (void)device_model_init((const struct dtb_info *)0);
         puts_("[drv] device model: unavailable\n");
     }
 

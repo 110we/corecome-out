@@ -116,6 +116,8 @@ struct dtb_device {
     char compatible[64];
     u64 base;
     u64 size;
+    u64 base2;
+    u64 size2;
 };
 
 /* ---- 设备树与设备模型（M5） ---- */
@@ -159,6 +161,8 @@ struct device {
     char compatible[64];
     u64 base;
     u64 size;
+    u64 base2;
+    u64 size2;
     const struct driver *driver;
     void *driver_data;
     int bound;

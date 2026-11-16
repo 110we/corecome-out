@@ -22,7 +22,7 @@ int device_model_init(const struct dtb_info *dt){
     u32 i;ndevices=0;ndrivers=0;initialized=0;
     for(i=0;i<DEVICE_MAX;i++){
         devices[i].name[0]='\0';devices[i].compatible[0]='\0';
-        devices[i].base=0;devices[i].size=0;
+        devices[i].base=0;devices[i].size=0;devices[i].base2=0;devices[i].size2=0;
         devices[i].driver=0;devices[i].driver_data=0;devices[i].bound=0;
     }
     for(i=0;i<DRIVER_MAX;i++)drivers[i]=0;
@@ -30,7 +30,8 @@ int device_model_init(const struct dtb_info *dt){
     for(i=0;i<dt->device_count;i++){
         copy_string(devices[i].name,sizeof(devices[i].name),dt->devices[i].name);
         copy_string(devices[i].compatible,sizeof(devices[i].compatible),dt->devices[i].compatible);
-        devices[i].base=dt->devices[i].base;devices[i].size=dt->devices[i].size;ndevices++;
+        devices[i].base=dt->devices[i].base;devices[i].size=dt->devices[i].size;
+        devices[i].base2=dt->devices[i].base2;devices[i].size2=dt->devices[i].size2;ndevices++;
     }
     initialized=1;return 0;
 }
