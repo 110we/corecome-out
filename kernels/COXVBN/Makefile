@@ -1,6 +1,6 @@
 # Makefile —— 一条 make 出 ELF，make test 开机并断言 P0 各项。
-# 源码按新仓库结构分散在 kernel/、drivers/、filesystems/、userspace/runtime，
-# 但全部对象仍输出到 kernel/build/。构建时工作目录是 kernel/。
+# 源码按新仓库结构分散在 kernels/COXVBN/、drivers/、filesystems/、userspace/runtime，
+# 但全部对象仍输出到 kernels/COXVBN/build/。构建时工作目录是 kernels/COXVBN/。
 # .RECIPEPREFIX 用 '>'，省得编辑器把 tab 换成空格。
 
 .RECIPEPREFIX = >
@@ -17,7 +17,7 @@ SRCS := \
         $(ARCH)/boot/boot.S \
         $(ARCH)/exception/vectors.S \
         $(ARCH)/context/switch.S \
-        ../userspace/runtime/user_blob.S \
+        ../../userspace/runtime/user_blob.S \
         $(ARCH)/mmu/paging.c \
         core/system.c \
         core/kinfo.c \
@@ -28,9 +28,9 @@ SRCS := \
         scheduler/sched.c \
         syscall/syscall.c \
         vfs/vfs.c \
-        ../drivers/storage/virtio_blk.c \
-        ../drivers/bus/fdt.c \
-        ../filesystems/ext2/ext2.c
+        ../../drivers/storage/virtio_blk.c \
+        ../../drivers/bus/fdt.c \
+        ../../filesystems/ext2/ext2.c
 
 OBJS := $(addprefix $(BUILD)/,$(notdir $(SRCS:.c=.o)))
 OBJS := $(OBJS:.S=.o)
@@ -144,12 +144,12 @@ test: $(BUILD)/kernel.bin $(DISK)
 > @$(MAKE) -s test-cmd
 
 test-cmd: $(BUILD)/kernel.bin
-> @sh ../tests/qemu/serial_cmd.sh "$(QEMU)" "$<" "$(BUILD)/cmd.log"
+> @sh ../../tests/qemu/serial_cmd.sh "$(QEMU)" "$<" "$(BUILD)/cmd.log"
 > @echo "BARE_CMD_OK"
 
 # M4 验收：EL0 init -> shell -> ls / cat
 test-m4: $(BUILD)/kernel.bin
-> @sh ../tests/qemu/serial_m4.sh "$(QEMU)" "$<" "$(BUILD)/m4.log"
+> @sh ../../tests/qemu/serial_m4.sh "$(QEMU)" "$<" "$(BUILD)/m4.log"
 > @echo "BARE_M4_OK"
 
 clean:
