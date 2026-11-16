@@ -93,8 +93,11 @@ void kernel_main(const void *boot_fdt)
             uart_write("COXVBN: GICV2 FDT RANGES OUTSIDE BOOT MMIO APERTURE\n");
             for (;;) __asm__ volatile("wfe");
         }
-        rc = gicv2_init(&gic, (uintptr_t)fdt.gicv2_distributor.base,
-                        (uintptr_t)fdt.gicv2_cpu_interface.base);
+        rc = gicv2_init(&gic,
+                        (uintptr_t)fdt.gicv2_distributor.base,
+                        (uintptr_t)fdt.gicv2_distributor.size,
+                        (uintptr_t)fdt.gicv2_cpu_interface.base,
+                        (uintptr_t)fdt.gicv2_cpu_interface.size);
         if (rc != GICV2_OK) {
             uart_write("COXVBN: GICV2 QUIESCENT INIT FAILED\n");
             for (;;) __asm__ volatile("wfe");
