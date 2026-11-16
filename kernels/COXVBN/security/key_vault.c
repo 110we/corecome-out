@@ -267,12 +267,10 @@ bool coxvbn_key_vault_revoke_receiver(
 }
 
 bool coxvbn_key_vault_verify_receiver(
-    const struct coxvbn_key_vault *vault_const,
+    struct coxvbn_key_vault *vault,
     const struct coxvbn_receiver_key_ref *ref,
     const uint8_t *proof, size_t proof_len)
 {
-    struct coxvbn_key_vault *vault =
-        (struct coxvbn_key_vault *)(uintptr_t)vault_const;
     uint8_t key_copy[COXVBN_KEY_MAX_PUBLIC_BYTES];
     uint8_t proof_copy[COXVBN_KEY_MAX_PROOF_BYTES];
     size_t key_len;
