@@ -30,7 +30,8 @@
 - [x] Add host-tested GICv2 quiescent initialization (disable interfaces, read line count, prepare PMR; no IRQ delivery)
 - [ ] Discover GIC distributor/CPU-interface ranges from the FDT and bind the driver to QEMU `virt,gic-version=2`
 - [ ] Add a generic interrupt-controller interface and architectural timer driver
-- [ ] Add IRQ dispatch, interrupt acknowledgement/EOI, and interrupt-context rules
+- [x] Add host-tested GICv2 interrupt acknowledge and EOI register primitives (IRQ delivery remains disabled)
+- [ ] Add IRQ dispatch, interrupt-context rules, and safe exception return
 
 ## Milestone 4 — execution
 - [ ] Add per-CPU state, kernel threads, context switching, and a scheduler
