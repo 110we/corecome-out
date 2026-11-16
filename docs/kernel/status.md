@@ -22,7 +22,7 @@
 | 抢占 | 内核可抢占 | 用户态可抢占，内核靠关中断 | 部分 | 长 syscall 拖拍 |
 | 文件 | VFS + 页缓存 + 多 FS | VFS + ramfs root + `/dev/console` + ext2 只读 | 部分 | **ext2 无挂载点**、无页缓存、无写、无日志 |
 | fd | 每进程 files_struct | 每进程 filetable | 已验证 | fork 深拷贝，clone 共享 |
-| 设备 | 驱动模型 + DT/ACPI | DTB 只读解析 + 固定注册表；virtio-blk 已 probe/bind，PL011/GICv2/timer 仍直调 | 部分 | 无动态卸载/热插拔/总线层级；phandle 与中断映射未做（M5） |
+| 设备 | 驱动模型 + DT/ACPI | DTB 只读解析 + 固定注册表；PL011/GICv2/virtio-blk 已 probe/bind，timer 仍直调 | 部分 | 无动态卸载/热插拔/总线层级；phandle 与中断映射未做（M5） |
 | 网络 | TCP/IP + netfilter | 无 | 计划中 | — |
 | 信号 | 完整、可注册 handler | 仅 KILL/TERM/SEGV 默认动作 | 部分 | 无 handler / sigreturn |
 | 线程 | clone(CLONE_VM) + futex/TLS | clone 共享 mm/fd | 部分 | 无 futex、无 TLS |
@@ -45,7 +45,7 @@
 | **M4 init + shell** | 内核加载 init，init 拉起 shell，`ls /`、`cat` 一个文件 | **已验证** | `init: up` → `sh> ls` 出 `hello.txt` → `cat` 出 `big kernel vfs works` → `wait pid=16 code=0`；边界见下 |
 | **M5 驱动模型 + DTB** | DTB 解析、驱动注册表、virtio-blk 改走模型 | **部分** | FDT 收集 compatible/reg 设备；固定容量注册表按 compatible probe/bind；virtio-blk 已通过模型发现并读出 ext2。host 单测 + QEMU CI 已验证；PL011/GIC 尚未纳入统一驱动生命周期 |
 
-**M5 第一阶段已落地并通过 CI**：设备节点从 FDT 进入固定容量注册表，`virtio-blk` 通过 `compatible=virtio,mmio` 注册驱动并由 probe 找到实际 MMIO 实例；后续要把 PL011/GIC 纳入同一生命周期，再补 phandle/中断映射、总线层级和更通用的资源映射。M4 已经跑通，但它**不是**
+**M5 第一阶段已落地并通过裸机 CI**：FDT 设备节点进入固定容量注册表，PL011、GICv2 与 virtio-blk 都经 compatible 匹配和 probe/bind；PL011/GIC 的具体初始化函数仍在 `system.c`，下一步再把初始化/中断资源接口下沉到驱动层，并补 phandle/中断映射与总线层级。M4 已经跑通，但它**不是**
 “Linux 用户态”：exec 只按 id 选内置 blob，shell 只认首字母命令，
 `/dev/console` 读是非阻塞轮询。M4 的价值在于把 M0–M3 串成一条真实路径：
 init 由内核以 EL0 启动，shell 的每个字符都过 `read(0)`，`cat` 过 VFS。
@@ -137,9 +137,9 @@ QEMU 既不给 DTB 也不设 `x0`（这正是之前 `dtb magic=0x0 BAD` 的原�
 明确的边界（别当成 Linux 的驱动模型）：
 
 - 注册表目前是固定容量、精确字符串匹配；没有动态注册/卸载、热插拔、设备电源管理或总线层级。
-- 只有 virtio-blk 已经走 probe/bind；PL011、GICv2 和定时器仍由 `system.c` 直接初始化，
-  尚未统一到驱动生命周期。
-- FDT `reg` 目前只消费一到两段，注册表只保存第一段；`#address-cells` 仍按根节点宽度处理，
+- PL011、GICv2 与 virtio-blk 已走 probe/bind；但 PL011/GIC 的硬件初始化函数仍由 `system.c` 调用，
+  定时器也仍是直接初始化，驱动生命周期尚未完全下沉。
+- FDT `reg` 目前只消费一到两段，注册表最多保存前两段；`#address-cells` 仍按根节点宽度处理，
   尚未实现 `ranges`、父总线 cell-width 转换、`phandle` 与中断映射。
 - 设备 MMIO 范围必须完整落在当前已映射的 0–10MB 窗口内；超出窗口的普通设备会被跳过，
   页表不会为设备节点动态补映射。
@@ -148,9 +148,9 @@ QEMU 既不给 DTB 也不设 `x0`（这正是之前 `dtb magic=0x0 BAD` 的原�
 
 串口命令 `dtb` 可随时重打印上面这几行。验证证据：
 
-- `kernel/tests/driver_registry_test.c`：host 单测覆盖注册、compatible 匹配、probe 成功/失败、重复注册、未初始化状态。
+- `kernel/tests/driver_registry_test.c`：host 单测覆盖注册、compatible 匹配、probe 成功/失败、重复注册、未初始化状态及 GIC 第二段资源复制。
 - `.github/scripts/bare-qemu-test.sh`：先运行 `make test-driver-host`，再启动 QEMU；断言设备注册表非空、virtio-blk probe 来自 DTB、ext2 文件可读。
-- CI 在提交 `cfcd0b3` 上通过：串口记录 `device model: 40 DT devices`、`probe virtio_mmio@a003e00`、`ext2: hello from ext2`，最终 `BARE_P0_OK`。
+- 裸机 CI 在提交 `cd22213` 上通过：串口记录 `device model: 39 DT devices bound=2`、`probe virtio_mmio@a003e00`、`ext2: hello from ext2`，最终 `BARE_P0_OK`。
 
 ## P1 补上的东西（COW / 线程 / 信号 / 块设备 + ext2）
 
