@@ -46,6 +46,8 @@ test-host:
 	$(BUILD)/recovery_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/receiver_key_test.c kernel/key_vault.c -o $(BUILD)/receiver_key_test
 	$(BUILD)/receiver_key_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/module_registry_test.c kernel/module_registry.c -o $(BUILD)/module_registry_test
+	$(BUILD)/module_registry_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/exception_frame_test.c -o $(BUILD)/exception_frame_test
 	$(BUILD)/exception_frame_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/exception_decode_test.c kernel/exception_decode.c -o $(BUILD)/exception_decode_test

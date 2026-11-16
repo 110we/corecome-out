@@ -43,7 +43,8 @@
 - [ ] Implement COXVBN Direct Port Communication: paired endpoints, direct shared-channel data path, no bridge/relay
 - [ ] Central Security Plugin request interface backed by kernel-enforced policy
 - [x] Define bounded receiver-key enrollment, forward-only rotation, and terminal revocation contract (host-tested)
-- [ ] Integrate authenticated module identity/capability checks with module registry
+- [x] Add bounded kernel module registry with requested/granted capability checks and terminal revocation (host-tested)
+- [ ] Bind active execution context to module identity and enforce capabilities at every privileged subsystem boundary
 - [ ] Integrate audited cryptography and persistent anti-rollback key storage
 
 ## Milestone 6 — isolated recovery foundations
