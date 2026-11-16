@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "privacy_profile.h"
 
 static void fail_closed(struct coxvbn_profile_manager *manager,
