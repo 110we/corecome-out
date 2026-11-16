@@ -72,7 +72,7 @@ enum coxvbn_redlab_decision coxvbn_redlab_policy_check(
  struct coxvbn_redlab_policy *, const struct coxvbn_redlab_request *);
 #endif
 enum coxvbn_redlab_decision coxvbn_redlab_policy_check_authorized(
- struct coxvbn_redlab_policy *, const struct coxvbn_module_registry *,
+ struct coxvbn_redlab_policy *, struct coxvbn_module_registry *,
  const struct coxvbn_module_ref *, enum coxvbn_redlab_operation,
  const struct coxvbn_redlab_request *);
 bool coxvbn_redlab_job_finish(struct coxvbn_redlab_policy *, uint64_t);
