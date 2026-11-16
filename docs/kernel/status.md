@@ -43,9 +43,9 @@
 | **M2 VFS + fd 表** | 每进程 fd、open/read/write/close、ramfs root、ext2 只读挂载点、/dev 字符设备 | **部分** | fd/ramfs/`/dev/console` 已有；ext2 只能按块读，**没有挂载点** |
 | **M3 调度器重写** | 用户进程调度、就绪队列、时间片、抢占、切换含页表 | **部分** | 切页表与时间片已有；**无就绪队列/优先级**，内核不可抢占 |
 | **M4 init + shell** | 内核加载 init，init 拉起 shell，`ls /`、`cat` 一个文件 | **已验证** | `init: up` → `sh> ls` 出 `hello.txt` → `cat` 出 `big kernel vfs works` → `wait pid=16 code=0`；边界见下 |
-| **M5 驱动模型 + DTB** | DTB 解析、驱动注册表、virtio-blk 改走模型 | **部分** | `fdt.c` 解析根/`/chosen`/memory/PL011/GICv2，UART+GIC 基址改由 DTB 提供；**无驱动注册表**，virtio-blk 仍手写扫描 |
+| **M5 驱动模型 + DTB** | DTB 解析、驱动注册表、virtio-blk 改走模型 | **部分** | FDT 收集 compatible/reg 设备；固定容量注册表按 compatible probe/bind；virtio-blk 已通过模型发现并读出 ext2。host 单测 + QEMU CI 已验证；PL011/GIC 尚未纳入统一驱动生命周期 |
 
-**下一个动手项仍是 M5**：DTB 那一半已落地，剩下的是一张真正被使用的驱动注册表。M4 已经跑通，但它**不是**
+**M5 第一阶段已落地并通过 CI**：设备节点从 FDT 进入固定容量注册表，`virtio-blk` 通过 `compatible=virtio,mmio` 注册驱动并由 probe 找到实际 MMIO 实例；后续要把 PL011/GIC 纳入同一生命周期，再补 phandle/中断映射、总线层级和更通用的资源映射。M4 已经跑通，但它**不是**
 “Linux 用户态”：exec 只按 id 选内置 blob，shell 只认首字母命令，
 `/dev/console` 读是非阻塞轮询。M4 的价值在于把 M0–M3 串成一条真实路径：
 init 由内核以 EL0 启动，shell 的每个字符都过 `read(0)`，`cat` 过 VFS。
@@ -102,7 +102,7 @@ init: shell exited
 - 控制台读是非阻塞轮询，不是 tty 行规程；没有作业控制、没有信号到 shell。
 - 没有 `init` 的 PID=1 语义，它只是第一个被内核拉起的 EL0 进程。
 
-## M5：DTB 解析（部分落地）
+## M5：DTB 解析与第一版驱动注册表（部分落地）
 
 QEMU 启动时把 DTB 指针放在 `x0`，`boot.S` 已经原样传给 `kmain`。
 前提是**按 arm64 Image 启动**：`boot.S` 开头带 64 字节 Image 头，
@@ -125,21 +125,32 @@ QEMU 既不给 DTB 也不设 `x0`（这正是之前 `dtb magic=0x0 BAD` 的原�
 - 从根节点取 `#address-cells`/`#size-cells`/`model`，从 `/chosen` 取 `bootargs`，
   从 `memory` 取物理内存区间，从 `arm,pl011` 取串口基址，
   从 `arm,cortex-a15-gic` 取 GICD/GICC；
-- UART 与 GIC 的基址**改由 DTB 决定**，`kernel.c` 里那两个常量只在
+- UART 与 GIC 的基址**改由 DTB 决定**，`system.c` 里的编译期地址只在
   解析失败时兜底；`/chosen` 的 bootargs 已经存下来但还没有解析器用。
+- FDT 同时收集带 `compatible` 和 `reg` 的设备实例（最多 48 个）；只有
+  `reg` 非空、无整数回绕且完整落在当前已映射 MMIO 窗口内的设备才进入注册表。
+- `drivers/core/driver_model.c` 提供固定容量的设备/驱动表（48 个设备、8 个驱动），
+  以 `compatible` 精确匹配并调用 `probe`；probe 成功才标记 bound，不使用动态分配。
+- `drivers/storage/virtio_blk.c` 注册 `virtio-blk` 驱动，不再扫写死的 32 个 MMIO 地址；
+  probe 从 FDT 设备实例取基址，再核对 virtio magic 与 block device ID 后初始化队列。
 
 明确的边界（别当成 Linux 的驱动模型）：
 
-- 没有驱动注册表、没有 probe/bind、没有 `phandle` 与中断映射；
-- `reg` 只认一到两段，`#address-cells` 只支持 1/2；
-- 设备地址必须落在页表已映射的 0–10MB 设备窗内，否则判 DTB 不可用
-  （现在的页表不会为了一个节点去补映射）；
-- virtio-blk 仍然自己扫 `virtio_mmio.device=` 的固定地址，没有走 DTB；
+- 注册表目前是固定容量、精确字符串匹配；没有动态注册/卸载、热插拔、设备电源管理或总线层级。
+- 只有 virtio-blk 已经走 probe/bind；PL011、GICv2 和定时器仍由 `system.c` 直接初始化，
+  尚未统一到驱动生命周期。
+- FDT `reg` 目前只消费一到两段，注册表只保存第一段；`#address-cells` 仍按根节点宽度处理，
+  尚未实现 `ranges`、父总线 cell-width 转换、`phandle` 与中断映射。
+- 设备 MMIO 范围必须完整落在当前已映射的 0–10MB 窗口内；超出窗口的普通设备会被跳过，
+  页表不会为设备节点动态补映射。
 - DTB 解析失败**不 panic**：回落到编译期地址继续启动，串口打
   `[bare] dtb: magic=... BAD reason=...`，让问题可见。
 
-串口命令 `dtb` 可随时重打印上面这几行。`make test` 里已经断言
-magic / memory / uart+gic 三行，坏了会红。
+串口命令 `dtb` 可随时重打印上面这几行。验证证据：
+
+- `kernel/tests/driver_registry_test.c`：host 单测覆盖注册、compatible 匹配、probe 成功/失败、重复注册、未初始化状态。
+- `.github/scripts/bare-qemu-test.sh`：先运行 `make test-driver-host`，再启动 QEMU；断言设备注册表非空、virtio-blk probe 来自 DTB、ext2 文件可读。
+- CI 在提交 `cfcd0b3` 上通过：串口记录 `device model: 40 DT devices`、`probe virtio_mmio@a003e00`、`ext2: hello from ext2`，最终 `BARE_P0_OK`。
 
 ## P1 补上的东西（COW / 线程 / 信号 / 块设备 + ext2）
 
