@@ -86,9 +86,10 @@ int main(void)
     assert(!coxvbn_profile_switch_to_redlab(&manager, true));
 
     context.stop_and_revoke = true;
-    context.audit_ok = false;
+    context.audit_ok = true;
     assert(coxvbn_profile_manager_init(&manager, 78U, &ops));
     assert(coxvbn_profile_switch_to_redlab(&manager, true));
+    context.audit_ok = false;
     assert(!coxvbn_profile_switch_to_daily(&manager));
     assert(manager.state == COXVBN_PROFILE_RESTRICTED);
 
