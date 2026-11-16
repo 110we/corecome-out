@@ -70,7 +70,7 @@
 - [x] Implement host-tested deny-by-default IPv4/IPv6 CIDR, port, and monotonic-time scope guard (no network I/O)
 - [ ] Add separate discovery, passive-capture, and active-probe capability classes
 - [x] Add host-tested per-target rate/concurrency limits, per-job time/byte budgets, audit callbacks, and sticky global stop (kernel identity/locking integration remains open)
-- [ ] Bind scope and policy checks to trusted module identity and revocable capabilities
+- [x] Bind host-tested scope/policy admission to active module identity and revocable, domain-separated capabilities (kernel execution-context plumbing remains open)
 - [ ] Add isolated user-space assessment runner after scheduler, address-space isolation, and syscall/IPC ABI
 - [ ] Add bounded discovery, service enumeration, TLS/configuration, and web/API assessment tools
 - [ ] Add evidence redaction, report generation, and QEMU lab regression tests

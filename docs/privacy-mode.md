@@ -4,7 +4,7 @@
 
 The Daily Privacy Profile is an ordinary, user-controlled operating profile for reducing incidental disclosure during everyday use. It is not an evasion mode, covert mode, or identity-spoofing feature. It must remain compatible with platform security controls, endpoint protection, audit requirements, and applicable organizational policy.
 
-This document defines a design contract only. The current kernel does not yet implement user sessions, a desktop, application sandboxing, notification services, or profile switching.
+This document defines a design contract. The module registry now has a host-tested domain boundary that prevents Daily Profile modules from requesting or receiving RedLab assessment capabilities. The current kernel does not yet implement user sessions, a desktop, application sandboxing, notification services, or profile switching.
 
 ## Intended controls
 
@@ -20,7 +20,7 @@ This document defines a design contract only. The current kernel does not yet im
 
 The Daily Privacy Profile and RedLab are separate security domains:
 
-- Daily mode receives no discovery, passive-capture, or active-probe capability by default.
+- Daily mode receives no discovery, passive-capture, or active-probe capability; the domain-aware module registration API rejects any Daily Profile request or grant containing those capability bits.
 - Switching into RedLab requires an explicit confirmation and a separate authorization/scope workflow.
 - Switching back to daily mode revokes RedLab job handles and assessment capabilities before the profile transition completes.
 - A failed revocation or uncertain transition fails closed and leaves the system in a clearly indicated restricted state.

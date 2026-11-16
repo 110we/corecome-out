@@ -53,7 +53,7 @@ Kernel security boundary
      Network stack / drivers
 ```
 
-The diagram is a target architecture, not a claim that these components already exist. The current kernel has a module registry and capability-mask contract, but it does not yet have user mode, a syscall ABI, a network stack, persistent audit storage, or a production cryptographic backend.
+The diagram is a target architecture, not a claim that these components already exist. The current kernel has a module registry and a host-tested RedLab admission adapter that checks active module identity and distinct discovery/passive/active capabilities before policy admission. Daily-profile modules are barred from requesting RedLab capabilities. Trusted execution-context plumbing at a syscall/network boundary remains unimplemented; the kernel also lacks user mode, a syscall ABI, a network stack, persistent audit storage, or a production cryptographic backend.
 
 ## R1 policy-core status
 
@@ -63,7 +63,7 @@ The initial R1 policy library is implemented in kernel/redlab_policy.c and host-
 
 - **R0 — design and boundaries:** document threat model, scope schema, capability classes, audit event schema, and kill-switch semantics.
 - **R1 — policy core:** implement and host-test CIDR/port/time scope checks, deny-by-default behavior, rate limiting, and audit callbacks without sending network traffic.
-- **R2 — kernel integration:** bind the policy core to trusted execution identity and module capabilities; add revocation and global stop semantics.
+- **R2 — kernel integration:** host-tested module identity/capability admission and revocation are implemented; trusted execution-context binding, kernel locking, and persistent audit integration remain open.
 - **R3 — isolated user space:** implement a minimal RedLab process and narrow syscall/IPC interface after address-space isolation and scheduler work.
 - **R4 — passive assessment:** add local inventory and passive protocol/configuration analysis.
 - **R5 — controlled active assessment:** add explicitly authorized, rate-limited checks against lab targets; test out-of-scope denial and emergency stop in QEMU.
