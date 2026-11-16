@@ -22,7 +22,7 @@ From this directory:
 make
 ```
 
-The default toolchain prefix is `aarch64-linux-gnu-`; override with `make CROSS_COMPILE=<prefix>`. The resulting ELF is a freestanding AArch64 kernel image. Runtime boot validation in QEMU and CI integration are pending.
+The default toolchain prefix is `aarch64-linux-gnu-`; override with `make CROSS_COMPILE=<prefix>`. The independent build and QEMU serial boot test passed in CI run [43846739631](https://github.com/110we/corecome-out/actions/runs/43846739631).
 
 ## Design rule
 
