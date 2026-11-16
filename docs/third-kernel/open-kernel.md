@@ -1,6 +1,6 @@
 # Third Kernel: OpenKernel
 
-**Status:** initial foundation only  
+**Status:** initial boot foundation; AArch64 build and QEMU serial boot verified in CI  
 **Product type:** independent, general-purpose, extensible operating-system kernel  
 **Architecture target:** AArch64 (initial bring-up)
 
@@ -69,8 +69,8 @@ The base kernel will not hard-code the first two products' feature allowlists or
 
 - [x] Separate source tree and standalone Makefile created.
 - [x] Independent AArch64 entry, linker layout and serial-console foundation added.
-- [ ] Cross-compile the OpenKernel image in CI.
-- [ ] Boot under QEMU and assert serial output.
+- [x] Cross-compile the OpenKernel image in CI.
+- [x] Boot under QEMU and assert serial output.
 - [ ] Add host tests for boot metadata parsing and foundational allocators.
 - [ ] Add exception/vector and interrupt-controller foundations.
 - [ ] Implement memory management and scheduler before user mode.
@@ -79,4 +79,4 @@ The base kernel will not hard-code the first two products' feature allowlists or
 - [ ] Add module ABI and independent extension lifecycle.
 - [ ] Add integration, fault-injection, concurrency and regression tests.
 
-A checkbox is complete only when code and automated evidence exist. The initial files have not yet been built or QEMU-tested in this change.
+The initial build and QEMU boot are verified by CI run [43846739631](https://github.com/110we/corecome-out/actions/runs/43846739631). This validates only the initial entry/serial-console path, not a complete OS.
