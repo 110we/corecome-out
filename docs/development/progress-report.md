@@ -2,12 +2,12 @@
 
 **Report date:** 2026-11-16  
 **Repository:** `110we/corecome-out`  
-**Working branch:** `rewrite/corecome-from-zero`  
+**Working branch:** `refactor/classify-kernel-subsystems`  
 **Baseline commit:** `c0886da1bd95103f87a689bce7e7fb2edb2dee1e`
 
 ## Executive summary
 
-The project has a reproducible AArch64 boot foundation and several host-tested kernel contracts for module capabilities, receiver-key lifecycle, RedLab authorization policy, execution identity, and Daily Privacy Profile transitions. The next major engineering boundary is moving these contracts from host-testable code into scheduler-owned, preemption-safe kernel runtime enforcement.
+The project has a reproducible AArch64 boot foundation, a host-tested COXVBN module registry, and a separately buildable RedLab policy/profile library. RedLab no longer links COXVBN kernel objects or headers; its platform-neutral authority callback is an integration seam only. The next major boundary is a trusted COXVBN adapter backed by scheduler-owned identity and a real module/runtime boundary.
 
 This report distinguishes implemented/tested contracts from runtime capabilities that do not yet exist.
 
@@ -21,18 +21,26 @@ This report distinguishes implemented/tested contracts from runtime capabilities
 | Module registry and capability domains | Host-tested contract implemented | Bounded registry, domain separation, activation/revocation transitions; not yet scheduler/IRQ/SMP-safe |
 | Receiver Key Vault | Host-tested lifecycle implemented | Enrollment, forward-only rotation, revocation; vault itself currently has no internal concurrency lock |
 | RedLab policy core | Host-tested contract implemented | IPv4/IPv6 CIDR, port/time scope, rate/concurrency/job budgets, audit callback, sticky stop; no network I/O |
-| RedLab identity binding | Host-tested contract implemented | Production admission path obtains identity from fail-closed execution-context provider; real scheduler provider is not installed |
-| Daily Privacy Profile | Host-tested state machine implemented | Explicit transition confirmation, generation-bound handles, fail-closed restricted state; no production isolation/UI |
+| RedLab authority integration | Not integrated | RedLab exposes a platform-neutral callback; a trusted COXVBN scheduler/registry adapter is still required |
+| Daily Privacy Profile | Host-tested library contract | Explicit transition confirmation, generation-bound handles, fail-closed restricted state; not a kernel service or production isolation/UI |
 | User mode and syscall boundary | Not implemented | Requires address-space isolation, scheduler and syscall validation |
 | RedLab assessment runner and report engine | Not implemented | Requires isolated userspace runner and kernel IPC/syscall boundary |
 | Daily privacy controls | Not implemented | Notification preview, permission UI and telemetry preferences remain roadmap items |
 
+## Independent product build boundary
+
+- COXVBN builds its AArch64 image from `kernels/COXVBN/` and no longer compiles RedLab source files.
+- RedLab builds independently with `make -C kernels/RedLab clean all test` and produces `libredlab.a`.
+- RedLab policy/profile tests are owned by `kernels/RedLab/tests/`.
+- GitHub Actions now has separate COXVBN and RedLab jobs. RedLab build and standalone tests passed on the current PR run; COXVBN's AArch64 job was still running when this report was prepared.
+- RedLab is a host library, not a second bootable OS kernel. Running it inside COXVBN still requires a module ABI, loader, syscall/IPC boundary, and runtime isolation.
+
 ## Latest verified repository and CI state
 
-- Latest working-branch commit at report time: [c0886da](https://github.com/110we/corecome-out/commit/c0886da1bd95103f87a689bce7e7fb2edb2dee1e)
+- Latest working-branch commit at report time: [d4fb77a](https://github.com/110we/corecome-out/commit/d4fb77a719c9ccda45a8a2889c8a0245e4212553)
 - Push workflow: [run 43812921962](https://github.com/110we/corecome-out/actions/runs/43812921962) — **success**
 - Pull-request workflow: [run 43812926993](https://github.com/110we/corecome-out/actions/runs/43812926993) — **success**
-- Both runs tested commit `c0886da1bd95103f87a689bce7e7fb2edb2dee1e`.
+- Earlier runs tested commit `c0886da1bd95103f87a689bce7e7fb2edb2dee1e`. The independent build split is under PR #5; its latest workflow run is recorded in the PR checks.
 - The latest workflow covered host tests, AArch64 kernel build, image/vector checks and QEMU serial boot checks.
 - Changes remain on `rewrite/corecome-from-zero`; `main` has not been modified or merged by this work.
 
@@ -52,7 +60,7 @@ This report distinguishes implemented/tested contracts from runtime capabilities
 3. Bind current execution identity to the scheduler's trusted per-CPU current-task state.
 4. Add preemption/IRQ-aware locking and SMP rules before enabling concurrent privileged entry paths.
 5. Integrate audited cryptography and persistent anti-rollback key storage.
-6. Only then connect RedLab and Daily Privacy Profile contracts to real kernel service boundaries.
+6. Add a trusted COXVBN authority adapter for RedLab only after scheduler identity and module runtime boundaries exist.
 7. After address-space isolation and syscall/IPC exist, build the isolated RedLab assessment runner, evidence store and report generator.
 
 ## Completion criteria
