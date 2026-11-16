@@ -106,7 +106,9 @@ void mm_page_ref(void *p)
 {
     int i = page_idx(p);
 
-    if (i >= 0 && refs[i] < 0xFFFF) {
+    if (i >= 0 &&
+        (bitmap[i / 64] & (1UL << (i % 64))) != 0 &&
+        refs[i] != 0 && refs[i] < 0xFFFF) {
         refs[i]++;
     }
 }
@@ -116,8 +118,10 @@ int mm_page_unref(void *p)
 {
     int i = page_idx(p);
 
-    if (i < 0) {
-        return -1;
+    if (i < 0 ||
+        (bitmap[i / 64] & (1UL << (i % 64))) == 0 ||
+        refs[i] == 0) {
+        return -1; /* 未分配页或重复归还：拒绝修改分配状态 */
     }
     if (refs[i] > 1) {
         refs[i]--;
