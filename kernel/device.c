@@ -55,6 +55,7 @@ static const struct coxvbn_device_record *device_find_const(
     for (i = 0U; i < COXVBN_DEVICE_CAPACITY; ++i) {
         const struct coxvbn_device_record *record = &registry->devices[i];
         if (record->state != COXVBN_DEVICE_UNUSED &&
+            record->state != COXVBN_DEVICE_PROBING &&
             record->ref.id == ref->id &&
             record->ref.generation == ref->generation)
             return record;
@@ -93,8 +94,7 @@ int coxvbn_device_register(struct coxvbn_device_registry *registry,
 
     for (i = 0U; i < COXVBN_DEVICE_CAPACITY; ++i) {
         struct coxvbn_device_record *record = &registry->devices[i];
-        if ((record->state == COXVBN_DEVICE_ACTIVE ||
-             record->state == COXVBN_DEVICE_SUSPENDED) &&
+        if (record->state != COXVBN_DEVICE_UNUSED &&
             device_equal(record->name, name))
             return -3;
         if (record->state == COXVBN_DEVICE_UNUSED && slot == 0)
@@ -188,7 +188,8 @@ int coxvbn_device_lookup(const struct coxvbn_device_registry *registry,
         return -1;
     for (i = 0U; i < COXVBN_DEVICE_CAPACITY; ++i) {
         const struct coxvbn_device_record *record = &registry->devices[i];
-        if (record->state != COXVBN_DEVICE_UNUSED &&
+        if ((record->state == COXVBN_DEVICE_ACTIVE ||
+             record->state == COXVBN_DEVICE_SUSPENDED) &&
             device_equal(record->name, name)) {
             *ref_out = record->ref;
             return 0;
