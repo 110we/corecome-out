@@ -119,24 +119,35 @@ static void copy_cstr(const u8 *p, u32 len, char *dst, u32 cap)
     dst[n] = '\0';
 }
 
-/* compatible 是 NUL 分隔的字符串表，不是单个字符串。 */
-static int compat_has(const u8 *p, u32 len, const char *want)
+/* Compare one FDT string without reading beyond its property length. */
+static int str_eq_bounded(const u8 *s, u32 len, const char *want)
 {
     u32 i = 0;
 
-    while (i < len) {
-        const char *s = (const char *)(p + i);
-        u32 n = 0;
+    while (i < len && want[i] != '\\0' && s[i] == (u8)want[i]) {
+        i++;
+    }
+    return i < len && s[i] == 0 && want[i] == '\\0';
+}
 
-        while (i + n < len && s[n] != 0) {
-            n++;
+/* compatible is a NUL-separated string list. Reject an unterminated tail. */
+static int compat_has(const u8 *p, u32 len, const char *want)
+{
+    u32 i = 0;
+    int found = 0;
+
+    while (i < len) {
+        u32 n;
+
+        if (cstr_len(p + i, len - i, &n) != 0) {
+            return 0;
         }
-        if (str_eq(s, want)) {
-            return 1;
+        if (str_eq_bounded(p + i, n + 1, want)) {
+            found = 1;
         }
         i += n + 1;
     }
-    return 0;
+    return found;
 }
 
 static u64 cells_u64(const u8 *p, u32 cells)
@@ -372,6 +383,11 @@ int fdt_init(u64 pa)
         g_dt.err = "totalsize too small";
         return -1;
     }
+    /* The complete blob must remain inside the mapped RAM window. */
+    if ((u64)total > KERN_WIN_TOP - pa) {
+        g_dt.err = "dtb blob outside kernel map";
+        return -1;
+    }
     g_dt.totalsize = total;
     g_dt.version = be32(b + 20);
 
@@ -384,11 +400,12 @@ int fdt_init(u64 pa)
         g_dt.err = "fdt version too old";
         return -1;
     }
-    if (g_off_struct + g_size_struct > total || g_off_struct > total) {
+    /* Subtraction-based checks avoid 32-bit offset+size wraparound. */
+    if (g_off_struct > total || g_size_struct > total - g_off_struct) {
         g_dt.err = "struct block out of blob";
         return -1;
     }
-    if (g_off_strings + g_size_strings > total || g_off_strings > total) {
+    if (g_off_strings > total || g_size_strings > total - g_off_strings) {
         g_dt.err = "strings block out of blob";
         return -1;
     }
