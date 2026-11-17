@@ -84,7 +84,7 @@ Daily Privacy Profile remains limited to visible, user-controlled, reversible pr
 - Added a fixed-capacity registry for up to 32 devices, with unique names, classes, generation-bound references, and probe/remove/suspend/resume callbacks.
 - Probing devices are kept out of normal lookup until probe succeeds; stale references fail after unregister.
 - Added host tests for duplicate names, failed probe, capacity limits, lifecycle transitions, stale references, and lookup visibility during probe.
-- In CI run [44019616731](https://github.com/110we/corecome-out/actions/runs/44019616731), the host test suite, AArch64 build, image checks, exception-vector checks, and GICv2 DTB checks passed; the QEMU serial-boot step was still running when this report section was prepared.
+- In CI run [44019616731](https://github.com/110we/corecome-out/actions/runs/44019616731), all checks passed, including QEMU serial boot. The subsequent report-only commit was also verified by [run 44019721104](https://github.com/110we/corecome-out/actions/runs/44019721104), which passed the complete workflow.
 - This is not yet a full device model: bus discovery, hardware matching, firmware, DMA, interrupt binding, and IRQ/SMP-safe registry locking remain open.
 
 The overall kernel completion estimate is unchanged. These additions are foundational slices, not evidence that the complete OS, persistent storage, or end-to-end networking is finished.
