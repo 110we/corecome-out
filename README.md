@@ -36,7 +36,7 @@
 - 裸机：`make kernel-test`
 - 大内核（AArch64 裸机，EL0/EL1、4K 页表、COW fork、clone 线程、kill/信号、
   virtio-blk + 只读 ext2）：`cd kernel && make && make test`，
-  与 Linux 的能力对照见 [`docs/kernel/status.md`](docs/kernel/status.md)
+  与 Linux 的能力对照见 [`docs/kernel/status.md`](docs/kernel/status.md)，系统调用表见 [`docs/kernel/syscalls.md`](docs/kernel/syscalls.md)
 
 ## 现状
 
