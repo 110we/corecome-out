@@ -651,3 +651,35 @@ user_stat_start:
     .ascii "stat: ok\n"
     .balign 8
 user_stat_end:
+
+/* 取内核 tick：两次调用应单调不减，且至少一次 > 0 */
+    .balign 8
+    .global user_time_start
+    .global user_time_end
+user_time_start:
+    mov x8, #23
+    svc #0x80
+    mov x19, x0
+    mov x8, #23
+    svc #0x80
+    cmp x0, x19
+    b.lt 89f
+    cbz x19, 89f
+    mov x0, #1
+    adr x1, 82f
+    mov x2, #9
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+89:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+82:
+    .ascii "time: ok\n"
+    .balign 8
+user_time_end:
