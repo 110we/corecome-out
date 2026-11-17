@@ -183,7 +183,7 @@ void do_sync(u64 *f)
             if (from_el0 && f[8] == 12) { /* SYS_EXEC：换掉地址空间，返回路径直接 eret 进新程序 */
                 proc_exec(f, f[0]);
             } else if (from_el0 && f[8] == 19) { /* SYS_EXEC_PATH */
-                proc_exec_path(f, f[0]);
+                proc_exec_path(f, f[0], f[1]);
             } else if (from_el0 && f[8] == 11) { /* SYS_FORK */
                 f[0] = (u64)(i64)proc_fork(f);
             } else if (from_el0 && f[8] == 16) { /* SYS_CLONE */

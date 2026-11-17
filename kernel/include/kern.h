@@ -90,7 +90,7 @@ void user_elfrun_thread(void *arg);
 void user_big_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
-void proc_exec_path(u64 *f, u64 upath);
+void proc_exec_path(u64 *f, u64 upath, u64 uarg);
 u64 proc_wait(u64 *f);
 u64 user_enter_ticks(void);
 u64 *sched_get_l1(void);

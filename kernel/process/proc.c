@@ -270,7 +270,7 @@ static int elf_load(u64 *l1, const u8 *img, u64 len, u64 *entry)
 
 /* exec-by-path：从 ramfs 读镜像进新 aspace，再改 trap frame 返回 EL0。
  * 认两种格式：ELF64（PT_LOAD）与裸代码（固定入口）。 */
-void proc_exec_path(u64 *f, u64 upath)
+void proc_exec_path(u64 *f, u64 upath, u64 uarg)
 {
     char path[64];
     u64 *l1;
@@ -282,10 +282,18 @@ void proc_exec_path(u64 *f, u64 upath)
     u64 entry = USER_WIN_BASE;
     int is_elf = 0;
     u64 sp;
+    u64 argc = 0;
+    u64 argv = 0;
+    char argbuf[64];
+    int have_arg = 0;
 
     if (u_copy_path(path, upath, sizeof(path)) != 0) {
         printk("[kern] proc: exec path bad ptr\n");
         return;
+    }
+    /* 参数必须在切到新 aspace 之前拷出来：切换后旧用户页就看不到了 */
+    if (uarg != 0 && u_copy_path(argbuf, uarg, sizeof(argbuf)) == 0) {
+        have_arg = 1;
     }
     l1 = pg_aspace_new();
     code = (u8 *)mm_page_alloc();
@@ -332,9 +340,28 @@ void proc_exec_path(u64 *f, u64 upath)
     for (i = 0; i < 34; i++) {
         f[i] = 0;
     }
+    /* argv：把参数字符串和 argv 数组放在用户栈顶下方 */
+    if (is_elf && have_arg) {
+        u64 base = USER_WIN_TOP - 128;
+        u64 n = 0;
+
+        while (argbuf[n] != '\0' && n < 63) {
+            n++;
+        }
+        for (i = 0; i <= n; i++) {
+            ((char *)base)[i] = argbuf[i];
+        }
+        ((u64 *)(base + 64))[0] = base;
+        ((u64 *)(base + 64))[1] = 0;
+        argc = 1;
+        argv = base + 64;
+        sp = base;
+    }
+    f[0] = argc;
+    f[1] = argv;
     f[32] = entry;
     f[33] = 0;
     f[34] = sp;
-    printk("[kern] proc: exec-file pid=%u path=%s bytes=%u %s entry=%x\n",
-           (u32)sched_pid(), path, (u32)n, is_elf ? "elf" : "raw", entry);
+    printk("[kern] proc: exec-file pid=%u path=%s bytes=%u %s entry=%x argc=%u\n",
+           (u32)sched_pid(), path, (u32)n, is_elf ? "elf" : "raw", entry, (u32)argc);
 }

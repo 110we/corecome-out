@@ -1261,6 +1261,7 @@ user_elfrun_start:
     svc #0x80
     cbnz x0, 181f
     adr x0, 183f
+    adr x1, 184f
     mov x8, #19
     svc #0x80
     mov x0, #1
@@ -1291,6 +1292,8 @@ user_elfrun_start:
     .ascii "elf-run: ok\n"
 183:
     .asciz "/bin/elfhello"
+184:
+    .asciz "hello-arg"
     .balign 8
 user_elfrun_end:
 

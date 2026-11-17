@@ -23,7 +23,7 @@
 | 16 | CLONE | `x0`=entry `x1`=arg `x2`=sp | tid | 共享 mm/fd 的线程 |
 | 17 | GETTID | — | tgid | |
 | 18 | KILL | `x0`=pid `x1`=sig | 0 | 仅默认动作 |
-| 19 | EXEC_PATH | `x0`=路径 | 不返回 | 从 ramfs 读镜像：ELF64（PT_LOAD 逐页映射）或裸代码 |
+| 19 | EXEC_PATH | `x0`=路径 `x1`=参数字符串(可空) | 不返回 | ELF64（PT_LOAD 逐页映射）或裸代码；ELF 收到 `argc/argv`（x0/x1，自定义约定） |
 | 20 | MKDIR | `x0`=路径 | 0 / -1 | |
 | 21 | UNLINK | `x0`=路径 | 0 / -1 | 目录非空拒绝；文件仍被打开时名字先失效、数据留到最后一个 close |
 | 22 | STAT | `x0`=路径 | 大小 / -1 | |
@@ -37,7 +37,7 @@
 
 ## 边界
 
-- 没有 `argv/envp`；ELF 要求静态、PT_LOAD 落在用户窗内（2 MiB），镜像本身受 ramfs 4 KiB 上限。
+- 没有完整 `envp`；ELF 只收一个参数字符串（`argc=1`）；ELF 要求静态、PT_LOAD 落在用户窗内（2 MiB），镜像本身受 ramfs 4 KiB 上限。
 - 没有 `socket`；`PIPE` 是非阻塞的 4 KiB 环形缓冲，读空返回 0。
 - `WAIT`/`SLEEP` 都是让出轮询，不是真正的睡眠队列。
 - 文件系统只有 ramfs（可写）与 ext2（只读，挂 `/mnt`），无页缓存。
