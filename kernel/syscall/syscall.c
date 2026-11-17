@@ -36,6 +36,7 @@
 #define SYS_STAT   22
 #define SYS_TIME   23
 #define SYS_SLEEP  24
+#define SYS_SEEK   25
 
 extern u64 heap_used(void);
 
@@ -156,6 +157,8 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
         return (u64)vfs_unlink((const char *)a0);
     case SYS_TIME:
         return tick_count();
+    case SYS_SEEK:
+        return (u64)vfs_seek((int)a0, (i64)a1);
     case SYS_SLEEP: {
         u64 until = tick_count() + a0;
 

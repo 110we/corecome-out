@@ -409,6 +409,9 @@ i64 vfs_open(const char *path, int flags)
         if (!fds[i].used) {
             fds[i].ino = n;
             fds[i].off = 0;
+            if ((flags & 4) != 0) { /* O_APPEND */
+                fds[i].off = n->size;
+            }
             fds[i].used = 1;
             return (i64)i;
         }
@@ -597,6 +600,18 @@ static void path_num(char *dst, u32 n)
         dst[len++] = tmp[--i];
     }
     dst[len] = '\0';
+}
+
+i64 vfs_seek(int fd, i64 off)
+{
+    if (fd < 3 || fd >= MAX_FD || !fds[fd].used) {
+        return -1;
+    }
+    if (off < 0 || (u64)off > fds[fd].ino->size) {
+        return -1;
+    }
+    fds[fd].off = (u64)off;
+    return off;
 }
 
 i64 vfs_size(const char *path)

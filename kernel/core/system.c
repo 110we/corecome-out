@@ -757,6 +757,14 @@ int kmain(u64 dtb)
         puts_("[kern] user: create thread u6 failed\n");
     }
     /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    /* 第十八个：EL0 的 seek。 */
+    if (kthread_create("uh", user_seek_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread uh failed\n");
+    }
+    /* 第十七个：EL0 的 O_APPEND 语义。 */
+    if (kthread_create("ug", user_append_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread ug failed\n");
+    }
     /* 第十六个：EL0 的 O_TRUNC 语义。 */
     if (kthread_create("uf", user_trunc_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread uf failed\n");

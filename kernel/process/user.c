@@ -28,6 +28,10 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_seek_start[];
+extern const u8 user_seek_end[];
+extern const u8 user_append_start[];
+extern const u8 user_append_end[];
 extern const u8 user_trunc_start[];
 extern const u8 user_trunc_end[];
 extern const u8 user_fork_start[];
@@ -120,6 +124,20 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* SEEK 靶子：seek(5) 后读到 'f'。 */
+void user_seek_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_seek_start, user_seek_end, "seek");
+}
+
+/* O_APPEND 靶子：追加后大小应为 6。 */
+void user_append_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_append_start, user_append_end, "append");
 }
 
 /* O_TRUNC 靶子：重开清零后 stat 为 0。 */

@@ -79,6 +79,8 @@ void user_time_thread(void *arg);
 void user_sleep_thread(void *arg);
 void user_fork_thread(void *arg);
 void user_trunc_thread(void *arg);
+void user_append_thread(void *arg);
+void user_seek_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 void proc_exec_path(u64 *f, u64 upath);
@@ -158,6 +160,7 @@ i64 vfs_list(const char *path, char *out, u64 cap);
 i64 vfs_mkdir(const char *path);
 int vfs_selftest(void);
 i64 vfs_size(const char *path);
+i64 vfs_seek(int fd, i64 off);
 i64 vfs_unlink(const char *path);
 
 #endif

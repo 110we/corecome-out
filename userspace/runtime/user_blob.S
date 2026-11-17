@@ -819,3 +819,128 @@ user_trunc_start:
     .ascii "abcdefghij"
     .balign 8
 user_trunc_end:
+
+/* O_APPEND：写 3 字节 -> 追加 3 字节 -> stat 必须是 6 */
+    .balign 8
+    .global user_append_start
+    .global user_append_end
+user_append_start:
+    adr x0, 111f
+    mov x1, #3              /* O_CREAT|O_TRUNC */
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 118f
+    mov x19, x0
+    mov x0, x19
+    adr x1, 114f
+    mov x2, #3
+    mov x8, #4
+    svc #0x80
+    mov x0, x19
+    mov x8, #7
+    svc #0x80
+
+    adr x0, 111f
+    mov x1, #4              /* O_APPEND */
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 118f
+    mov x19, x0
+    mov x0, x19
+    adr x1, 115f
+    mov x2, #3
+    mov x8, #4
+    svc #0x80
+    mov x0, x19
+    mov x8, #7
+    svc #0x80
+
+    adr x0, 111f
+    mov x8, #22
+    svc #0x80
+    cmp x0, #6
+    b.ne 118f
+
+    mov x0, #1
+    adr x1, 112f
+    mov x2, #11
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+118:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+111:
+    .asciz "/tmp/ap"
+112:
+    .ascii "append: ok\n"
+114:
+    .ascii "abc"
+115:
+    .ascii "def"
+    .balign 8
+user_append_end:
+
+/* SEEK：写 "abcdef" -> seek(5) -> read 1 字节应得 'f' */
+    .balign 8
+    .global user_seek_start
+    .global user_seek_end
+user_seek_start:
+    adr x0, 121f
+    mov x1, #3
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 128f
+    mov x19, x0
+    mov x0, x19
+    adr x1, 124f
+    mov x2, #6
+    mov x8, #4
+    svc #0x80
+    mov x0, x19
+    mov x1, #5
+    mov x8, #25             /* seek(5) */
+    svc #0x80
+    cmp x0, #5
+    b.ne 128f
+    mov x0, x19
+    sub x1, sp, #16
+    mov x2, #1
+    mov x8, #6              /* read 1 字节 */
+    svc #0x80
+    cmp x0, #1
+    b.ne 128f
+    ldrb w9, [sp, #-16]
+    mov w10, #'f'
+    cmp w9, w10
+    b.ne 128f
+    mov x0, #1
+    adr x1, 122f
+    mov x2, #9
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+128:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+121:
+    .asciz "/tmp/sk"
+122:
+    .ascii "seek: ok\n"
+124:
+    .ascii "abcdef"
+    .balign 8
+user_seek_end:
