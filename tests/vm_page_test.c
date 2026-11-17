@@ -6,6 +6,7 @@
 int main(void)
 {
     static struct vm_page_table table;
+    static struct vm_address_space space;
     struct vm_mapping mapping;
     const uint64_t base = 0x0000000040000000ULL;
 
@@ -46,6 +47,39 @@ int main(void)
                        0x0001000000000000ULL, VM_MAP_READ) == -1);
     assert(vm_page_table_init(&table, base + VM_PAGE_SIZE) == -1);
     assert(vm_page_lookup(&table, 0x0001000040000000ULL, &mapping) == -1);
+
+    {
+        const uint64_t as_base = 0x0000000080000000ULL;
+        uint32_t i;
+        assert(vm_address_space_init(&space, as_base) == 0);
+        assert(vm_address_space_map(&space, as_base, 0x60000000ULL,
+                                    VM_MAP_READ | VM_MAP_WRITE | VM_MAP_USER) == 0);
+        assert(vm_address_space_map(&space, as_base + VM_L3_SPAN,
+                                    0x60001000ULL, VM_MAP_READ | VM_MAP_USER) == 0);
+        assert(vm_address_space_lookup(&space, as_base + VM_L3_SPAN,
+                                       &mapping) == 0);
+        assert(mapping.physical_address == 0x60001000ULL);
+        assert((mapping.flags & VM_MAP_USER) != 0U);
+        assert(vm_address_space_map(&space, as_base,
+                                    0x60002000ULL, VM_MAP_READ) == -2);
+        assert(vm_address_space_unmap(&space, as_base) == 0);
+        assert(vm_address_space_unmap(&space, as_base + VM_L3_SPAN) == 0);
+        assert(vm_address_space_lookup(&space, as_base, &mapping) == -2);
+
+        for (i = 0; i < VM_ADDRESS_SPACE_L3_TABLES; ++i)
+            assert(vm_address_space_map(&space,
+                       as_base + (uint64_t)i * VM_L3_SPAN,
+                       0x61000000ULL + (uint64_t)i * VM_PAGE_SIZE,
+                       VM_MAP_READ) == 0);
+        assert(vm_address_space_map(&space,
+                   as_base + (uint64_t)VM_ADDRESS_SPACE_L3_TABLES * VM_L3_SPAN,
+                   0x62000000ULL, VM_MAP_READ) == -3);
+        assert(vm_address_space_unmap(&space, as_base) == 0);
+        assert(vm_address_space_map(&space,
+                   as_base + (uint64_t)VM_ADDRESS_SPACE_L3_TABLES * VM_L3_SPAN,
+                   0x62000000ULL, VM_MAP_READ) == 0);
+        assert(vm_address_space_init(&space, as_base + VM_PAGE_SIZE) == -1);
+    }
 
     puts("vm page table tests: ok");
     return 0;
