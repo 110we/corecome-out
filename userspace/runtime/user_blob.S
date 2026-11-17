@@ -683,3 +683,38 @@ user_time_start:
     .ascii "time: ok\n"
     .balign 8
 user_time_end:
+
+/* 睡 4 个 tick：醒来后时间必须前进 >= 4 */
+    .balign 8
+    .global user_sleep_start
+    .global user_sleep_end
+user_sleep_start:
+    mov x8, #23             /* t0 */
+    svc #0x80
+    mov x19, x0
+    mov x0, #4
+    mov x8, #24             /* sleep(4) */
+    svc #0x80
+    mov x8, #23             /* t1 */
+    svc #0x80
+    sub x1, x0, x19
+    cmp x1, #4
+    b.lt 99f
+    mov x0, #1
+    adr x1, 92f
+    mov x2, #10
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+99:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+92:
+    .ascii "sleep: ok\n"
+    .balign 8
+user_sleep_end:

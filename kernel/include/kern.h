@@ -76,6 +76,7 @@ void user_ep_thread(void *arg);
 void user_dir_thread(void *arg);
 void user_stat_thread(void *arg);
 void user_time_thread(void *arg);
+void user_sleep_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 void proc_exec_path(u64 *f, u64 upath);

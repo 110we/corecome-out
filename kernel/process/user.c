@@ -28,6 +28,8 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_sleep_start[];
+extern const u8 user_sleep_end[];
 extern const u8 user_time_start[];
 extern const u8 user_time_end[];
 extern const u8 user_stat_start[];
@@ -114,6 +116,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* 睡眠靶子：sleep(4) 之后 tick 至少前进 4。 */
+void user_sleep_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_sleep_start, user_sleep_end, "sleep");
 }
 
 /* tick 靶子：两次 SYS_TIME 单调不减。 */
