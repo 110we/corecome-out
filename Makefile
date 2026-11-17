@@ -21,7 +21,7 @@ SOURCES_S := $(ARCH)/boot.S
 OBJECTS   := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES_C)) \
              $(patsubst %.S,$(BUILD)/%.o,$(SOURCES_S))
 
-.PHONY: all coxvbn redlab redlab-test test clean clean-redlab run disassemble test-host
+.PHONY: all coxvbn redlab redlab-test openkernel test clean clean-redlab clean-openkernel run run-openkernel disassemble test-host
 all: coxvbn redlab
 
 coxvbn: $(BUILD)/coxvbn.elf $(BUILD)/coxvbn.bin
@@ -31,6 +31,10 @@ redlab:
 
 redlab-test:
 	$(MAKE) -C kernels/RedLab test
+
+# OpenKernel is independent and deliberately has its own build directory/toolchain invocation.
+openkernel:
+	$(MAKE) -C kernels/OpenKernel CROSS_COMPILE=$(CROSS_COMPILE) all
 
 test: test-host redlab-test
 
@@ -71,9 +75,11 @@ test-host:
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/platform/arm_timer_test.c kernels/COXVBN/platform/arm_timer.c -o $(BUILD)/arm_timer_test
 	$(BUILD)/arm_timer_test
 
-
 run: coxvbn
 	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/coxvbn.bin
+
+run-openkernel: openkernel
+	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel kernels/OpenKernel/build/openkernel.elf
 
 disassemble: $(BUILD)/coxvbn.elf
 	$(OBJDUMP) -d $<
@@ -83,3 +89,6 @@ clean:
 
 clean-redlab:
 	$(MAKE) -C kernels/RedLab clean
+
+clean-openkernel:
+	$(MAKE) -C kernels/OpenKernel clean

@@ -46,7 +46,8 @@
 - [ ] IPC and capability-based resource handles
 - [ ] Implement COXVBN Direct Port Communication: paired endpoints, direct shared-channel data path, no bridge/relay
 - [ ] Central Security Plugin request interface backed by kernel-enforced policy
-- [x] Define bounded receiver-key enrollment, forward-only rotation, and terminal revocation contract (host-tested)\n- [x] Serialize receiver-key table transitions with an atomic lock and PENDING/ROTATING states; run proof callbacks outside the lock and test re-entry/concurrent enrollment (host-tested; IRQ/preemption/SMP integration and verifier-context lifetime remain open)
+- [x] Define bounded receiver-key enrollment, forward-only rotation, and terminal revocation contract (host-tested)
+- [x] Serialize receiver-key table transitions with an atomic lock and PENDING/ROTATING states; run proof callbacks outside the lock and test re-entry/concurrent enrollment (host-tested; IRQ/preemption/SMP integration and verifier-context lifetime remain open)
 - [x] Add bounded kernel module registry with requested/granted capability checks and terminal revocation (host-tested)
 - [x] Serialize registry metadata and use ACTIVATING/REVOKING transitions so Key Vault callbacks run outside the registry lock (host-tested reentrant proof callback; IRQ/preemption integration remains open)
 - [x] Define the COXVBN current-module execution-context provider contract (host-tested in isolation)
@@ -89,4 +90,21 @@
 - [ ] Add explicit telemetry preferences with mandatory security-event exceptions
 - [ ] Test fail-closed transitions, audit retention, and profile data isolation
 
-A checkbox is checked only when implementation and automated evidence exist.
+## Milestone 10 — OpenKernel (third independent kernel)
+- [x] Create independent `kernels/OpenKernel/` source tree and standalone AArch64 build
+- [x] Add independent boot entry, linker layout, kernel entry and PL011 serial output
+- [x] Cross-compile the image and pass the QEMU serial boot assertion in CI run [43846739631](https://github.com/110we/corecome-out/actions/runs/43846739631)
+- [ ] Add host tests for boot metadata parsing and foundational allocators
+- [ ] Add FDT platform discovery
+- [ ] Add physical memory discovery, reserved ranges and page allocator
+- [ ] Add exception vectors, interrupt controller and timer delivery
+- [ ] Add MMU, page tables and address-space isolation
+- [ ] Add SMP bring-up, task model, scheduler and context switching
+- [ ] Add user mode, executable loader and syscall ABI
+- [ ] Add IPC and direct port-to-port communication without a bridge/relay
+- [ ] Add driver model, networking, storage and filesystem
+- [ ] Add independent module ABI, extension lifecycle and test framework
+
+OpenKernel does not inherit COXVBN capability masks, RedLab scope restrictions, or daily-profile policy. Its feature configuration is owned by OpenKernel. Memory safety, privilege separation, resource ownership and kernel recovery remain correctness requirements.
+
+A checkbox is complete only when implementation and automated evidence exist.

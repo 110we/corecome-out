@@ -1,9 +1,9 @@
 name: COXVBN kernel
 on:
   push:
-    branches: [main, "rewrite/**", "refactor/**"]
+    branches: [main, "rewrite/**", "refactor/**", "feature/**"]
   pull_request:
-    branches: [main, "rewrite/**"]
+    branches: [main, "rewrite/**", "refactor/**"]
 permissions:
   contents: read
 jobs:
@@ -69,3 +69,27 @@ jobs:
         run: make -C kernels/RedLab clean all
       - name: Run RedLab standalone tests
         run: make -C kernels/RedLab test
+
+  openkernel-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install AArch64 toolchain and QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu qemu-system-arm
+      - name: Build OpenKernel independently
+        run: make -C kernels/OpenKernel clean all
+      - name: Verify OpenKernel ELF architecture
+        run: |
+          aarch64-linux-gnu-readelf -h kernels/OpenKernel/build/openkernel.elf | grep -E 'Machine:.*AArch64'
+          test -s kernels/OpenKernel/build/openkernel.elf
+      - name: QEMU OpenKernel serial boot test
+        run: |
+          set +e
+          timeout 10s qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel kernels/OpenKernel/build/openkernel.elf > openkernel-qemu.log 2>&1
+          status=$?
+          set -e
+          cat openkernel-qemu.log
+          grep -q "OpenKernel: independent AArch64 kernel entry reached." openkernel-qemu.log
+          if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then exit "$status"; fi

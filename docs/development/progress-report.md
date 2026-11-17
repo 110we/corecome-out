@@ -1,68 +1,54 @@
-# COXVBN Kernel Progress Report
+# COXVBN Project Family Progress Report
 
 **Report date:** 2026-11-16  
 **Repository:** `110we/corecome-out`  
-**Working branch:** `refactor/classify-kernel-subsystems`  
-**Baseline commit:** `c0886da1bd95103f87a689bce7e7fb2edb2dee1e`
+**Active work:** COXVBN/RedLab separation PR #5 and stacked OpenKernel PR #6
 
-## Executive summary
+## Product-line status
 
-The project has a reproducible AArch64 boot foundation, a host-tested COXVBN module registry and receiver Key Vault, and a separately buildable RedLab policy/profile library. RedLab no longer links COXVBN kernel objects or headers; its platform-neutral authority callback is an integration seam only. The next major boundary is a trusted COXVBN adapter backed by scheduler-owned identity and a real module/runtime boundary.
-
-This report distinguishes implemented/tested contracts from runtime capabilities that do not yet exist.
-
-## Current implementation status
-
-| Area | Status | Evidence / limitation |
+| Product | Actual role | Current implementation |
 |---|---|---|
-| AArch64 boot foundation | Implemented; CI/QEMU boot checks pass | Cross-build, image checks, exception-vector checks, QEMU serial boot workflow |
-| FDT and physical memory foundations | Implemented in part | Host-tested parser and allocator; generalized MMU/page-table work remains |
-| Exception and interrupt foundations | Partial | Exception frame/dispatch and GICv2 primitives host-tested; hardware IRQ delivery remains disabled pending runtime validation |
-| Module registry and capability domains | Host-tested contract implemented | Bounded registry, domain separation, activation/revocation transitions; not yet scheduler/IRQ/SMP-safe |
-| Receiver Key Vault | Host-tested lifecycle and serialized state transitions | Receiver table protected by an atomic spinlock; PENDING/ROTATING transitions; proof callbacks run outside the lock; tests cover re-entrant revoke and concurrent enrollment. Not yet proven safe for IRQ/preemption/SMP contexts; verifier/context lifetime requires stable ownership |
-| RedLab policy core | Host-tested contract implemented | IPv4/IPv6 CIDR, port/time scope, rate/concurrency/job budgets, audit callback, sticky stop; no network I/O |
-| RedLab authority integration | Not integrated | RedLab exposes a platform-neutral callback; a trusted COXVBN scheduler/registry adapter is still required |
-| Daily Privacy Profile | Host-tested library contract | Explicit transition confirmation, generation-bound handles, fail-closed restricted state; not a kernel service or production isolation/UI |
-| User mode and syscall boundary | Not implemented | Requires address-space isolation, scheduler and syscall validation |
-| RedLab assessment runner and report engine | Not implemented | Requires isolated userspace runner and kernel IPC/syscall boundary |
-| Daily privacy controls | Not implemented | Notification preview, permission UI and telemetry preferences remain roadmap items |
+| COXVBN | Foundational AArch64 kernel | Boot foundation, FDT/memory/exception/interrupt foundations, host-tested Key Vault and module registry |
+| RedLab | Authorized assessment and privacy-profile library; not an OS kernel | Separate host static library; scope/resource policy and profile transition contracts have host tests; no network I/O or independent boot |
+| OpenKernel | Third independent, general-purpose AArch64 kernel | Independent boot entry, linker layout, PL011 serial output and standalone Makefile; AArch64 build and QEMU serial boot passed CI |
 
-## Independent product build boundary
+## OpenKernel boundary and status
 
-- COXVBN builds its AArch64 image from `kernels/COXVBN/` and no longer compiles RedLab source files.
-- RedLab builds independently with `make -C kernels/RedLab clean all test` and produces `libredlab.a`.
-- RedLab policy/profile tests are owned by `kernels/RedLab/tests/`.
-- GitHub Actions has separate `aarch64-build` and `redlab-build` jobs. Both jobs completed successfully on PR run [43843019649](https://github.com/110we/corecome-out/actions/runs/43843019649), including COXVBN host tests, AArch64 image/vector checks, QEMU device-tree and serial-boot checks, plus RedLab standalone build and tests.
-- RedLab is a host library, not a second bootable OS kernel. Running it inside COXVBN still requires a module ABI, loader, syscall/IPC boundary, and runtime isolation.
+OpenKernel is not RedLab and is not a COXVBN operating mode. It owns a separate source tree under `kernels/OpenKernel/`, its own AArch64 entry/linker, platform UART and build target. It does not compile or link COXVBN or RedLab source, and does not inherit their capability masks, target-scope restrictions, or daily-profile policy.
 
-## Latest verified repository and CI state
+“Functionally unrestricted” means OpenKernel is not bound by the other products' use-case-specific feature allowlists. Memory safety, privilege separation, device ownership and resource lifetime remain kernel correctness requirements.
 
-- The Key Vault concurrency implementation and its host regression tests are included in the PR branch; the associated workflow [run 43843019649](https://github.com/110we/corecome-out/actions/runs/43843019649) completed successfully.
-- In that run, `aarch64-build` passed COXVBN host tests, AArch64 image build, image format, exception vector table, boot diagnostics, QEMU GICv2 device-tree verification, and QEMU serial boot.
-- In that run, `redlab-build` passed its independent static-library build and standalone tests.
-- The change is tracked in [PR #5](https://github.com/110we/corecome-out/pull/5); it remains open and unmerged.
-- Changes remain on `refactor/classify-kernel-subsystems`, targeting `rewrite/corecome-from-zero`; `main` has not been modified or merged by this work.
+Implemented and CI-verified in this first slice:
+- `kernels/OpenKernel/arch/aarch64/boot.S` and `linker.ld`
+- `kernels/OpenKernel/core/kernel.c`
+- `kernels/OpenKernel/platform/uart.c` and `uart.h`
+- `kernels/OpenKernel/Makefile`
+- Root `make openkernel` and `make run-openkernel` targets
+- Independent architecture and completion plan at `docs/third-kernel/open-kernel.md`
+- Independent CI build, ELF architecture check and QEMU serial boot assertion
 
-## Important open risks
+CI run [43846739631](https://github.com/110we/corecome-out/actions/runs/43846739631) passed all three jobs: COXVBN AArch64/host tests, RedLab standalone build/tests, and OpenKernel independent build/QEMU boot. OpenKernel validation is limited to its initial boot/serial-console path.
 
-1. **Key Vault execution-context safety:** the current receiver-table guard is a basic atomic spinlock. IRQ masking, preemption control, and an explicit SMP/per-CPU locking policy are not integrated. Do not treat host pthread tests as proof of kernel-context safety.
-2. **Verifier callback lifetime:** an in-flight verification may retain the verifier/context pair copied before the lock is released. Replacing or freeing that context must be prevented until all in-flight calls finish; consider immutable registration after initialization or a reference-counted registration object.
-3. **Registry lock integration:** the registry currently uses an acquire/release spinlock and documents thread-context-only use. IRQ masking, preemption control and SMP/per-CPU integration are not yet present.
-4. **Execution identity:** the provider contract fails closed, but the scheduler/current-task provider is not installed. A caller-supplied identity is not an acceptable production security boundary.
-5. **Crypto and persistence:** proof verification is injected through a callback. No audited production cryptographic backend, protected persistent key store or anti-rollback storage is claimed.
-6. **Profile isolation:** profile handles validate state/domain/generation but do not yet establish address-space, storage or process isolation.
-7. **Networking:** RedLab policy code does not resolve DNS, open sockets, send packets or execute scans.
+Not yet implemented: MMU/page tables, physical allocator, exception vectors, interrupt delivery, SMP, scheduler, processes, user mode, syscalls, IPC, Direct Port Communication, drivers, networking, filesystem, module ABI and tests. Do not claim this is a complete or production-ready OS.
 
-## Next engineering sequence
+## COXVBN and RedLab status
 
-1. **Completed (host-tested):** add receiver-table concurrency control with transient states; keep verifier callbacks outside critical sections; add re-entrant callback and concurrent-enrollment regression tests. Kernel IRQ/preemption/SMP integration remains open.
-2. Define the scheduler-owned task control block and lifecycle states without claiming a scheduler exists.
-3. Bind current execution identity to the scheduler's trusted per-CPU current-task state.
-4. Add preemption/IRQ-aware locking and SMP rules before enabling concurrent privileged entry paths.
-5. Stabilize verifier registration/context lifetime, then integrate audited cryptography and persistent anti-rollback key storage.
-6. Add a trusted COXVBN authority adapter for RedLab only after scheduler identity and module runtime boundaries exist.
-7. After address-space isolation and syscall/IPC exist, build the isolated RedLab assessment runner, evidence store and report generator.
+- COXVBN builds its AArch64 image from `kernels/COXVBN/`; RedLab sources are excluded from that image.
+- RedLab builds independently as `libredlab.a`; it is not an independently bootable OS kernel.
+- Key Vault host concurrency tests and RedLab standalone tests passed in prior CI run [43843019649](https://github.com/110we/corecome-out/actions/runs/43843019649).
+- PR #5 remains open and unmerged. The latest const-correctness source adjustment had no known subsequent CI evidence at the time of this report.
+- Key Vault IRQ/preemption/SMP locking integration and verifier callback/context lifetime remain open risks.
 
-## Completion criteria
+## Next implementation sequence for OpenKernel
 
-A roadmap item is marked complete only when implementation and automated evidence exist. Host tests demonstrate the behavior of the isolated contract; they do not by themselves prove production runtime isolation, hardware concurrency safety, cryptographic assurance or network capability.
+1. Add platform discovery and a host-tested FDT parser.
+2. Add physical memory discovery, reserved-region handling and page allocator.
+3. Add exception vectors, frame contract and interrupt-controller abstraction.
+4. Add virtual memory and per-address-space page tables.
+5. Implement scheduler, task lifecycle and context switching.
+6. Add user-mode transition and a stable syscall ABI.
+7. Implement IPC and the requested kernel-native Direct Port Communication: paired endpoints, direct bidirectional channel, no bridge/relay, flow control and safe teardown.
+8. Add driver model, network stack, storage/VFS, and extensible module ABI.
+9. Add concurrency, fault-injection, QEMU and integration regression tests.
+
+Each item is marked complete only after code and automated evidence exist.
