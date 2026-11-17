@@ -1,0 +1,156 @@
+
+[bare] aarch64 virt, PL011 UART up
+[bare] el=1  sp=0x000000004024f3b0
+[bare] entry=0x0000000040081f64  dtb=0x0000000044000000
+[bare] dtb: magic=0x00000000d00dfeed ok size=1048576 ver=17 nodes=56 props=219
+[bare] dtb: model=linux,dummy-virt
+[bare] dtb: mem=0x0000000040000000+0x0000000008000000
+[bare] dtb: uart=0x0000000009000000+0x0000000000001000 gicd=0x0000000008000000 gicc=0x0000000008010000
+[bare] check: sp in-range ok
+[bare] check: bss zeroed ok
+[bare] vec: vbar=0x0000000040080800 armed
+[bare] gic: ready
+[bare] timer: 100 Hz
+[bare] irq: ticks=5 ok
+[bare] mmu: sctlr=0x000000000085183f on
+[bare] mmu: probe=0x0000000040090048 (RAM 里读回)
+[exc] sync esr=0x0000000096000005 elr=0x00000000400821e4 far=0x0000000080000000
+[bare] fault: caught=1 ok
+[bare] svc: caught=1 ok
+[sys] heap ok used=164/65536
+svc via 0x80
+[sys] syscall ok
+[kern] init: mm
+[kern] init: vfs
+[kern] vfs: inode stress ok
+[kern] init: sched
+[kern] init: done
+[kern] mm: pages=256 free=252
+[kern] slab ok pages_free=251
+[kern] paging: 4K aspace ok free=247
+[kern] vfs: hello from ramfs
+[kern] init: blk
+[blk] found virtio-mmio slot31
+[kern] blk: virtio-mmio sectors=1024
+[kern] ext2: bs=1024 inodes=64
+[kern] ext2: hello from ext2
+[kern] vfs: ext2 mount ok: hello from ext2
+[kern] rootfs:
+dev/
+etc/
+tmp/
+mnt/
+bin/
+hello.txt
+[kern] sched: threads=2 cur=kmain slice=5
+[thr] A 0 cur=ta
+[thr] B 0 cur=tb
+[kern] user: enter el0 tag=good pc=0x0000000010000000 sp=0x0000000010002000 bytes=56
+[kern] user: enter el0 tag=bad pc=0x0000000010000000 sp=0x0000000010002000 bytes=24
+[kern] user: fault esr=0x000000009200000d far=0x0000000040000000
+[kern] user: enter el0 tag=deny pc=0x0000000010000000 sp=0x0000000010002000 bytes=28
+[kern] user: syscall denied nr=1 ptr=0x0000000040000000
+[kern] user: exit ok code=1 preempt=0
+[kern] user: enter el0 tag=nx pc=0x0000000010000000 sp=0x0000000010002000 bytes=28
+[kern] user: insn-fault esr=0x000000008200000f far=0x0000000010001000
+[kern] user: enter el0 tag=init pc=0x0000000010000000 sp=0x0000000010002000 bytes=48
+[kern] proc: fork pid=24 ppid=7
+[kern] user: enter el0 tag=cow pc=0x0000000010000000 sp=0x0000000010002000 bytes=208
+[kern] proc: fork pid=25 ppid=8
+[kern] user: enter el0 tag=thr pc=0x0000000010000000 sp=0x0000000010002000 bytes=248
+[kern] proc: clone tid=26 tgid=9 entry=0x00000000100000a0 sp=0x0000000010001800
+[kern] user: enter el0 tag=unlinkopen pc=0x0000000010000000 sp=0x0000000010002000 bytes=264
+unlink-open: ok
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=dup pc=0x0000000010000000 sp=0x0000000010002000 bytes=232
+dup: ok
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=rename pc=0x0000000010000000 sp=0x0000000010002000 bytes=200
+rename: ok
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=seek pc=0x0000000010000000 sp=0x0000000010002000 bytes=192
+seek: ok
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=append pc=0x0000000010000000 sp=0x0000000010002000 bytes=224
+append: ok
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=trunc pc=0x0000000010000000 sp=0x0000000010002000 bytes=192
+trunc: ok
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=forkstress pc=0x0000000010000000 sp=0x0000000010002000 bytes=128
+[kern] proc: fork pid=27 ppid=16
+[kern] user: enter el0 tag=sleep pc=0x0000000010000000 sp=0x0000000010002000 bytes=112
+[kern] user: enter el0 tag=time pc=0x0000000010000000 sp=0x0000000010002000 bytes=96
+time: ok
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=stat pc=0x0000000010000000 sp=0x0000000010002000 bytes=96
+stat: ok
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=dirops pc=0x0000000010000000 sp=0x0000000010002000 bytes=192
+dir-ops: ok
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=execfile pc=0x0000000010000000 sp=0x0000000010002000 bytes=136
+[kern] proc: fork pid=28 ppid=21
+[kern] user: enter el0 tag=file pc=0x0000000010000000 sp=0x0000000010002000 bytes=128
+user-file: hello from ramfs file
+[kern] user: exit ok code=0 preempt=0
+[kern] user: enter el0 tag=sig pc=0x0000000010000000 sp=0x0000000010002000 bytes=168
+[kern] proc: fork pid=29 ppid=23
+[kern] proc: exec pid=24 pc=0x0000000010000000 sp=0x0000000010002000
+exec: hello from child
+[kern] cow: pid=25 far=0x0000000010001ff0 copy ok
+cow: child wrote
+[kern] proc: exec-file pid=28 path=/bin/hello.bin bytes=56
+[thr] A 1 cur=ta
+[thr] B 1 cur=tb
+[kern] proc: wait pid=24 code=7
+[kern] user: exit ok code=0 preempt=20
+[kern] proc: wait pid=25 code=3
+[kern] cow: pid=8 far=0x0000000010001ff0 copy ok
+cow: parent intact
+[kern] user: exit ok code=0 preempt=20
+[kern] proc: wait pid=27 code=0
+[kern] proc: fork pid=30 ppid=16
+sleep: ok
+[kern] user: exit ok code=0 preempt=20
+[thr] A 2 cur=ta
+[thr] B 2 cur=tb
+hello from EL0
+[kern] user: exit ok code=0 preempt=38
+[kern] proc: wait pid=30 code=0
+[kern] proc: fork pid=31 ppid=16
+hello from EL0
+[thr] A 3 cur=ta
+[thr] B 3 cur=tb
+[kern] proc: wait pid=31 code=0
+[kern] proc: fork pid=32 ppid=16
+[kern] proc: wait pid=28 code=0
+exec-file: child ok
+[kern] user: exit ok code=0 preempt=50
+[thr] A exit
+[thr] B exit
+[kern] proc: wait pid=26 code=0
+thread: shared ok
+[kern] user: exit ok code=0 preempt=53
+[kern] proc: wait pid=32 code=0
+[kern] proc: fork pid=33 ppid=16
+[kern] proc: wait pid=33 code=0
+[kern] proc: fork pid=34 ppid=16
+[kern] sign: kill pid=29 sig=15
+[kern] sign: pid=29 sig=15 exit
+[kern] proc: wait pid=34 code=0
+[kern] proc: fork pid=35 ppid=16
+[kern] proc: wait pid=29 code=4294967281
+sign: killed ok
+[kern] user: exit ok code=0 preempt=53
+[kern] proc: wait pid=35 code=0
+[kern] proc: fork pid=36 ppid=16
+[kern] proc: wait pid=36 code=0
+stress: ok
+[kern] user: exit ok code=0 preempt=53
+[kern] sched: done cur=kmain
+[kern] subsystems: mm sched vfs dev syscall
+[kern] BIG_KERNEL_OK
+[bare] uart: rx irq on
+[bare] ALL_OK
+bare> 
