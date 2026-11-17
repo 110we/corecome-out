@@ -8,6 +8,8 @@
 #define COXVBN_TASK_CAPACITY 32U
 #define COXVBN_TASK_MIN_STACK_SIZE 4096U
 
+struct exception_frame;
+
 enum coxvbn_task_state {
     COXVBN_TASK_UNUSED = 0,
     COXVBN_TASK_READY,
@@ -28,6 +30,7 @@ struct coxvbn_task_record {
     uintptr_t argument;
     uintptr_t stack_base;
     size_t stack_size;
+    struct exception_frame *saved_frame;
     int exit_code;
     enum coxvbn_task_state state;
 };
@@ -37,24 +40,33 @@ struct coxvbn_scheduler {
     uint32_t cursor;
     int32_t current_slot;
     uint32_t task_count;
-    struct coxvbn_task_record tasks[COXVBN_TASK_CAPACITY];
 };
 
 /* Caller must serialize all operations; this model is not IRQ/SMP safe. */
 void coxvbn_scheduler_init(struct coxvbn_scheduler *scheduler);
 
-/* owner may be NULL for a kernel-owned task. Entry and stack are validated,
- * but this registry does not yet construct an architectural start frame. */
+/* Entry and stack are validated; architectural frames are attached separately. */
 int coxvbn_task_create(struct coxvbn_scheduler *scheduler,
                        uintptr_t entry, uintptr_t argument,
                        uintptr_t stack_base, size_t stack_size,
                        const struct coxvbn_module_ref *owner,
                        struct coxvbn_task_ref *ref_out);
 
-/* Selects the next READY record in round-robin slot order. This is a
- * bookkeeping primitive only; it does not switch CPU registers or stacks. */
+/* Attach a caller-built, 16-byte-aligned first-run exception frame. */
+int coxvbn_task_set_initial_frame(struct coxvbn_scheduler *scheduler,
+                                  const struct coxvbn_task_ref *ref,
+                                  struct exception_frame *frame);
+
+/* Legacy bookkeeping selector; does not switch CPU registers or stacks. */
 int coxvbn_scheduler_pick_next(struct coxvbn_scheduler *scheduler,
                                struct coxvbn_task_ref *ref_out);
+
+/* Save the interrupted task frame and select a READY task frame for eret.
+ * Pass NULL only when no task is currently running (initial dispatch). */
+struct exception_frame *coxvbn_scheduler_schedule_frame(
+    struct coxvbn_scheduler *scheduler,
+    struct exception_frame *current_frame);
+
 int coxvbn_task_yield(struct coxvbn_scheduler *scheduler);
 int coxvbn_task_block(struct coxvbn_scheduler *scheduler);
 int coxvbn_task_wake(struct coxvbn_scheduler *scheduler,
