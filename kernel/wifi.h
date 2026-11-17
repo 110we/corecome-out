@@ -65,4 +65,8 @@ int wifi_connect(struct wifi_device *device, const struct wifi_network *network,
 int wifi_connection_complete(struct wifi_device *device, int status);
 int wifi_disconnect(struct wifi_device *device);
 
+/* Parse an unencrypted 802.11 beacon or probe response management frame. */
+int wifi_parse_beacon(const uint8_t *frame, size_t frame_len,
+                      int16_t rssi_dbm, struct wifi_network *network);
+
 #endif
