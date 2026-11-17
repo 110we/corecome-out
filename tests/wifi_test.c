@@ -90,8 +90,22 @@ int main(void)
 
     assert(wifi_start(&dev) == 0);
     assert(wifi_connect(&dev, &net, key, 3U) == -2);
+    {
+        uint8_t raw_psk[64];
+        uint8_t long_sae[64];
+        memset(raw_psk, 'g', sizeof(raw_psk));
+        memset(long_sae, 'x', sizeof(long_sae));
+        net.security = WIFI_SECURITY_WPA2_PSK;
+        assert(wifi_connect(&dev, &net, raw_psk, sizeof(raw_psk)) == -2);
+        memset(raw_psk, 'a', sizeof(raw_psk));
+        assert(wifi_connect(&dev, &net, raw_psk, sizeof(raw_psk)) == 0);
+        assert(wifi_connection_complete(&dev, 0) == 0);
+        assert(wifi_disconnect(&dev) == 0);
+        net.security = WIFI_SECURITY_WPA3_SAE;
+        assert(wifi_connect(&dev, &net, long_sae, sizeof(long_sae)) == -2);
+    }
     assert(wifi_stop(&dev) == 0);
     assert(mock.starts == 3 && mock.stops == 2);
-    assert(mock.scans == 2 && mock.connects == 1 && mock.disconnects == 1);
+    assert(mock.scans == 2 && mock.connects == 2 && mock.disconnects == 2);
     return 0;
 }
