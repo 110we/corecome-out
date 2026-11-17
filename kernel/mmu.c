@@ -39,19 +39,6 @@ static uint64_t device_block(uint64_t address)
            DESC_ATTR_DEVICE | DESC_PXN | DESC_UXN;
 }
 
-static int range_contains(const struct fdt_info *fdt,
-                          uint64_t start, uint64_t end)
-{
-    uint32_t i;
-    for (i = 0; i < fdt->memory_count; ++i) {
-        uint64_t base = fdt->memory[i].base;
-        uint64_t size = fdt->memory[i].size;
-        if (base <= start && size <= UINT64_MAX - base &&
-            base + size >= end) return 1;
-    }
-    return 0;
-}
-
 int mmu_enable(const struct fdt_info *fdt, uintptr_t kernel_start,
                uintptr_t kernel_end, uintptr_t boot_fdt)
 {
