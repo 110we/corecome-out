@@ -77,6 +77,14 @@ jobs:
           qemu-system-aarch64 --version | head -1
           aarch64-linux-gnu-gcc --version | head -1
 
+      - name: FDT compatible 字符串边界回归
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -DFDT_HOST_TEST \
+            -ffunction-sections -fdata-sections -Ikernel/include \
+            tests/unit/fdt_compat_test.c drivers/bus/fdt.c \
+            -Wl,--gc-sections -o /tmp/fdt_compat_test
+          /tmp/fdt_compat_test
+
       - name: 编译
         run: make -C kernel
 
