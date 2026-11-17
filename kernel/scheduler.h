@@ -40,6 +40,7 @@ struct coxvbn_scheduler {
     uint32_t cursor;
     int32_t current_slot;
     uint32_t task_count;
+    struct coxvbn_task_record tasks[COXVBN_TASK_CAPACITY];
 };
 
 /* Caller must serialize all operations; this model is not IRQ/SMP safe. */
