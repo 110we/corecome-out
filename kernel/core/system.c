@@ -182,6 +182,8 @@ void do_sync(u64 *f)
 
             if (from_el0 && f[8] == 12) { /* SYS_EXEC：换掉地址空间，返回路径直接 eret 进新程序 */
                 proc_exec(f, f[0]);
+            } else if (from_el0 && f[8] == 19) { /* SYS_EXEC_PATH */
+                proc_exec_path(f, f[0]);
             } else if (from_el0 && f[8] == 11) { /* SYS_FORK */
                 f[0] = (u64)(i64)proc_fork(f);
             } else if (from_el0 && f[8] == 16) { /* SYS_CLONE */
@@ -736,6 +738,10 @@ int kmain(u64 dtb)
         puts_("[kern] user: create thread u6 failed\n");
     }
     /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    /* 第十个：EL0 程序 fork 后从文件 exec（/bin/hello.bin）。 */
+    if (kthread_create("u9", user_ep_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread u9 failed\n");
+    }
     /* 第九个：EL0 程序通过 VFS 读文件（/bin/hello）。 */
     if (kthread_create("u8", user_file_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread u8 failed\n");

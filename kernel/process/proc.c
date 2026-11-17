@@ -144,3 +144,79 @@ u64 proc_wait(u64 *f)
         schedule();
     }
 }
+
+/* 从用户态指针拷一个路径进内核缓冲：逐字节过页表，防止用户递内核地址。 */
+static int u_copy_path(char *dst, u64 uaddr, u64 cap)
+{
+    u64 *l1 = sched_get_l1();
+    u64 i;
+
+    if (l1 == (u64 *)0 || uaddr < USER_WIN_BASE || uaddr >= USER_WIN_TOP) {
+        return -1;
+    }
+    for (i = 0; i + 1 < cap; i++) {
+        u64 va = uaddr + i;
+        char c;
+
+        if (pg_user_pa(l1, va) == 0) {
+            return -1;
+        }
+        c = *(const char *)va;
+        dst[i] = c;
+        if (c == '\0') {
+            return 0;
+        }
+    }
+    return -1;
+}
+
+/* exec-by-path：从 ramfs 读程序镜像进新 aspace，再改 trap frame 返回 EL0。
+ * 暂定可执行格式 = 裸代码，入口固定在 USER_WIN_BASE（与内置 blob 一致）。 */
+void proc_exec_path(u64 *f, u64 upath)
+{
+    char path[64];
+    u64 *l1;
+    u8 *code;
+    u8 *stk;
+    i64 fd;
+    i64 n;
+    u64 i;
+
+    if (u_copy_path(path, upath, sizeof(path)) != 0) {
+        printk("[kern] proc: exec path bad ptr\n");
+        return;
+    }
+    l1 = pg_aspace_new();
+    code = (u8 *)mm_page_alloc();
+    stk = (u8 *)mm_page_alloc();
+    if (l1 == (u64 *)0 || code == (u8 *)0 || stk == (u8 *)0) {
+        printk("[kern] proc: exec-file failed (mem)\n");
+        return;
+    }
+    fd = vfs_open(path, 0);
+    if (fd < 0) {
+        printk("[kern] proc: exec-file open failed path=%s\n", path);
+        return;
+    }
+    n = vfs_read(fd, code, 4096);
+    vfs_close(fd);
+    if (n <= 0) {
+        printk("[kern] proc: exec-file read failed path=%s\n", path);
+        return;
+    }
+    if (pg_map_user(l1, USER_WIN_BASE, (u64)code, PG_USER_RX) != 0 ||
+        pg_map_user(l1, USER_WIN_BASE + 0x1000, (u64)stk, PG_USER_RW) != 0) {
+        printk("[kern] proc: exec-file map failed\n");
+        return;
+    }
+    sched_set_l1(l1);
+    pg_activate(l1);
+    for (i = 0; i < 36; i++) {
+        f[i] = 0;
+    }
+    f[32] = USER_WIN_BASE;
+    f[33] = 0;
+    f[34] = USER_WIN_BASE + 0x2000;
+    printk("[kern] proc: exec-file pid=%u path=%s bytes=%u\n",
+           (u32)sched_pid(), path, (u32)n);
+}

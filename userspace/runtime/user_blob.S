@@ -515,3 +515,43 @@ user_file_start:
     .asciz "/bin/hello"
     .balign 8
 user_file_end:
+
+/* fork 后孩子 exec_path("/bin/hello.bin")，父亲 wait 并打印标记。
+ * 验证的是「从文件系统加载程序」这条路径，而不是内置 blob。 */
+    .balign 8
+    .global user_ep_start
+    .global user_ep_end
+user_ep_start:
+    mov x0, #0
+    mov x8, #11             /* fork */
+    svc #0x80
+    cmp x0, #0
+    b.gt 51f
+    /* 孩子：换掉自己的镜像 */
+    adr x0, 53f
+    mov x8, #19             /* exec_path */
+    svc #0x80
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+51:
+    mvn x0, xzr             /* wait(-1) */
+    mov x8, #13
+    svc #0x80
+    mov x19, x0
+    mov x0, #1
+    adr x1, 54f
+    mov x2, #20
+    mov x8, #4              /* write(1, "...", 20) */
+    svc #0x80
+    mov x0, x19
+    mov x8, #9
+    svc #0x80
+    b .
+53:
+    .asciz "/bin/hello.bin"
+54:
+    .ascii "exec-file: child ok\n"
+    .balign 8
+user_ep_end:

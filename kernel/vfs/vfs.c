@@ -5,6 +5,9 @@
  */
 #include "kern.h"
 
+extern const u8 user_blob_start[];
+extern const u8 user_blob_end[];
+
 /* ramfs 单文件上限：从 1 KiB 提到 64 KiB，够放真实程序与数据。 */
 #define RAMFS_FILE_MAX (64UL * 1024UL)
 
@@ -150,6 +153,30 @@ static ino_t *walk(const char *path)
     return cur_ino;
 }
 
+/* 把一段二进制装进 inode：用于把内置程序写进 ramfs，供 exec-by-path 用。 */
+static void set_data(ino_t *n, const u8 *src, u64 len)
+{
+    char *buf;
+
+    if (len == 0 || len > RAMFS_FILE_MAX) {
+        return;
+    }
+    buf = (char *)kmalloc(len);
+    if (buf == (char *)0) {
+        return;
+    }
+    {
+        u64 i;
+
+        for (i = 0; i < len; i++) {
+            buf[i] = (char)src[i];
+        }
+    }
+    n->data = buf;
+    n->size = len;
+    n->cap = len;
+}
+
 static void set_text(ino_t *n, const char *s)
 {
     u64 len = 0;
@@ -198,6 +225,9 @@ void vfs_init(void)
         ino_t *bin = ino_new(root, "bin", T_DIR);
 
         set_text(ino_new(bin, "hello", T_FILE), "user-file: hello from ramfs file\n");
+        /* 可执行镜像：exec-by-path 会读它 */
+        set_data(ino_new(bin, "hello.bin", T_FILE),
+                 user_blob_start, (u64)(user_blob_end - user_blob_start));
     }
 
     con = ino_new(dev, "console", T_DEV);
