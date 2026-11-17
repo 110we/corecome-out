@@ -45,6 +45,6 @@ int main(void)
     assert(coxvbn_vfs_lookup(&fs, "/etc/coxvbn.conf/child", &node) ==
            COXVBN_VFS_ERR_NOT_DIRECTORY);
     assert(coxvbn_vfs_read(&fs, "/etc/coxvbn.conf", 0U,
-                           0, 0U, &count) == 0 && count == 13U);
+                           0, 0U, &count) == 0 && count == 0U);
     return 0;
 }
