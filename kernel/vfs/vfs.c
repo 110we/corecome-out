@@ -203,6 +203,96 @@ static void set_text(ino_t *n, const char *s)
     n->cap = len + 1;
 }
 
+
+/* 把路径切成「父目录 inode + 末段名」。根下的名字返回 root。 */
+static ino_t *split_parent(const char *path, char *name, u64 cap)
+{
+    char dir[VFS_PATH_MAX];
+    u64 len = 0;
+    u64 cut = 0;
+    u64 ns;
+    u64 i;
+
+    while (path[len] != '\0' && len + 1 < VFS_PATH_MAX) {
+        len++;
+    }
+    if (len == 0 || path[0] != '/') {
+        return (ino_t *)0;
+    }
+    for (i = 0; i < len; i++) {
+        if (path[i] == '/') {
+            cut = i;
+        }
+    }
+    ns = len - cut - 1;
+    if (ns == 0 || ns + 1 > cap) {
+        return (ino_t *)0;
+    }
+    for (i = 0; i < ns; i++) {
+        name[i] = path[cut + 1 + i];
+    }
+    name[ns] = '\0';
+    if (cut == 0) {
+        return root;
+    }
+    for (i = 0; i < cut && i + 1 < sizeof(dir); i++) {
+        dir[i] = path[i];
+    }
+    dir[cut] = '\0';
+    return walk(dir);
+}
+
+i64 vfs_mkdir(const char *path)
+{
+    char name[24];
+    ino_t *p = split_parent(path, name, sizeof(name));
+
+    if (p == (ino_t *)0 || p->type != T_DIR) {
+        return -1;
+    }
+    if (ino_find(p, name) != (ino_t *)0) {
+        return -1;
+    }
+    return ino_new(p, name, T_DIR) != (ino_t *)0 ? 0 : -1;
+}
+
+i64 vfs_unlink(const char *path)
+{
+    char name[24];
+    ino_t *p = split_parent(path, name, sizeof(name));
+    ino_t *victim;
+    ino_t **pp;
+
+    if (p == (ino_t *)0) {
+        return -1;
+    }
+    victim = ino_find(p, name);
+    if (victim == (ino_t *)0) {
+        return -1;
+    }
+    if (victim->child != (ino_t *)0) {
+        return -1; /* 目录非空 */
+    }
+    pp = &p->child;
+    while (*pp != (ino_t *)0 && *pp != victim) {
+        pp = &(*pp)->sib;
+    }
+    if (*pp == victim) {
+        *pp = victim->sib;
+    }
+    victim->sib = (ino_t *)0;
+    victim->parent = (ino_t *)0;
+    if (victim->data != (char *)0) {
+        kfree(victim->data);
+    }
+    victim->data = (char *)0;
+    victim->size = 0;
+    victim->cap = 0;
+    victim->type = -1;
+    victim->name[0] = '\0';
+    return 0;
+}
+
 void vfs_init(void)
 {
     ino_t *dev;
@@ -248,9 +338,21 @@ i64 vfs_open(const char *path, int flags)
     ino_t *n = walk(path);
     int i;
 
-    (void)flags;
     if (n == (ino_t *)0) {
-        return -1;
+        char name[24];
+        ino_t *p;
+
+        if ((flags & 1) == 0) { /* O_CREAT */
+            return -1;
+        }
+        p = split_parent(path, name, sizeof(name));
+        if (p == (ino_t *)0 || p->type != T_DIR) {
+            return -1;
+        }
+        n = ino_new(p, name, T_FILE);
+        if (n == (ino_t *)0) {
+            return -1;
+        }
     }
     for (i = 3; i < MAX_FD; i++) {
         if (!fds[i].used) {

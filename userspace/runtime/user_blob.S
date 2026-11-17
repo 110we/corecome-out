@@ -555,3 +555,66 @@ user_ep_start:
     .ascii "exec-file: child ok\n"
     .balign 8
 user_ep_end:
+
+/* 目录操作：mkdir → O_CREAT 建文件 → write → close → unlink 文件 → unlink 目录 */
+    .balign 8
+    .global user_dir_start
+    .global user_dir_end
+user_dir_start:
+    adr x0, 61f
+    mov x8, #20             /* mkdir("/tmp/d") */
+    svc #0x80
+    cmp x0, #0
+    b.ne 69f
+
+    adr x0, 62f
+    mov x1, #1              /* O_CREAT */
+    mov x8, #5              /* open */
+    svc #0x80
+    cmp x0, #0
+    b.lt 69f
+    mov x19, x0
+
+    mov x0, x19
+    adr x1, 64f
+    mov x2, #7
+    mov x8, #4              /* write(fd, "dir ok\n", 7) */
+    svc #0x80
+
+    mov x0, x19
+    mov x8, #7              /* close */
+    svc #0x80
+
+    adr x0, 62f
+    mov x8, #21             /* unlink(file) */
+    svc #0x80
+
+    adr x0, 61f
+    mov x8, #21             /* unlink(dir) */
+    svc #0x80
+
+    mov x0, #1
+    adr x1, 63f
+    mov x2, #12
+    mov x8, #4
+    svc #0x80
+
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+69:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+61:
+    .asciz "/tmp/d"
+62:
+    .asciz "/tmp/d/f"
+63:
+    .ascii "dir-ops: ok\n"
+64:
+    .ascii "dir ok\n"
+    .balign 8
+user_dir_end:

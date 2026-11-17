@@ -28,6 +28,8 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_dir_start[];
+extern const u8 user_dir_end[];
 extern const u8 user_ep_start[];
 extern const u8 user_ep_end[];
 extern const u8 user_file_end[];
@@ -108,6 +110,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* 目录操作靶子：mkdir / O_CREAT / write / unlink。 */
+void user_dir_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_dir_start, user_dir_end, "dirops");
 }
 
 /* exec-by-path 靶子：fork 后孩子从 ramfs 加载镜像。 */
