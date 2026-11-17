@@ -2,7 +2,7 @@
 
 The current VFS slice is a bounded in-memory filesystem core intended to establish
 path and file-operation contracts before block-device and persistent-filesystem
-work begins.
+work begins. The kernel currently creates a small `/etc/kernel.conf` file during boot and verifies its contents in memory.
 
 ## Current contract
 
