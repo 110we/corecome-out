@@ -32,11 +32,20 @@ IRQ has been acknowledged and serviced, save the interrupted task frame and
 return the next READY task frame. The host exception-dispatch test exercises
 round-robin handoff between two task-owned frames.
 
-This is not yet preemptive runtime validation: GIC delivery and the physical
-timer IRQ remain disabled, so the boot task is not yet time-sliced on hardware.
-The return trampoline deliberately fail-stops if a task returns; task-exit/SVC
-handoff, IRQ-safe serialization, per-CPU state, idle integration, and QEMU task
-switch stress tests remain outstanding. Task stacks are caller-owned.
+Two EL1 tasks now use the narrow `SVC #0` cooperative-yield ABI. The
+exception dispatcher accepts only the AArch64 SVC exception class with immediate
+zero from the current-EL SPx vector, advances ELR by four bytes, and schedules
+the next saved task frame. Other synchronous exceptions and unsupported SVC
+numbers still fail closed. Host tests verify the SVC handoff and ELR advancement.
+
+The boot path creates two task-owned stacks and enters the first task. Both tasks
+increment bounded startup counters and yield through SVC, allowing QEMU to
+exercise real exception entry, saved-frame ownership, scheduler rotation, and
+exception return without enabling external IRQ delivery. GIC delivery and the
+physical timer IRQ remain disabled, so this is cooperative—not preemptive—
+scheduling. The return trampoline deliberately fail-stops if a task returns;
+task-exit, IRQ-safe serialization, per-CPU state, and timer preemption remain
+outstanding. Task stacks are caller-owned.
 
 ## State transitions
 

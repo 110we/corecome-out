@@ -88,6 +88,18 @@ int main(void)
         assert(exception_dispatch(frames[0]) == frames[1]);
         cpu_regs[3] = token;
         assert(exception_dispatch(frames[1]) == frames[0]);
+
+        /* SVC #0 advances past the trapping instruction and rotates tasks. */
+        frames[0]->vector = 4U;
+        frames[0]->esr = (uint64_t)0x15U << 26;
+        frames[0]->elr = 0x4000U;
+        frames[1]->vector = 4U;
+        frames[1]->esr = (uint64_t)0x15U << 26;
+        frames[1]->elr = 0x5000U;
+        assert(exception_dispatch(frames[0]) == frames[1]);
+        assert(frames[0]->elr == 0x4004U);
+        assert(exception_dispatch(frames[1]) == frames[0]);
+        assert(frames[1]->elr == 0x5004U);
         exception_set_scheduler(0);
     }
     assert(exception_unregister_irq_handler(5U) == 0);

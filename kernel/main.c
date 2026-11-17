@@ -8,20 +8,48 @@
 #include "vfs.h"
 #include "scheduler.h"
 #include "aarch64_context.h"
+#include "scheduler.h"
+#include "aarch64_context.h"
 static struct coxvbn_vfs boot_vfs;
 static struct coxvbn_scheduler boot_scheduler;
 static struct gicv2_state boot_gic;
-static uint8_t boot_task_stack[COXVBN_TASK_MIN_STACK_SIZE]
+static uint8_t boot_task_stacks[2][COXVBN_TASK_MIN_STACK_SIZE]
     __attribute__((aligned(16)));
+static volatile uint32_t boot_task_a_runs;
+static volatile uint32_t boot_task_b_runs;
 
 extern void coxvbn_aarch64_enter_frame(struct exception_frame *frame)
     __attribute__((noreturn));
 
-static void coxvbn_idle_task(void *argument)
+static void coxvbn_task_yield_cpu(void)
+{
+    __asm__ volatile("svc #0" ::: "memory");
+}
+
+static void coxvbn_task_a(void *argument)
 {
     (void)argument;
-    uart_write("COXVBN: FIRST TASK RUNNING ON PRIVATE STACK\n");
-    for (;;) __asm__ volatile("wfe");
+    for (;;) {
+        if (boot_task_a_runs < 3U) {
+            ++boot_task_a_runs;
+            if (boot_task_a_runs == 3U)
+                uart_write("COXVBN: TASK A COOPERATIVE SWITCH PASS\n");
+        }
+        coxvbn_task_yield_cpu();
+    }
+}
+
+static void coxvbn_task_b(void *argument)
+{
+    (void)argument;
+    for (;;) {
+        if (boot_task_b_runs < 3U) {
+            ++boot_task_b_runs;
+            if (boot_task_b_runs == 3U)
+                uart_write("COXVBN: TASK B COOPERATIVE SWITCH PASS\n");
+        }
+        coxvbn_task_yield_cpu();
+    }
 }
 
 static void coxvbn_task_return_trampoline(void)
@@ -51,8 +79,8 @@ void kernel_main(const void *boot_fdt)
     struct fdt_info fdt;
     uint32_t i;
     int rc;
-    struct coxvbn_task_ref idle_task;
-    struct exception_frame *initial_frame = 0;
+    struct coxvbn_task_ref task_a, task_b;
+    struct exception_frame *frame_a = 0, *frame_b = 0;
     struct exception_frame *dispatch_frame;
 
     uart_init();
@@ -163,18 +191,25 @@ void kernel_main(const void *boot_fdt)
     }
     uart_write("COXVBN: BOOT COMPLETE\n");
 
-    /* Start the first EL1 task on its own stack; IRQ scheduling stays masked. */
+    /* Enter two cooperative EL1 tasks on their own kernel stacks. */
     coxvbn_scheduler_init(&boot_scheduler);
     if (coxvbn_task_create(&boot_scheduler,
-            (uintptr_t)coxvbn_idle_task, 0U,
-            (uintptr_t)boot_task_stack, sizeof(boot_task_stack),
-            0, &idle_task) != 0 ||
-        coxvbn_aarch64_context_build((uintptr_t)boot_task_stack,
-            sizeof(boot_task_stack), (uintptr_t)coxvbn_idle_task, 0U,
-            (uintptr_t)coxvbn_task_return_trampoline, &initial_frame) != 0 ||
-        coxvbn_task_set_initial_frame(&boot_scheduler, &idle_task,
-                                      initial_frame) != 0) {
-        uart_write("COXVBN: FIRST TASK CONTEXT SETUP FAILED\n");
+            (uintptr_t)coxvbn_task_a, 0U,
+            (uintptr_t)boot_task_stacks[0], sizeof(boot_task_stacks[0]),
+            0, &task_a) != 0 ||
+        coxvbn_aarch64_context_build((uintptr_t)boot_task_stacks[0],
+            sizeof(boot_task_stacks[0]), (uintptr_t)coxvbn_task_a, 0U,
+            (uintptr_t)coxvbn_task_return_trampoline, &frame_a) != 0 ||
+        coxvbn_task_set_initial_frame(&boot_scheduler, &task_a, frame_a) != 0 ||
+        coxvbn_task_create(&boot_scheduler,
+            (uintptr_t)coxvbn_task_b, 0U,
+            (uintptr_t)boot_task_stacks[1], sizeof(boot_task_stacks[1]),
+            0, &task_b) != 0 ||
+        coxvbn_aarch64_context_build((uintptr_t)boot_task_stacks[1],
+            sizeof(boot_task_stacks[1]), (uintptr_t)coxvbn_task_b, 0U,
+            (uintptr_t)coxvbn_task_return_trampoline, &frame_b) != 0 ||
+        coxvbn_task_set_initial_frame(&boot_scheduler, &task_b, frame_b) != 0) {
+        uart_write("COXVBN: TASK CONTEXT SETUP FAILED\n");
         for (;;) __asm__ volatile("wfe");
     }
     exception_set_scheduler(&boot_scheduler);

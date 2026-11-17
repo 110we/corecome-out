@@ -59,6 +59,8 @@ jobs:
           grep -q "COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS" qemu.log
           grep -q "COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE" qemu.log
           grep -q "COXVBN: BOOT COMPLETE" qemu.log
+          grep -q "COXVBN: TASK A COOPERATIVE SWITCH PASS" qemu.log
+          grep -q "COXVBN: TASK B COOPERATIVE SWITCH PASS" qemu.log
           grep -Eq "COXVBN: RAM regions 0x0*[1-9a-f][0-9a-f]*" qemu.log
           if grep -q "ELR 0x200" qemu-int.log; then
             echo "Unexpected exception vector at address 0x200"
