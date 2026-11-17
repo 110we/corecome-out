@@ -5,6 +5,9 @@
 #include "gicv2.h"
 #include "exception.h"
 #include "arm_timer.h"
+#include "vfs.h"
+static struct coxvbn_vfs boot_vfs;
+
 extern char __kernel_start[];
 extern char __kernel_end[];
 
@@ -29,6 +32,27 @@ void kernel_main(const void *boot_fdt)
 
     uart_init();
     uart_write("\nCOXVBN: BOOT START\n");
+    coxvbn_vfs_init(&boot_vfs);
+    if (coxvbn_vfs_mkdir(&boot_vfs, "/etc") != 0 ||
+        coxvbn_vfs_create(&boot_vfs, "/etc/kernel.conf") != 0) {
+        uart_write("COXVBN: VFS INITIALIZATION FAILED\n");
+        for (;;) __asm__ volatile("wfe");
+    }
+    {
+        static const char config[] = "name=COXVBN";
+        char verify[sizeof(config)];
+        size_t written = 0U, read_count = 0U;
+        if (coxvbn_vfs_write(&boot_vfs, "/etc/kernel.conf", 0U,
+                             config, sizeof(config) - 1U, &written) != 0 ||
+            written != sizeof(config) - 1U ||
+            coxvbn_vfs_read(&boot_vfs, "/etc/kernel.conf", 0U,
+                            verify, sizeof(verify) - 1U, &read_count) != 0 ||
+            read_count != written) {
+            uart_write("COXVBN: VFS SELFTEST FAILED\n");
+            for (;;) __asm__ volatile("wfe");
+        }
+        uart_write("COXVBN: VFS IN-MEMORY READY; SELFTEST PASS\n");
+    }
     uart_write("COXVBN: UART READY\n");
     uart_write("COXVBN: boot FDT pointer ");
     uart_write_hex((uintptr_t)boot_fdt);
