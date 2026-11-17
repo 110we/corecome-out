@@ -54,7 +54,8 @@ int vm_page_map(struct vm_page_table *table, uint64_t va, uint64_t pa,
         !address_valid(pa) || (flags & ~VM_ALLOWED_FLAGS) != 0U ||
         (flags & VM_MAP_READ) == 0U ||
         ((flags & VM_MAP_WRITE) != 0U && (flags & VM_MAP_EXEC) != 0U) ||
-        ((flags & VM_MAP_DEVICE) != 0U && (flags & VM_MAP_EXEC) != 0U))
+        ((flags & VM_MAP_DEVICE) != 0U &&
+         (flags & (VM_MAP_EXEC | VM_MAP_USER)) != 0U))
         return -1;
     if (table->entries[index] != 0ULL)
         return -2;
