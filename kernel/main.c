@@ -41,7 +41,7 @@ void kernel_main(const void *boot_fdt)
     {
         static const char config[] = "name=COXVBN";
         char verify[sizeof(config)];
-        size_t written = 0U, read_count = 0U;
+        size_t written = 0U, read_count = 0U, i;
         if (coxvbn_vfs_write(&boot_vfs, "/etc/kernel.conf", 0U,
                              config, sizeof(config) - 1U, &written) != 0 ||
             written != sizeof(config) - 1U ||
