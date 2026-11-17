@@ -38,6 +38,7 @@ static int page_index(const struct vm_page_table *table, uint64_t va,
                       uint32_t *index)
 {
     if (table == 0 || index == 0 || !aligned_page(va) ||
+        !address_valid(va) ||
         va < table->virtual_base || va - table->virtual_base >= VM_L3_SPAN)
         return -1;
     *index = (uint32_t)((va - table->virtual_base) / VM_PAGE_SIZE);
@@ -107,9 +108,7 @@ int vm_page_lookup(const struct vm_page_table *table, uint64_t va,
         mapping->flags |= VM_MAP_WRITE;
     if ((descriptor & DESC_ATTR_DEVICE) != 0ULL)
         mapping->flags |= VM_MAP_DEVICE;
-    if ((descriptor & (DESC_PXN | DESC_UXN)) == 0ULL ||
-        ((descriptor & DESC_PXN) != 0ULL &&
-         (descriptor & DESC_UXN) == 0ULL))
+    if ((descriptor & DESC_PXN) != (descriptor & DESC_UXN))
         mapping->flags |= VM_MAP_EXEC;
     return 0;
 }
