@@ -1,4 +1,5 @@
 #include "mmu.h"
+#include "mmu_layout.h"
 
 #include <stdint.h>
 
@@ -55,19 +56,12 @@ int mmu_enable(const struct fdt_info *fdt, uintptr_t kernel_start,
                uintptr_t kernel_end, uintptr_t boot_fdt)
 {
     uint32_t i;
-    uint64_t ram_end;
-    if (fdt == 0 || fdt->memory_count == 0U ||
-        fdt->memory_count > COXVBN_FDT_MAX_RANGES ||
-        kernel_start >= kernel_end ||
-        (kernel_start < RAM_WINDOW_BASE) || kernel_end > RAM_WINDOW_END ||
-        (uint64_t)boot_fdt < RAM_WINDOW_BASE ||
-        (uint64_t)boot_fdt >= RAM_WINDOW_END) return -1;
+    if (mmu_validate_boot_layout(fdt, kernel_start, kernel_end,
+                                 boot_fdt) != 0)
+        return -1;
 
     /* The initial implementation deliberately supports one bounded,
        identity-mapped 1-GiB RAM window and QEMU virt's device apertures. */
-    if (!range_contains(fdt, kernel_start, kernel_end) ||
-        !range_contains(fdt, (uint64_t)boot_fdt,
-                        (uint64_t)boot_fdt + fdt->total_size)) return -2;
 
     for (i = 0; i < L1_ENTRIES; ++i) {
         l1[i] = 0;
@@ -103,9 +97,6 @@ int mmu_enable(const struct fdt_info *fdt, uintptr_t kernel_start,
             ram_l2[index] = normal_block(block);
         }
     }
-    ram_end = (uint64_t)kernel_end;
-    if (!range_contains(fdt, kernel_start, ram_end)) return -6;
-
     /* MAIR: Attr0 = Normal WB/WA, Attr1 = Device-nGnRnE.
        TCR: 39-bit VA, 4-KiB granule, inner-shareable WB/WA walks,
        40-bit physical address size. */
