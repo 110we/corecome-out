@@ -112,3 +112,128 @@ int vm_page_lookup(const struct vm_page_table *table, uint64_t va,
         mapping->flags |= VM_MAP_EXEC;
     return 0;
 }
+
+
+#define DESC_TABLE_ADDR_MASK 0x0000fffffffff000ULL
+#define VM_L1_SPAN (512ULL * VM_L2_SPAN)
+
+static int table_pointer_valid(const void *pointer)
+{
+    uint64_t address = (uint64_t)(uintptr_t)pointer;
+    return (address & 0xfffULL) == 0ULL &&
+           (address & ~DESC_TABLE_ADDR_MASK) == 0ULL;
+}
+
+int vm_address_space_init(struct vm_address_space *space,
+                          uint64_t virtual_base)
+{
+    uint32_t i;
+    if (space == 0 || (virtual_base & (VM_L2_SPAN - 1ULL)) != 0ULL ||
+        virtual_base >= (1ULL << 38) ||
+        !table_pointer_valid(space->l1) ||
+        !table_pointer_valid(space->l2))
+        return -1;
+    space->virtual_base = virtual_base;
+    for (i = 0; i < 512U; ++i) {
+        space->l1[i] = 0ULL;
+        space->l2[i] = 0ULL;
+    }
+    for (i = 0; i < VM_ADDRESS_SPACE_L3_TABLES; ++i) {
+        space->l3_used[i] = 0U;
+        space->l3_l2_index[i] = 0U;
+    }
+    space->l1[virtual_base >> 30] =
+        ((uint64_t)(uintptr_t)space->l2 & DESC_TABLE_ADDR_MASK) |
+        DESC_VALID | DESC_TABLE_PAGE;
+    return 0;
+}
+
+static int address_space_indices(const struct vm_address_space *space,
+                                 uint64_t va, uint32_t *l2_index)
+{
+    if (space == 0 || l2_index == 0 || (va & (VM_PAGE_SIZE - 1ULL)) != 0ULL ||
+        va < space->virtual_base ||
+        va - space->virtual_base >= VM_L2_SPAN)
+        return -1;
+    *l2_index = (uint32_t)((va >> 21) & 0x1ffULL);
+    return 0;
+}
+
+static int find_l3(const struct vm_address_space *space, uint32_t l2_index)
+{
+    uint32_t i;
+    for (i = 0; i < VM_ADDRESS_SPACE_L3_TABLES; ++i)
+        if (space->l3_used[i] != 0U &&
+            space->l3_l2_index[i] == l2_index)
+            return (int)i;
+    return -1;
+}
+
+int vm_address_space_map(struct vm_address_space *space, uint64_t va,
+                         uint64_t pa, uint32_t flags)
+{
+    uint32_t l2_index, i;
+    int slot, created = 0;
+    uint64_t l3_base;
+    if (address_space_indices(space, va, &l2_index) != 0)
+        return -1;
+    slot = find_l3(space, l2_index);
+    if (slot < 0) {
+        for (i = 0; i < VM_ADDRESS_SPACE_L3_TABLES; ++i)
+            if (space->l3_used[i] == 0U)
+                break;
+        if (i == VM_ADDRESS_SPACE_L3_TABLES)
+            return -3;
+        slot = (int)i;
+        l3_base = va & ~(VM_L3_SPAN - 1ULL);
+        if (vm_page_table_init(&space->l3[slot], l3_base) != 0 ||
+            !table_pointer_valid(space->l3[slot].entries))
+            return -4;
+        space->l3_used[slot] = 1U;
+        space->l3_l2_index[slot] = (uint16_t)l2_index;
+        space->l2[l2_index] =
+            ((uint64_t)(uintptr_t)space->l3[slot].entries &
+             DESC_TABLE_ADDR_MASK) | DESC_VALID | DESC_TABLE_PAGE;
+        created = 1;
+    }
+    if (vm_page_map(&space->l3[slot], va, pa, flags) != 0) {
+        if (created != 0) {
+            space->l2[l2_index] = 0ULL;
+            space->l3_used[slot] = 0U;
+        }
+        return -2;
+    }
+    return 0;
+}
+
+int vm_address_space_unmap(struct vm_address_space *space, uint64_t va)
+{
+    uint32_t l2_index, i;
+    int slot;
+    if (address_space_indices(space, va, &l2_index) != 0)
+        return -1;
+    slot = find_l3(space, l2_index);
+    if (slot < 0)
+        return -2;
+    if (vm_page_unmap(&space->l3[slot], va) != 0)
+        return -2;
+    for (i = 0; i < 512U; ++i)
+        if (space->l3[slot].entries[i] != 0ULL)
+            return 0;
+    space->l2[l2_index] = 0ULL;
+    space->l3_used[slot] = 0U;
+    return 0;
+}
+
+int vm_address_space_lookup(const struct vm_address_space *space,
+                            uint64_t va, struct vm_mapping *mapping)
+{
+    uint32_t l2_index;
+    int slot;
+    if (address_space_indices(space, va, &l2_index) != 0)
+        return -1;
+    slot = find_l3(space, l2_index);
+    if (slot < 0)
+        return -2;
+    return vm_page_lookup(&space->l3[slot], va, mapping);
+}
