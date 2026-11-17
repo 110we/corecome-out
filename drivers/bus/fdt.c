@@ -150,6 +150,13 @@ static int compat_has(const u8 *p, u32 len, const char *want)
     return found;
 }
 
+#ifdef FDT_HOST_TEST
+int fdt_test_compat_has(const u8 *p, u32 len, const char *want)
+{
+    return compat_has(p, len, want);
+}
+#endif
+
 static u64 cells_u64(const u8 *p, u32 cells)
 {
     if (cells == 0) {
