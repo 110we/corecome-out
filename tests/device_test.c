@@ -16,7 +16,7 @@ int main(void)
     };
     struct coxvbn_device_registry registry;
     struct coxvbn_device_ref ref, found, stale;
-    struct coxvbn_device_state state;
+    enum coxvbn_device_state state;
     struct mock_device mock = {0};
     uint32_t i;
     char name[COXVBN_DEVICE_NAME_MAX + 1U];
