@@ -59,6 +59,67 @@ int main(void)
         assert(wifi_parse_beacon(beacon, n, -55, &parsed) == -4);
         beacon[34] = 0U;
         assert(wifi_parse_beacon(beacon, 37U, -55, &parsed) == -5);
+
+        /* HT Operation can supply the primary channel when DS is absent. */
+        beacon[36] = 0U; beacon[37] = 4U;
+        memcpy(beacon + 38U, "test", 4U);
+        n = 42U;
+        beacon[n++] = 61U; beacon[n++] = 1U; beacon[n++] = 44U;
+        assert(wifi_parse_beacon(beacon, n, -60, &parsed) == 0);
+        assert(parsed.channel == 44U);
+
+        /* A conflicting DS/HT primary channel is malformed. */
+        beacon[n++] = 3U; beacon[n++] = 1U; beacon[n++] = 36U;
+        assert(wifi_parse_beacon(beacon, n, -60, &parsed) == -7);
+
+        /* Multicast BSSID and wrong management subtype must be rejected. */
+        beacon[16] = 0x03U;
+        assert(wifi_parse_beacon(beacon, 45U, -60, &parsed) == -3);
+        beacon[16] = 0x02U;
+        beacon[0] = 0x50U;
+        assert(wifi_parse_beacon(beacon, 45U, -60, &parsed) == -2);
+        beacon[0] = 0x80U;
+
+        /* Valid RSN IE: version 1, CCMP group/pairwise, PSK AKM. */
+        {
+            const uint8_t rsn_psk[] = {
+                1U,0U, 0U,0x0fU,0xacU,4U,
+                1U,0U, 0U,0x0fU,0xacU,4U,
+                1U,0U, 0U,0x0fU,0xacU,2U
+            };
+            const uint8_t rsn_sae[] = {
+                1U,0U, 0U,0x0fU,0xacU,4U,
+                1U,0U, 0U,0x0fU,0xacU,4U,
+                1U,0U, 0U,0x0fU,0xacU,8U
+            };
+            size_t base = 36U;
+            beacon[36] = 0U; beacon[37] = 4U;
+            memcpy(beacon + 38U, "test", 4U);
+            base = 42U;
+            beacon[base++] = 3U; beacon[base++] = 1U;
+            beacon[base++] = 11U;
+            beacon[base++] = 48U;
+            beacon[base++] = (uint8_t)sizeof(rsn_psk);
+            memcpy(beacon + base, rsn_psk, sizeof(rsn_psk));
+            base += sizeof(rsn_psk);
+            assert(wifi_parse_beacon(beacon, base, -50, &parsed) == 0);
+            assert(parsed.security == WIFI_SECURITY_WPA2_PSK);
+            beacon[43U] = 48U;
+            beacon[44U] = (uint8_t)sizeof(rsn_sae);
+            memcpy(beacon + 45U, rsn_sae, sizeof(rsn_sae));
+            assert(wifi_parse_beacon(beacon, 45U + sizeof(rsn_sae),
+                                     -50, &parsed) == 0);
+            assert(parsed.security == WIFI_SECURITY_WPA3_SAE);
+            /* Duplicate RSN IE is rejected. */
+            beacon[45U + sizeof(rsn_sae)] = 48U;
+            beacon[46U + sizeof(rsn_sae)] = (uint8_t)sizeof(rsn_sae);
+            memcpy(beacon + 47U + sizeof(rsn_sae), rsn_sae,
+                   sizeof(rsn_sae));
+            assert(wifi_parse_beacon(beacon, 47U + 2U * sizeof(rsn_sae),
+                                     -50, &parsed) == -8);
+            /* Truncated IE payload is rejected without output mutation. */
+            assert(wifi_parse_beacon(beacon, 46U, -50, &parsed) == -5);
+        }
     }
 
     assert(wifi_device_init(&dev, &ops, &mock) == 0);
@@ -67,7 +128,19 @@ int main(void)
     assert(wifi_scan(&dev) == 0 && dev.state == WIFI_STATE_SCANNING);
     assert(wifi_scan_report(&dev, &net) == 0);
     assert(wifi_scan_report(&dev, &net) == 0);
-    assert(dev.scan_count == 1U);
+    {
+        uint8_t frame[48] = {0};
+        frame[0] = 0x80U;
+        frame[16] = 0x02U;
+        frame[21] = 0x02U;
+        frame[36] = 0U; frame[37] = 4U;
+        memcpy(frame + 38U, "scan", 4U);
+        frame[42] = 3U; frame[43] = 1U; frame[44] = 6U;
+        assert(wifi_scan_report_frame(&dev, frame, 45U, -48) == 0);
+        assert(dev.scan_count == 2U);
+        assert(wifi_scan_report_frame(&dev, frame, 20U, -48) == -1);
+    }
+    assert(dev.scan_count == 2U);
     assert(wifi_scan_complete(&dev, 0) == 0);
     assert(wifi_connect(&dev, &net, key, sizeof(key) - 1U) == 0);
     assert(dev.state == WIFI_STATE_CONNECTING);
