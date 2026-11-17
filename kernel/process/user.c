@@ -28,6 +28,8 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_sigh_start[];
+extern const u8 user_sigh_end[];
 extern const u8 user_big_start[];
 extern const u8 user_big_end[];
 extern const u8 user_elfrun_start[];
@@ -138,6 +140,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* 信号 handler 靶子：用户态收信号、跑 handler、sigreturn。 */
+void user_sigh_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_sigh_start, user_sigh_end, "sighandler");
 }
 
 /* 大文件靶子：写 3000 字节，stat 校验。 */

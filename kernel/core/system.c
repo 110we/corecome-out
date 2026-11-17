@@ -182,6 +182,8 @@ void do_sync(u64 *f)
 
             if (from_el0 && f[8] == 12) { /* SYS_EXEC：换掉地址空间，返回路径直接 eret 进新程序 */
                 proc_exec(f, f[0]);
+            } else if (from_el0 && f[8] == 32) { /* SYS_SIGRETURN */
+                (void)sched_sigreturn(f);
             } else if (from_el0 && f[8] == 19) { /* SYS_EXEC_PATH */
                 proc_exec_path(f, f[0], f[1]);
             } else if (from_el0 && f[8] == 11) { /* SYS_FORK */
@@ -216,12 +218,18 @@ void do_sync(u64 *f)
             }
             /* 系统调用返回前是安全点：这里投递致命信号，绝不能再 eret 回去。 */
             if (from_el0 && sched_get_l1() != (u64 *)0) {
-                int sig = sched_signal_self();
+                int sig = sched_pending_signal();
 
                 if (sig != 0) {
-                    printk("[kern] sign: pid=%u sig=%u exit\n",
-                           (u32)sched_pid(), (u32)sig);
-                    sched_exit_zombie(-sig);
+                    if (sched_deliver_signal(f, sig)) {
+                        /* 已投递到用户 handler，eret 回去跑它 */
+                    } else if (sig == 9 || sig == 11 || sig == 15) {
+                        printk("[kern] sign: pid=%u sig=%u exit\n",
+                               (u32)sched_pid(), (u32)sig);
+                        sched_exit_zombie(-sig);
+                    } else {
+                        sched_clear_signal(sig); /* 没有 handler 也不是致命信号 */
+                    }
                 }
             }
         }
@@ -298,7 +306,8 @@ void do_irq(void)
     if (sched_get_l1() != (u64 *)0) {
         int sig = sched_signal_self();
 
-        if (sig != 0) {
+        /* 有用户 handler 时留到系统调用返回点投递，这里不杀 */
+        if (sig != 0 && !sched_has_handler(sig)) {
             printk("[kern] sign: pid=%u sig=%u exit\n",
                    (u32)sched_pid(), (u32)sig);
             sched_exit_zombie(-sig);
@@ -757,6 +766,10 @@ int kmain(u64 dtb)
         puts_("[kern] user: create thread u6 failed\n");
     }
     /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    /* 第二十七个：用户态信号 handler + sigreturn。 */
+    if (kthread_create("uq", user_sigh_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread uq failed\n");
+    }
     /* 第二十五个：4 KiB 以内的大文件读写。 */
     if (kthread_create("uo", user_big_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread uo failed\n");

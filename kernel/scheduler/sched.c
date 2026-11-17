@@ -32,6 +32,7 @@ typedef struct tcb {
     int ppid;
     int tgid;               /* 线程组：clone 出来的线程与创建者同组 */
     u64 sig_pending;        /* 待投递信号：位图，bit n = signal n */
+    u64 sig_handler[32];    /* 用户态 handler 地址；0 = 默认动作 */
     u64 code;               /* 退出码：僵尸态留给父进程收 */
     u64 wake_tick;          /* sleep：到点唤醒的 tick；0 = 不按时间唤醒 */
     int wait_pid;           /* wait：等哪个 pid（-1 = 任意） */
@@ -413,7 +414,8 @@ int sched_kill(int pid, int sig)
         if (t->pid != pid || t->state == ST_FREE || t->state == ST_ZOMBIE) {
             continue;
         }
-        if (sig == SIGKILL || sig == SIGTERM || sig == SIGSEGV) {
+        /* 1..31 都是可投递的；有 handler 就走 handler，没有就按默认动作 */
+        if (sig < 32) {
             t->sig_pending |= 1UL << sig;
         }
         printk("[kern] sign: kill pid=%u sig=%u\n", (u32)pid, (u32)sig);
@@ -423,6 +425,92 @@ int sched_kill(int pid, int sig)
 }
 
 /* 当前线程该不该死：返回信号号（0 = 没有）。 */
+/* 取最低位的待处理信号；没有返回 0。 */
+int sched_pending_signal(void)
+{
+    int i;
+
+    if (cur == (tcb_t *)0) {
+        return 0;
+    }
+    for (i = 1; i < 32; i++) {
+        if ((cur->sig_pending & (1UL << i)) != 0) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+void sched_clear_signal(int sig)
+{
+    if (cur != (tcb_t *)0 && sig > 0 && sig < 32) {
+        cur->sig_pending &= ~(1UL << sig);
+    }
+}
+
+int sched_set_handler(int sig, u64 fn)
+{
+    if (cur == (tcb_t *)0 || sig <= 0 || sig > 32) {
+        return -1;
+    }
+    cur->sig_handler[sig] = fn;
+    return 0;
+}
+
+int sched_has_handler(int sig)
+{
+    return cur != (tcb_t *)0 && sig > 0 && sig < 32 && cur->sig_handler[sig] != 0;
+}
+
+/* 把“当前 trap frame”铺到用户栈上，改 frame 去跑 handler。
+ * 返回 1 = 已投递；0 = 没有 handler（交给默认动作）。 */
+int sched_deliver_signal(u64 *f, int sig)
+{
+    u64 *fr;
+    u64 handler;
+    u64 new_sp;
+    int i;
+
+    if (cur == (tcb_t *)0 || sig <= 0 || sig > 32) {
+        return 0;
+    }
+    handler = cur->sig_handler[sig];
+    if (handler == 0) {
+        return 0;
+    }
+    new_sp = (f[34] - 320UL) & ~15UL;
+    /* fork 出来的栈页是 COW 只读的：内核直接写会触发 EL1 data abort，
+     * 先把它拆成私有页（非 COW 页调用会返回 -1，忽略即可）。 */
+    (void)pg_cow_fault(new_sp);
+    (void)pg_cow_fault(new_sp + 288UL);
+    fr = (u64 *)new_sp;
+    for (i = 0; i < 36; i++) {
+        fr[i] = f[i];
+    }
+    fr[36] = 0x5a5a5a5a5a5a5a5aUL;
+    f[0] = (u64)sig;
+    f[32] = handler;
+    f[33] = 0;
+    f[34] = new_sp;
+    sched_clear_signal(sig);
+    return 1;
+}
+
+/* sigreturn：从用户栈上的 sigframe 恢复现场。 */
+int sched_sigreturn(u64 *f)
+{
+    u64 *fr = (u64 *)f[34];
+    int i;
+
+    if (fr[36] != 0x5a5a5a5a5a5a5a5aUL) {
+        return -1;
+    }
+    for (i = 0; i < 36; i++) {
+        f[i] = fr[i];
+    }
+    return 0;
+}
+
 int sched_signal_self(void)
 {
     if (cur == (tcb_t *)0) {

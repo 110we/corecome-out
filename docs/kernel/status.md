@@ -24,7 +24,7 @@
 | fd | 每进程 files_struct | 每进程 filetable | 已验证 | fork 深拷贝，clone 共享 |
 | 设备 | 驱动模型 + DT/ACPI | DTB 只读解析 + PL011/GICv2/timer/virtio-mmio blk 手写 | 部分 | 地址已来自 DTB；无驱动注册表，virtio-blk 仍是手写扫描（M5） |
 | 网络 | TCP/IP + netfilter | 无 | 计划中 | — |
-| 信号 | 完整、可注册 handler | 仅 KILL/TERM/SEGV 默认动作 | 部分 | 无 handler / sigreturn |
+| 信号 | 完整、可注册 handler | **用户态 handler + sigreturn**；无 handler 时走 KILL/TERM/SEGV 默认动作 | 部分 | 无信号屏蔽/排队/多信号合并 |
 | 线程 | clone(CLONE_VM) + futex/TLS | clone 共享 mm/fd | 部分 | 无 futex、无 TLS |
 | SMP | 成熟 | 单核 CPU0 | 计划中 | 无 per-CPU/自旋锁/IPI |
 | 模块/安全 | LSM/namespace/cgroup | 无 | 计划中 | — |

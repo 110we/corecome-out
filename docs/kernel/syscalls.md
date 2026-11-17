@@ -34,6 +34,8 @@
 | 27 | DUP | `x0`=fd | 新 fd / -1 | |
 | 28 | PIPE | `x0`=两个 int 的用户缓冲 | 0 / -1 | 4 KiB 环形缓冲，非阻塞 |
 | 29 | ACCESS | `x0`=路径 | 0 / -1 | 存在性检查 |
+| 31 | SIGNAL | `x0`=信号号 `x1`=handler | 0 / -1 | 注册用户态 handler |
+| 32 | SIGRETURN | — | 不返回 | 从用户栈 sigframe 恢复 |
 
 ## 边界
 

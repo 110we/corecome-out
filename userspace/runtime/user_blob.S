@@ -1352,3 +1352,77 @@ user_big_start:
     .fill 100, 1, 0x41      /* 'A' × 100 */
     .balign 8
 user_big_end:
+
+/* 用户态信号 handler：孩子注册 SIGUSR1(10)，父亲 kill 它，
+ * handler 打印后 sigreturn 回到孩子的循环；孩子看到标志位后 exit 42。 */
+    .balign 8
+    .global user_sigh_start
+    .global user_sigh_end
+user_sigh_start:
+    mov x0, #0
+    mov x8, #11             /* fork */
+    svc #0x80
+    cbnz x0, 231f
+
+    sub sp, sp, #16         /* sp+320 就是 handler 写标志的位置 */
+    mov x0, #10             /* SIGUSR1 */
+    adr x1, 235f            /* handler */
+    mov x8, #31
+    svc #0x80
+232:
+    mov x8, #8              /* yield，给信号一个投递点 */
+    svc #0x80
+    ldr x9, [sp]
+    cbz x9, 232b
+    mov x0, #42
+    mov x8, #9
+    svc #0x80
+    b .
+
+231:
+    mov x19, x0             /* child pid */
+    mov x0, #3
+    mov x8, #24             /* sleep(3) 等孩子装好 handler */
+    svc #0x80
+    mov x0, x19
+    mov x1, #10
+    mov x8, #18             /* kill(child, SIGUSR1) */
+    svc #0x80
+    mvn x0, xzr
+    mov x8, #13             /* wait */
+    svc #0x80
+    cmp x0, #42
+    b.ne 238f
+    mov x0, #1
+    adr x1, 233f
+    mov x2, #20
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+238:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+
+235:                        /* handler(sig) */
+    mov x0, #1
+    adr x1, 234f
+    mov x2, #18
+    mov x8, #4
+    svc #0x80
+    mov x9, #1
+    str x9, [sp, #320]
+    mov x8, #32             /* sigreturn */
+    svc #0x80
+    b .
+
+233:
+    .ascii "signal-handler: ok\n"
+234:
+    .ascii "sig-handler: ok\n"
+    .balign 8
+user_sigh_end:
