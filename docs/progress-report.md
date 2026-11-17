@@ -66,4 +66,25 @@ Daily Privacy Profile remains limited to visible, user-controlled, reversible pr
 
 ## Completion decision and next slice
 
-**R2 code and automated evidence are complete at the interface-contract level.** R3 and real network assessment have not been started. Work stops at this boundary; the next slice is intentionally not auto-started. Any future runtime identity work must first introduce scheduler-owned task identity and preemption/IRQ-safe synchronization, then integrate syscall/network enforcement and durable audit without weakening the existing fail-closed policy path.
+**R2 code and automated evidence are complete at the interface-contract level.** R3 and real network assessment have not been started. At the time of this R2 report, work stopped at this boundary. Subsequent VFS and device-model work is tracked below. Any future runtime identity work must first introduce scheduler-owned task identity and preemption/IRQ-safe synchronization, then integrate syscall/network enforcement and durable audit without weakening the existing fail-closed policy path.
+
+
+## Subsequent kernel foundation work
+
+### Bounded VFS foundation
+
+- Added `kernel/vfs.h` and `kernel/vfs.c`: fixed-capacity in-memory root, directory and file nodes; strict absolute-path parsing; bounded file reads/writes; rejection of traversal and malformed paths.
+- Added host tests for path validation, duplicate creation, directory/file type errors, read/write bounds, and zero-length reads.
+- Initialized a static VFS instance during boot, created `/etc/kernel.conf`, and added a read-back content integrity check.
+- CI run [44019246846](https://github.com/110we/corecome-out/actions/runs/44019246846) passed, including the QEMU serial-boot assertion for the VFS self-test message.
+- This remains a small RAM-backed filesystem: no block device, persistence, permissions, mounts, unlink/rename, or crash consistency.
+
+### Device lifecycle registry
+
+- Added a fixed-capacity registry for up to 32 devices, with unique names, classes, generation-bound references, and probe/remove/suspend/resume callbacks.
+- Probing devices are kept out of normal lookup until probe succeeds; stale references fail after unregister.
+- Added host tests for duplicate names, failed probe, capacity limits, lifecycle transitions, stale references, and lookup visibility during probe.
+- In CI run [44019616731](https://github.com/110we/corecome-out/actions/runs/44019616731), the host test suite, AArch64 build, image checks, exception-vector checks, and GICv2 DTB checks passed; the QEMU serial-boot step was still running when this report section was prepared.
+- This is not yet a full device model: bus discovery, hardware matching, firmware, DMA, interrupt binding, and IRQ/SMP-safe registry locking remain open.
+
+The overall kernel completion estimate is unchanged. These additions are foundational slices, not evidence that the complete OS, persistent storage, or end-to-end networking is finished.
