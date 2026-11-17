@@ -23,44 +23,7 @@ jobs:
         run: |
           aarch64-linux-gnu-readelf -h build/coxvbn.elf | grep -E 'Machine:.*AArch64'
           test -s build/coxvbn.bin
-          if aarch64-linux-gnu-nm build/coxvbn.elf | grep -Eq '[[:space:]]coxvbn_redlab_policy_check      - name: Verify exception vector table
-        run: |
-          vector_addr=$(aarch64-linux-gnu-nm build/coxvbn.elf | awk '$3 == "__exception_vectors" { print $1 }')
-          test -n "$vector_addr"
-          test "$((16#$vector_addr % 2048))" -eq 0
-          aarch64-linux-gnu-objdump -d build/coxvbn.elf | grep -qi 'msr[[:space:]]*vbar_el1'
-      - name: Dump boot diagnostics
-        run: |
-          aarch64-linux-gnu-nm -n build/coxvbn.elf
-          aarch64-linux-gnu-objdump -d --start-address=0x40080400 --stop-address=0x40080480 build/coxvbn.elf
-          aarch64-linux-gnu-readelf -lS build/coxvbn.elf
-      - name: Verify QEMU GICv2 device tree
-        run: |
-          qemu-system-aarch64 -M virt,gic-version=2,dumpdtb=build/virt-gicv2.dtb -cpu cortex-a57 -display none
-          dtc -I dtb -O dts build/virt-gicv2.dtb > build/virt-gicv2.dts
-          grep -q 'arm,cortex-a15-gic' build/virt-gicv2.dts
-          grep -q 'interrupt-controller' build/virt-gicv2.dts
-      - name: QEMU serial boot test
-        run: |
-          set +e
-          timeout 15s qemu-system-aarch64 -M virt,gic-version=2 -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel build/coxvbn.bin -d int -D qemu-int.log > qemu.log 2>&1
-          status=$?
-          set -e
-          cat qemu.log
-          if [ -f qemu-int.log ]; then tail -n 120 qemu-int.log; fi
-          grep -q "COXVBN: UART READY" qemu.log
-          grep -q "COXVBN: FDT PARSED" qemu.log
-          grep -q "COXVBN: MEMORY DISCOVERY READY" qemu.log
-          grep -q "COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS" qemu.log
-          grep -q "COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE" qemu.log
-          grep -q "COXVBN: BOOT COMPLETE" qemu.log
-          grep -Eq "COXVBN: RAM regions 0x0*[1-9a-f][0-9a-f]*" qemu.log
-          if grep -q "ELR 0x200" qemu-int.log; then
-            echo "Unexpected exception vector at address 0x200"
-            exit 1
-          fi
-          if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then exit "$status"; fi
-; then
+          if aarch64-linux-gnu-nm build/coxvbn.elf | grep -Eq '[[:space:]]coxvbn_redlab_policy_check$'; then
             echo "Test-only scope bypass symbol leaked into production kernel"
             exit 1
           fi
