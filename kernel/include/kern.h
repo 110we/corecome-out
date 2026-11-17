@@ -71,6 +71,7 @@ void user_init_thread(void *arg);
 void user_cow_thread(void *arg);
 void user_thr_thread(void *arg);
 void user_sig_thread(void *arg);
+void user_file_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 u64 proc_wait(u64 *f);

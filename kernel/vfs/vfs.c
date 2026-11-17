@@ -5,6 +5,9 @@
  */
 #include "kern.h"
 
+/* ramfs 单文件上限：从 1 KiB 提到 64 KiB，够放真实程序与数据。 */
+#define RAMFS_FILE_MAX (64UL * 1024UL)
+
 #define MAX_INO   24
 #define MAX_FD    16
 #define T_DIR     0
@@ -155,7 +158,7 @@ static void set_text(ino_t *n, const char *s)
     while (s[len] != '\0') {
         len++;
     }
-    if (len > 1024) {
+    if (len > RAMFS_FILE_MAX) {
         return;
     }
     buf = (char *)kmalloc(len + 1);
@@ -191,6 +194,11 @@ void vfs_init(void)
     dev = ino_new(root, "dev", T_DIR);
     etc = ino_new(root, "etc", T_DIR);
     (void)ino_new(root, "tmp", T_DIR);
+    {
+        ino_t *bin = ino_new(root, "bin", T_DIR);
+
+        set_text(ino_new(bin, "hello", T_FILE), "user-file: hello from ramfs file\n");
+    }
 
     con = ino_new(dev, "console", T_DEV);
     con->dev = DEV_CON;
@@ -283,8 +291,8 @@ i64 vfs_write(int fd, const void *buf, u64 n)
     if (f->ino->type != T_FILE) {
         return -1;
     }
-    if (f->off + n > 1024) {
-        return -1; /* ramfs 单文件上限 1 KiB，够自检用 */
+    if (f->off + n > RAMFS_FILE_MAX) {
+        return -1; /* ramfs 单文件上限，见 RAMFS_FILE_MAX */
     }
     if (f->off + n > f->ino->cap) {
         u64 ncap = f->off + n;

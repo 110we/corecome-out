@@ -27,6 +27,8 @@ extern const u8 user_thr_start[];
 extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
+extern const u8 user_file_start[];
+extern const u8 user_file_end[];
 extern const u8 user_m4_init_start[];
 extern const u8 user_m4_init_end[];
 
@@ -104,6 +106,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* 读文件程序：走 VFS open/read，把文件内容打到控制台。 */
+void user_file_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_file_start, user_file_end, "file");
 }
 
 /* 正常程序：打印一行，exit 0。 */

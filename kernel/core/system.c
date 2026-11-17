@@ -736,6 +736,10 @@ int kmain(u64 dtb)
         puts_("[kern] user: create thread u6 failed\n");
     }
     /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    /* 第九个：EL0 程序通过 VFS 读文件（/bin/hello）。 */
+    if (kthread_create("u8", user_file_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread u8 failed\n");
+    }
     if (kthread_create("u7", user_sig_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread u7 failed\n");
     }

@@ -470,3 +470,48 @@ user_m4_init_start:
     .asciz "init: shell exited\n"
     .balign 8
 user_m4_init_end:
+
+/* 第五个 EL0 靶子：**通过 VFS 读文件**，而不是读链接进镜像的字符串。
+ * 路径 /bin/hello 由 vfs_init 建在 ramfs 里，内容是一行文本。
+ * 读出多少写多少；open/read 失败直接 exit 1。 */
+    .balign 8
+    .global user_file_start
+    .global user_file_end
+user_file_start:
+    adr x0, 3f
+    mov x1, #0
+    mov x8, #5              /* open(path, 0) */
+    svc #0x80
+    cmp x0, #0
+    b.lt 9f
+    mov x19, x0             /* fd */
+
+    sub sp, sp, #128        /* 用户栈上 128B 缓冲（代码页是 RX，不能写） */
+    mov x0, x19
+    mov x1, sp
+    mov x2, #96
+    mov x8, #6              /* read(fd, buf, 96) */
+    svc #0x80
+    cmp x0, #0
+    b.le 9f
+    mov x20, x0             /* n */
+
+    mov x0, #1
+    mov x1, sp
+    mov x2, x20
+    mov x8, #4              /* write(1, buf, n) */
+    svc #0x80
+
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+9:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+3:
+    .asciz "/bin/hello"
+    .balign 8
+user_file_end:
