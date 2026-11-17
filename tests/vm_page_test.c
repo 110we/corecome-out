@@ -54,6 +54,7 @@ int main(void)
         uint32_t i;
         assert(vm_address_space_init(&space, as_base) == 0);
         assert(vm_address_space_validate(&space) == 0);
+        assert(vm_address_space_root(&space) == (uint64_t)(uintptr_t)space.l1);
         assert(vm_address_space_map(&space, as_base, 0x60000000ULL,
                                     VM_MAP_READ | VM_MAP_WRITE | VM_MAP_USER) == 0);
         assert(vm_address_space_map(&space, as_base + VM_L3_SPAN,
@@ -87,6 +88,7 @@ int main(void)
         assert(vm_address_space_validate(&space) == 0);
         space.l2[511] = 1ULL;
         assert(vm_address_space_validate(&space) == -8);
+        assert(vm_address_space_root(&space) == 0ULL);
         space.l2[511] = 0ULL;
         assert(vm_address_space_validate(&space) == 0);
         {
@@ -100,6 +102,7 @@ int main(void)
 
         assert(vm_address_space_init(&range_space, as_base) == 0);
         assert(vm_address_space_validate(&range_space) == 0);
+        assert(vm_address_space_root(&range_space) == (uint64_t)(uintptr_t)range_space.l1);
         assert(vm_address_space_map_range(&range_space, as_base + 0x8000ULL,
                    0x63000000ULL, 3ULL * VM_PAGE_SIZE,
                    VM_MAP_READ | VM_MAP_WRITE) == 0);
