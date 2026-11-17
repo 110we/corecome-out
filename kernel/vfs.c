@@ -1,6 +1,31 @@
 #include "vfs.h"
 
-#include <string.h>
+static size_t vfs_length(const char *s, size_t limit)
+{
+    size_t n = 0U;
+    while (n < limit && s[n] != '\0') ++n;
+    return n;
+}
+
+static void vfs_copy(char *dst, const char *src, size_t length)
+{
+    size_t i;
+    for (i = 0U; i < length; ++i) dst[i] = src[i];
+}
+
+static void vfs_zero(void *memory, size_t length)
+{
+    uint8_t *p = (uint8_t *)memory;
+    size_t i;
+    for (i = 0U; i < length; ++i) p[i] = 0U;
+}
+
+static int vfs_compare(const char *a, const char *b)
+{
+    size_t i = 0U;
+    while (a[i] != '\0' && a[i] == b[i]) ++i;
+    return (unsigned char)a[i] - (unsigned char)b[i];
+}
 
 struct path_component {
     char name[COXVBN_VFS_NAME_MAX + 1U];
@@ -37,7 +62,7 @@ static int find_child(const struct coxvbn_vfs *fs, uint16_t parent,
     for (i = 1U; i < COXVBN_VFS_NODE_CAPACITY; ++i) {
         const struct coxvbn_vfs_node *node = &fs->nodes[i];
         if (node->type != COXVBN_VFS_NODE_UNUSED &&
-            node->parent == parent && strcmp(node->name, name) == 0) {
+            node->parent == parent && vfs_compare(node->name, name) == 0) {
             *out = (uint16_t)i;
             return 0;
         }
@@ -55,7 +80,8 @@ static int resolve_parent(const struct coxvbn_vfs *fs, const char *path,
 
     if (fs == 0 || path == 0 || parent_out == 0 || name_out == 0 ||
         path[0] != '/') return COXVBN_VFS_ERR_INVALID;
-    if (strlen(path) > COXVBN_VFS_PATH_MAX || strcmp(path, "/") == 0)
+    if (vfs_length(path, COXVBN_VFS_PATH_MAX + 1U) > COXVBN_VFS_PATH_MAX ||
+        vfs_compare(path, "/") == 0)
         return COXVBN_VFS_ERR_INVALID;
 
     for (;;) {
@@ -64,7 +90,8 @@ static int resolve_parent(const struct coxvbn_vfs *fs, const char *path,
         if (part.name[0] == '\0') return COXVBN_VFS_ERR_INVALID;
         cursor = part.next;
         if (*cursor == '\0') {
-            memcpy(name_out, part.name, strlen(part.name) + 1U);
+            size_t n = vfs_length(part.name, COXVBN_VFS_NAME_MAX + 1U);
+            vfs_copy(name_out, part.name, n + 1U);
             *parent_out = current;
             return 0;
         }
@@ -79,7 +106,6 @@ static int resolve_parent(const struct coxvbn_vfs *fs, const char *path,
                 return COXVBN_VFS_ERR_NOT_DIRECTORY;
             current = child;
         }
-        /* parse_component expects an absolute component boundary. */
         cursor--;
     }
 }
@@ -100,9 +126,9 @@ static int add_node(struct coxvbn_vfs *fs, const char *path,
     for (i = 1U; i < COXVBN_VFS_NODE_CAPACITY; ++i) {
         struct coxvbn_vfs_node *node = &fs->nodes[i];
         if (node->type == COXVBN_VFS_NODE_UNUSED) {
-            size_t n = strlen(name);
-            memset(node, 0, sizeof(*node));
-            memcpy(node->name, name, n + 1U);
+            size_t n = vfs_length(name, COXVBN_VFS_NAME_MAX + 1U);
+            vfs_zero(node, sizeof(*node));
+            vfs_copy(node->name, name, n + 1U);
             node->parent = parent;
             node->generation = (uint16_t)++fs->generation;
             if (node->generation == 0U)
@@ -118,7 +144,7 @@ static int add_node(struct coxvbn_vfs *fs, const char *path,
 void coxvbn_vfs_init(struct coxvbn_vfs *fs)
 {
     if (fs == 0) return;
-    memset(fs, 0, sizeof(*fs));
+    vfs_zero(fs, sizeof(*fs));
     fs->nodes[0].name[0] = '/';
     fs->nodes[0].name[1] = '\0';
     fs->nodes[0].parent = 0U;
@@ -148,9 +174,9 @@ int coxvbn_vfs_lookup(const struct coxvbn_vfs *fs, const char *path,
     uint16_t current = 0U;
     int rc;
     if (fs == 0 || path == 0 || node_out == 0 || path[0] != '/' ||
-        strlen(path) > COXVBN_VFS_PATH_MAX)
+        vfs_length(path, COXVBN_VFS_PATH_MAX + 1U) > COXVBN_VFS_PATH_MAX)
         return COXVBN_VFS_ERR_INVALID;
-    if (strcmp(path, "/") == 0) {
+    if (vfs_compare(path, "/") == 0) {
         *node_out = 0U;
         return 0;
     }
@@ -195,7 +221,7 @@ int coxvbn_vfs_read(const struct coxvbn_vfs *fs, const char *path,
     if (offset > node->size) return COXVBN_VFS_ERR_RANGE;
     amount = (size_t)node->size - offset;
     if (amount > length) amount = length;
-    if (amount != 0U) memcpy(buffer, node->data + offset, amount);
+    if (amount != 0U) vfs_copy((char *)buffer, (const char *)node->data + offset, amount);
     *read_out = amount;
     return 0;
 }
@@ -215,9 +241,10 @@ int coxvbn_vfs_write(struct coxvbn_vfs *fs, const char *path,
     node = &fs->nodes[index];
     if (node->type == COXVBN_VFS_NODE_DIRECTORY)
         return COXVBN_VFS_ERR_IS_DIRECTORY;
-    if (offset > node->size || length > COXVBN_VFS_FILE_MAX - offset)
+    if (offset > node->size || offset > COXVBN_VFS_FILE_MAX ||
+        length > COXVBN_VFS_FILE_MAX - offset)
         return COXVBN_VFS_ERR_RANGE;
-    if (length != 0U) memcpy(node->data + offset, buffer, length);
+    if (length != 0U) vfs_copy((char *)node->data + offset, (const char *)buffer, length);
     if (offset + length > node->size)
         node->size = (uint16_t)(offset + length);
     *written_out = length;
