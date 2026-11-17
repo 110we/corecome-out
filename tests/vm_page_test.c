@@ -42,6 +42,8 @@ int main(void)
                        VM_MAP_READ) == -1);
     assert(vm_page_map(&table, base + 2U * VM_PAGE_SIZE, 0x50001000ULL,
                        VM_MAP_READ | VM_MAP_DEVICE | VM_MAP_EXEC) == -1);
+    assert(vm_page_map(&table, base + 2U * VM_PAGE_SIZE, 0x50001000ULL,
+                       VM_MAP_READ | VM_MAP_DEVICE | VM_MAP_USER) == -1);
     assert(vm_page_map(&table, base + VM_L3_SPAN, 0x50002000ULL,
                        VM_MAP_READ) == -1);
     assert(vm_page_map(&table, base + 2U * VM_PAGE_SIZE,
