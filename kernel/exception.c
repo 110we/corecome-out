@@ -86,7 +86,7 @@ static void dispatch_irq(struct exception_frame *frame)
         exception_panic(frame);
 }
 
-void exception_dispatch(struct exception_frame *frame)
+struct exception_frame *exception_dispatch(struct exception_frame *frame)
 {
     if (frame == 0)
         exception_panic(0);
@@ -94,7 +94,7 @@ void exception_dispatch(struct exception_frame *frame)
     /* Current-EL SPx IRQ and lower-EL AArch64 IRQ vector slots. */
     if (frame->vector == 5U || frame->vector == 9U) {
         dispatch_irq(frame);
-        return;
+        return frame;
     }
 
     /* Synchronous, FIQ, SError, and unsupported-origin vectors fail closed. */
