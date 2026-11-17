@@ -757,6 +757,10 @@ int kmain(u64 dtb)
         puts_("[kern] user: create thread u6 failed\n");
     }
     /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    /* 第二十五个：4 KiB 以内的大文件读写。 */
+    if (kthread_create("uo", user_big_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread uo failed\n");
+    }
     /* 第二十四个：ELF64 加载（exec 一个真正的 ELF 文件）。 */
     if (kthread_create("un", user_elfrun_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread un failed\n");

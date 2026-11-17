@@ -13,8 +13,8 @@ extern const u8 _binary_build_user_elf_elf_start[];
 extern const u8 _binary_build_user_elf_elf_end[];
 extern const u8 user_shell_end[];
 
-/* ramfs 单文件上限：受 slab 最大块（2048B）限制，先按 2 KiB 用。 */
-#define RAMFS_FILE_MAX 2048UL
+/* ramfs 单文件上限：<=1 KiB 走 kmalloc，>1 KiB 用整页（4 KiB）承载。 */
+#define RAMFS_FILE_MAX 4096UL
 
 #define MAX_INO   192
 #define MAX_FD    16
@@ -37,6 +37,7 @@ typedef struct inode {
     u64 cap;
     u64 rpos;      /* 管道读位置 */
     u64 wpos;      /* 管道写位置 */
+    int page_backed; /* data 来自 mm_page_alloc，需要 mm_page_free */
     int refs;      /* 打开的 fd 数（含 dup/fork 克隆） */
     int unlinked;  /* 已从目录树摘除，等最后一个 fd 关闭再释放 */
 } ino_t;
@@ -119,6 +120,7 @@ static ino_t *ino_new(ino_t *parent, const char *name, int type)
     n->cap = 0;
     n->rpos = 0;
     n->wpos = 0;
+    n->page_backed = 0;
     n->refs = 0;
     n->unlinked = 0;
     str_copy(n->name, name, sizeof(n->name));
@@ -184,6 +186,22 @@ static ino_t *walk(const char *path)
 }
 
 /* 把一段二进制装进 inode：用于把内置程序写进 ramfs，供 exec-by-path 用。 */
+static void ino_free_data(ino_t *n)
+{
+    if (n->data == (char *)0) {
+        return;
+    }
+    if (n->page_backed) {
+        mm_page_free(n->data);
+    } else {
+        kfree(n->data);
+    }
+    n->data = (char *)0;
+    n->size = 0;
+    n->cap = 0;
+    n->page_backed = 0;
+}
+
 static void set_data(ino_t *n, const u8 *src, u64 len)
 {
     char *buf;
@@ -191,7 +209,11 @@ static void set_data(ino_t *n, const u8 *src, u64 len)
     if (len == 0 || len > RAMFS_FILE_MAX) {
         return;
     }
-    buf = (char *)kmalloc(len);
+    if (len > 1024UL) {
+        buf = (char *)mm_page_alloc();
+    } else {
+        buf = (char *)kmalloc(len);
+    }
     if (buf == (char *)0) {
         return;
     }
@@ -204,7 +226,8 @@ static void set_data(ino_t *n, const u8 *src, u64 len)
     }
     n->data = buf;
     n->size = len;
-    n->cap = len;
+    n->cap = 4096;
+    n->page_backed = len > 1024UL;
 }
 
 static void set_text(ino_t *n, const char *s)
@@ -317,12 +340,7 @@ i64 vfs_unlink(const char *path)
         victim->unlinked = 1;
         return 0;
     }
-    if (victim->data != (char *)0) {
-        kfree(victim->data);
-    }
-    victim->data = (char *)0;
-    victim->size = 0;
-    victim->cap = 0;
+    ino_free_data(victim);
     victim->type = -1;
     victim->name[0] = '\0';
     return 0;
@@ -418,12 +436,7 @@ i64 vfs_open(const char *path, int flags)
     }
     /* O_TRUNC(2)：把已有文件清零 */
     if ((flags & 2) != 0 && n != (ino_t *)0 && n->type == T_FILE) {
-        if (n->data != (char *)0) {
-            kfree(n->data);
-        }
-        n->data = (char *)0;
-        n->size = 0;
-        n->cap = 0;
+        ino_free_data(n);
     }
     n->refs++;
     for (i = 3; i < MAX_FD; i++) {
@@ -553,19 +566,24 @@ i64 vfs_write(int fd, const void *buf, u64 n)
         return -1; /* ramfs 单文件上限，见 RAMFS_FILE_MAX */
     }
     if (f->off + n > f->ino->cap) {
-        u64 ncap = f->off + n;
-        char *nb = (char *)kmalloc(ncap);
+        u64 ncap = RAMFS_FILE_MAX;
+        char *nb;
+
+        if (ncap > 1024UL) {
+            nb = (char *)mm_page_alloc();
+        } else {
+            nb = (char *)kmalloc(ncap);
+        }
         if (nb == (char *)0) {
             return -1;
         }
         for (i = 0; i < f->ino->size; i++) {
             nb[i] = f->ino->data[i];
         }
-        if (f->ino->data != (char *)0) {
-            kfree(f->ino->data);
-        }
+        ino_free_data(f->ino);
         f->ino->data = nb;
         f->ino->cap = ncap;
+        f->ino->page_backed = ncap > 1024UL;
     }
     for (i = 0; i < n; i++) {
         f->ino->data[f->off + i] = s[i];
@@ -589,12 +607,7 @@ i64 vfs_close(int fd)
             n->refs--;
         }
         if (n->refs == 0 && (n->unlinked || n->type == T_PIPE)) {
-            if (n->data != (char *)0) {
-                kfree(n->data);
-            }
-            n->data = (char *)0;
-            n->size = 0;
-            n->cap = 0;
+            ino_free_data(n);
             n->type = -1;
             n->name[0] = '\0';
         }

@@ -37,7 +37,7 @@
 
 ## 边界
 
-- 没有 `argv/envp`；ELF 要求静态、PT_LOAD 落在用户窗内（2 MiB），镜像本身受 ramfs 2 KiB 上限。
+- 没有 `argv/envp`；ELF 要求静态、PT_LOAD 落在用户窗内（2 MiB），镜像本身受 ramfs 4 KiB 上限。
 - 没有 `socket`；`PIPE` 是非阻塞的 4 KiB 环形缓冲，读空返回 0。
 - `WAIT`/`SLEEP` 都是让出轮询，不是真正的睡眠队列。
 - 文件系统只有 ramfs（可写）与 ext2（只读，挂 `/mnt`），无页缓存。

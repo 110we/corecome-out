@@ -87,6 +87,7 @@ void user_ulo_thread(void *arg);
 void user_pipe_thread(void *arg);
 void user_access_thread(void *arg);
 void user_elfrun_thread(void *arg);
+void user_big_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 void proc_exec_path(u64 *f, u64 upath);

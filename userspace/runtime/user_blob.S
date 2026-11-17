@@ -1293,3 +1293,59 @@ user_elfrun_start:
     .asciz "/bin/elfhello"
     .balign 8
 user_elfrun_end:
+
+/* 大文件：30 次 × 100 字节 = 3000 字节，stat 必须等于 3000 */
+    .balign 8
+    .global user_big_start
+    .global user_big_end
+user_big_start:
+    adr x0, 191f
+    mov x1, #3
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 198f
+    mov x19, x0
+    mov x20, #30
+192:
+    mov x0, x19
+    adr x1, 194f
+    mov x2, #100
+    mov x8, #4
+    svc #0x80
+    cmp x0, #100
+    b.ne 198f
+    subs x20, x20, #1
+    b.ne 192b
+    mov x0, x19
+    mov x8, #7
+    svc #0x80
+
+    adr x0, 191f
+    mov x8, #22
+    svc #0x80
+    cmp x0, #3000
+    b.ne 198f
+
+    mov x0, #1
+    adr x1, 192f
+    mov x2, #12
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+198:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+191:
+    .asciz "/tmp/big"
+192:
+    .ascii "bigfile: ok\n"
+194:
+    .fill 100, 1, 0x41      /* 'A' × 100 */
+    .balign 8
+user_big_end:
