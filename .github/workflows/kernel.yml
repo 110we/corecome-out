@@ -53,6 +53,7 @@ jobs:
           cat qemu.log
           if [ -f qemu-int.log ]; then tail -n 120 qemu-int.log; fi
           grep -q "COXVBN: UART READY" qemu.log
+          grep -q "COXVBN: VFS IN-MEMORY READY; SELFTEST PASS" qemu.log
           grep -q "COXVBN: FDT PARSED" qemu.log
           grep -q "COXVBN: MEMORY DISCOVERY READY" qemu.log
           grep -q "COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS" qemu.log
