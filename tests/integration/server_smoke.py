@@ -119,7 +119,16 @@ def main():
         check("路由数 = 13", snap.get("routes") == 13, str(snap.get("routes")))
         sides = [(s["name"], s["order"], s["state"]) for s in snap.get("sides", [])]
         check("面名单/顺序/状态", sides == EXPECTED_SIDES, str(sides))
-        check("拍子在走", snap.get("ticks", 0) >= 1, str(snap.get("ticks")))
+        # HTTP readiness can precede the first 100-ms scheduler tick.
+        # Wait for the observable tick instead of making CI timing-dependent.
+        ticks = snap.get("ticks", 0)
+        tick_deadline = time.monotonic() + 2.0
+        while ticks < 1 and time.monotonic() < tick_deadline:
+            time.sleep(0.05)
+            st, body = call("/api/kernel")
+            snap = body.get("data", {})
+            ticks = snap.get("ticks", 0)
+        check("拍子在走", ticks >= 1, str(ticks))
 
         st, body = call("/api/kernel/routes")
         routes = set(body.get("data", {}).get("routes", []))
