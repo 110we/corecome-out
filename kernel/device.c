@@ -37,6 +37,7 @@ static struct coxvbn_device_record *device_find(
     for (i = 0U; i < COXVBN_DEVICE_CAPACITY; ++i) {
         struct coxvbn_device_record *record = &registry->devices[i];
         if (record->state != COXVBN_DEVICE_UNUSED &&
+            record->state != COXVBN_DEVICE_PROBING &&
             record->ref.id == ref->id &&
             record->ref.generation == ref->generation)
             return record;
@@ -92,7 +93,8 @@ int coxvbn_device_register(struct coxvbn_device_registry *registry,
 
     for (i = 0U; i < COXVBN_DEVICE_CAPACITY; ++i) {
         struct coxvbn_device_record *record = &registry->devices[i];
-        if (record->state != COXVBN_DEVICE_UNUSED &&
+        if ((record->state == COXVBN_DEVICE_ACTIVE ||
+             record->state == COXVBN_DEVICE_SUSPENDED) &&
             device_equal(record->name, name))
             return -3;
         if (record->state == COXVBN_DEVICE_UNUSED && slot == 0)
@@ -111,7 +113,7 @@ int coxvbn_device_register(struct coxvbn_device_registry *registry,
     slot->ops = ops;
     slot->context = context;
     slot->device_class = device_class;
-    slot->state = COXVBN_DEVICE_SUSPENDED; /* Not visible as active until probe. */
+    slot->state = COXVBN_DEVICE_PROBING;
     {
         int rc = ops->probe(context);
         if (rc != 0) {
