@@ -49,7 +49,7 @@ void pg_activate(u64 *l1);
 int pg_selftest(void);
 
 /* ---- 调度：内核线程 ---- */
-#define KTHREAD_MAX 24
+#define KTHREAD_MAX 40
 int kthread_create(const char *name, void (*fn)(void *), void *arg);
 int uart_tryget(void);
 extern volatile int g_shell_mode;
@@ -77,6 +77,7 @@ void user_dir_thread(void *arg);
 void user_stat_thread(void *arg);
 void user_time_thread(void *arg);
 void user_sleep_thread(void *arg);
+void user_fork_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 void proc_exec_path(u64 *f, u64 upath);

@@ -28,6 +28,8 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_fork_start[];
+extern const u8 user_fork_end[];
 extern const u8 user_sleep_start[];
 extern const u8 user_sleep_end[];
 extern const u8 user_time_start[];
@@ -116,6 +118,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* fork/wait 压力靶子：8 个孩子依次退出并被回收。 */
+void user_fork_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_fork_start, user_fork_end, "forkstress");
 }
 
 /* 睡眠靶子：sleep(4) 之后 tick 至少前进 4。 */

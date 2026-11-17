@@ -45,7 +45,7 @@ vpath %.c $(sort $(dir $(SRCS)))
 vpath %.S $(sort $(dir $(SRCS)))
 
 CFLAGS := -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin \
-          -nostdlib -mgeneral-regs-only -O2 -Wall -Wextra -Werror -g
+          -nostdlib -mgeneral-regs-only -O2 -Wall -Wextra -Werror -g -MMD -MP
 LDFLAGS := -T $(ARCH)/boot/linker.ld -nostdlib -z max-page-size=4096 \
            -Map=$(BUILD)/kernel.map
 
@@ -60,6 +60,8 @@ DISKFLAGS := -drive file=$(DISK),if=none,format=raw,id=hd0 \
 QEMU := qemu-system-aarch64
 QEMUFLAGS := -M virt,gic-version=2 -cpu cortex-a53 -display none -monitor none
 QEMU_EXTRA ?=
+
+-include $(OBJS:.o=.d)
 
 .PHONY: all run test test-cmd test-m4 clean
 
@@ -125,6 +127,7 @@ test: $(BUILD)/kernel.bin $(DISK)
 > @grep -q "stat: ok" $(BUILD)/serial.log || (echo "FAIL: stat"; exit 1)
 > @grep -q "time: ok" $(BUILD)/serial.log || (echo "FAIL: time"; exit 1)
 > @grep -q "sleep: ok" $(BUILD)/serial.log || (echo "FAIL: sleep"; exit 1)
+> @grep -q "stress: ok" $(BUILD)/serial.log || (echo "FAIL: fork stress"; exit 1)
 > @grep -q "proc: fork pid=" $(BUILD)/serial.log || (echo "FAIL: fork"; exit 1)
 > @grep -q "exec: hello from child" $(BUILD)/serial.log || (echo "FAIL: exec"; exit 1)
 > @grep -q "proc: wait pid=.* code=7" $(BUILD)/serial.log || (echo "FAIL: wait code"; exit 1)

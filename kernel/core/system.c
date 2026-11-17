@@ -757,6 +757,10 @@ int kmain(u64 dtb)
         puts_("[kern] user: create thread u6 failed\n");
     }
     /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    /* 第十五个：EL0 fork/wait 压力（连开 8 个孩子）。 */
+    if (kthread_create("ue", user_fork_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread ue failed\n");
+    }
     /* 第十四个：EL0 睡眠（SYS_SLEEP）。 */
     if (kthread_create("ud", user_sleep_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread ud failed\n");

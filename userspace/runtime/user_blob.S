@@ -718,3 +718,45 @@ user_sleep_start:
     .ascii "sleep: ok\n"
     .balign 8
 user_sleep_end:
+
+/* fork/wait 压力：连开 8 个孩子，每个 exit 0，父亲逐个收尸 */
+    .balign 8
+    .global user_fork_start
+    .global user_fork_end
+user_fork_start:
+    mov x20, #8
+91:
+    mov x0, #0
+    mov x8, #11             /* fork */
+    svc #0x80
+    cbnz x0, 93f
+    mov x0, #0
+    mov x8, #9              /* 孩子退出 */
+    svc #0x80
+    b .
+93:
+    mvn x0, xzr
+    mov x8, #13             /* wait(-1) */
+    svc #0x80
+    cmp x0, #0
+    b.ne 98f                /* 退出码不是 0 就判失败 */
+    subs x20, x20, #1
+    b.ne 91b
+    mov x0, #1
+    adr x1, 94f
+    mov x2, #11
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+98:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+94:
+    .ascii "stress: ok\n"
+    .balign 8
+user_fork_end:
