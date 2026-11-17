@@ -8,8 +8,6 @@
 #include "vfs.h"
 #include "scheduler.h"
 #include "aarch64_context.h"
-#include "scheduler.h"
-#include "aarch64_context.h"
 static struct coxvbn_vfs boot_vfs;
 static struct coxvbn_scheduler boot_scheduler;
 static struct gicv2_state boot_gic;
