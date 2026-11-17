@@ -138,6 +138,7 @@ test: $(BUILD)/kernel.bin $(DISK)
   else echo "SKIP: no mke2fs (块设备自检跳过)"; fi
 > @grep -q "\[kern\] vfs: hello from ramfs" $(BUILD)/serial.log || (echo "FAIL: vfs"; exit 1)
 > @grep -q "\[kern\] vfs: inode stress ok" $(BUILD)/serial.log || (echo "FAIL: vfs inode stress"; exit 1)
+> @grep -q "\[kern\] vfs: ext2 mount ok" $(BUILD)/serial.log || (echo "FAIL: ext2 mount"; exit 1)
 > @grep -q "\[kern\] rootfs:" $(BUILD)/serial.log || (echo "FAIL: rootfs"; exit 1)
 > @grep -q "\[thr\] A 0" $(BUILD)/serial.log || (echo "FAIL: thread A"; exit 1)
 > @grep -q "\[thr\] B 0" $(BUILD)/serial.log || (echo "FAIL: thread B"; exit 1)

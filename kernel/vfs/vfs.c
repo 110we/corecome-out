@@ -4,6 +4,7 @@
  * “用户态要的文件语义，在内核里是一条函数调用链”。
  */
 #include "kern.h"
+#include "blk.h"
 
 extern const u8 user_blob_start[];
 extern const u8 user_blob_end[];
@@ -18,6 +19,7 @@ extern const u8 user_shell_end[];
 #define T_DIR     0
 #define T_FILE    1
 #define T_DEV     2
+#define T_EXT2    3   /* 指向 ext2 只读文件：首次 read 时把内容读进内存 */
 #define DEV_CON   1
 
 typedef struct inode {
@@ -328,6 +330,7 @@ void vfs_init(void)
     dev = ino_new(root, "dev", T_DIR);
     etc = ino_new(root, "etc", T_DIR);
     (void)ino_new(root, "tmp", T_DIR);
+    (void)ino_new(root, "mnt", T_DIR);
     {
         ino_t *bin = ino_new(root, "bin", T_DIR);
 
@@ -353,10 +356,29 @@ void vfs_init(void)
     }
 }
 
+/* /mnt/<name> 走 ext2：这里不做页缓存，第一次 read 整文件读进内存。 */
+static int is_mnt_path(const char *p)
+{
+    return p[0] == '/' && p[1] == 'm' && p[2] == 'n' && p[3] == 't' && p[4] == '/' && p[5] != '\0';
+}
+
 i64 vfs_open(const char *path, int flags)
 {
-    ino_t *n = walk(path);
+    ino_t *n = (ino_t *)0;
     int i;
+
+    if (is_mnt_path(path)) {
+        ino_t *mnt = walk("/mnt");
+
+        if (mnt != (ino_t *)0) {
+            n = ino_find(mnt, path + 5);
+            if (n == (ino_t *)0) {
+                n = ino_new(mnt, path + 5, T_EXT2);
+            }
+        }
+    } else {
+        n = walk(path);
+    }
 
     if (n == (ino_t *)0) {
         char name[24];
@@ -390,6 +412,35 @@ i64 vfs_read(int fd, void *buf, u64 n)
     file_t *f;
     u64 k, left;
 
+    if (fd < 0 || fd >= MAX_FD || !fds[fd].used) {
+        return -1;
+    }
+    f = &fds[fd];
+    if (f->ino->type == T_EXT2 && f->ino->data == (char *)0) {
+        char full[VFS_PATH_MAX];
+        char *mem = (char *)mm_page_alloc();
+        i64 got;
+        u64 i;
+
+        if (mem == (char *)0) {
+            return -1;
+        }
+        /* ext2 的读取接口吃的是相对挂载点根的路径，所以要拼 "/<name>" */
+        full[0] = '/';
+        for (i = 0; i + 1 < VFS_PATH_MAX - 1 && f->ino->name[i] != '\0'; i++) {
+            full[1 + i] = f->ino->name[i];
+        }
+        full[1 + i] = '\0';
+        got = ext2_read(full, mem, 4096);
+        if (got <= 0) {
+            mm_page_free(mem);
+            return -1;
+        }
+        f->ino->data = mem;
+        f->ino->size = (u64)got;
+        f->ino->cap = 4096;
+    }
+
     if (fd < 0 || fd >= MAX_FD || !fds[fd].used || n == 0) {
         return -1;
     }
@@ -408,7 +459,7 @@ i64 vfs_read(int fd, void *buf, u64 n)
         }
         return (i64)got;
     }
-    if (f->ino->type != T_FILE) {
+    if (f->ino->type != T_FILE && f->ino->type != T_EXT2) {
         return -1;
     }
     left = f->ino->size > f->off ? f->ino->size - f->off : 0;

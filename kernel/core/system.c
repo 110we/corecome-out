@@ -693,6 +693,20 @@ int kmain(u64 dtb)
             } else {
                 puts_("[kern] ext2: read failed\n");
             }
+            /* 挂载点路径：通过 VFS 再读一次同一个文件 */
+            {
+                i64 fd = vfs_open("/mnt/hello.txt", 0);
+                char mb[64];
+                i64 mn = fd >= 0 ? vfs_read(fd, mb, sizeof(mb) - 1) : -1;
+
+                if (mn > 0) {
+                    mb[mn] = '\0';
+                    printk("[kern] vfs: ext2 mount ok: %s", mb);
+                    vfs_close(fd);
+                } else {
+                    puts_("[kern] vfs: ext2 mount FAIL\n");
+                }
+            }
         } else {
             puts_("[kern] ext2: no fs found\n");
         }

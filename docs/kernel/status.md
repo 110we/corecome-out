@@ -16,11 +16,11 @@
 | 页表 | 4K 多级、每进程 TTBR0 | 4K，L1/L2/L3，每进程 aspace | 已验证 | `pg_activate` 切 TTBR0 |
 | 隔离 | PTE U/AP/UXN + 故障杀进程 | 同三层 | 已验证 | `insn-fault` / `data-fault` 杀线程；边界见技术债 |
 | 进程创建 | fork + COW | fork 共享页 + 引用计数 | 已验证 | `cow: parent intact` |
-| 程序装载 | execve 换 mm、加载 ELF | `SYS_EXEC` 换 aspace，**只装内置 blob** | 部分 | **不是 ELF 加载器**，没有 argv/envp |
+| 程序装载 | execve 换 mm、加载 ELF | `SYS_EXEC` 内置 blob；**`SYS_EXEC_PATH` 从 ramfs 读镜像**（M4 的 init 已走 `/bin/sh`） | 部分 | **不是 ELF 加载器**，裸代码固定入口，没有 argv/envp |
 | 退出/回收 | 僵尸 + wait4 | 僵尸 + `SYS_WAIT` | 已验证 | `wait pid=… code=7/-15`；wait 是让出轮询，非睡眠队列 |
 | 调度 | CFS/EEVDF、多核、就绪队列 | 100 Hz 固定片轮转、单核、数组表 | 部分 | **无就绪队列/优先级/负载均衡**；仅用户态可抢占 |
 | 抢占 | 内核可抢占 | 用户态可抢占，内核靠关中断 | 部分 | 长 syscall 拖拍 |
-| 文件 | VFS + 页缓存 + 多 FS | VFS + ramfs root + `/dev/console` + ext2 只读；**EL0 程序可 open/read 文件** | 部分 | **ext2 无挂载点**、无页缓存、无日志；ramfs 单文件上限 64 KiB |
+| 文件 | VFS + 页缓存 + 多 FS | VFS + ramfs root + `/dev/console` + **ext2 挂载到 `/mnt`**；EL0 可 open/read、mkdir/unlink、O_CREAT | 部分 | 无页缓存、无写、无日志；ext2 仍是整文件读进内存 |
 | fd | 每进程 files_struct | 每进程 filetable | 已验证 | fork 深拷贝，clone 共享 |
 | 设备 | 驱动模型 + DT/ACPI | DTB 只读解析 + PL011/GICv2/timer/virtio-mmio blk 手写 | 部分 | 地址已来自 DTB；无驱动注册表，virtio-blk 仍是手写扫描（M5） |
 | 网络 | TCP/IP + netfilter | 无 | 计划中 | — |
