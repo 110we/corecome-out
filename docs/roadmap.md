@@ -41,7 +41,7 @@
 - [ ] Introduce user mode only after address-space isolation and syscall validation exist
 
 ## Milestone 5 — kernel services
-- [ ] VFS and an initial in-memory filesystem
+- [x] Add a bounded, host-tested in-memory VFS core (fixed node/file capacities; not persistent and not yet mounted by boot)
 - [ ] Device model and driver lifecycle
 - [ ] IPC and capability-based resource handles
 - [ ] Implement COXVBN Direct Port Communication: paired endpoints, direct shared-channel data path, no bridge/relay
