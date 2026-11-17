@@ -1,7 +1,41 @@
 #include "scheduler.h"
+#include "exception.h"
 
 #include <assert.h>
 #include <stdint.h>
+
+static void test_frame_selection(void)
+{
+    static struct coxvbn_scheduler scheduler;
+    static uint8_t stacks[2][COXVBN_TASK_MIN_STACK_SIZE]
+        __attribute__((aligned(16)));
+    static struct exception_frame frames[2] __attribute__((aligned(16)));
+    struct coxvbn_task_ref first, second;
+    struct exception_frame *selected;
+
+    coxvbn_scheduler_init(&scheduler);
+    assert(coxvbn_task_create(&scheduler, 0x1000U, 11U,
+        (uintptr_t)stacks[0], sizeof(stacks[0]), 0, &first) == 0);
+    assert(coxvbn_task_create(&scheduler, 0x2000U, 22U,
+        (uintptr_t)stacks[1], sizeof(stacks[1]), 0, &second) == 0);
+
+    assert(coxvbn_task_set_initial_frame(&scheduler, &first, &frames[0]) == 0);
+    assert(coxvbn_task_set_initial_frame(&scheduler, &second, &frames[1]) == 0);
+    assert(coxvbn_task_set_initial_frame(&scheduler, &second, &frames[1]) == -2);
+
+    selected = coxvbn_scheduler_schedule_frame(&scheduler, 0);
+    assert(selected == &frames[0]);
+    frames[0].elr = 0x1110U;
+    selected = coxvbn_scheduler_schedule_frame(&scheduler, &frames[0]);
+    assert(selected == &frames[1]);
+    frames[1].elr = 0x2220U;
+    selected = coxvbn_scheduler_schedule_frame(&scheduler, &frames[1]);
+    assert(selected == &frames[0]);
+    assert(frames[0].elr == 0x1110U);
+    selected = coxvbn_scheduler_schedule_frame(&scheduler, &frames[0]);
+    assert(selected == &frames[1]);
+    assert(frames[1].elr == 0x2220U);
+}
 
 int main(void)
 {
@@ -57,5 +91,7 @@ int main(void)
     assert(coxvbn_task_reap(&scheduler, &b) == 0);
     assert(coxvbn_scheduler_pick_next(&scheduler, &picked) == -2);
     assert(scheduler.task_count == 0U);
+
+    test_frame_selection();
     return 0;
 }
