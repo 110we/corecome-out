@@ -3,8 +3,21 @@
 #include <assert.h>
 #include <string.h>
 
-struct mock_device { int probes, removes, suspends, resumes, fail_probe; };
-static int probe(void *p) { struct mock_device *m=p; ++m->probes; return m->fail_probe; }
+struct mock_device {
+    int probes, removes, suspends, resumes, fail_probe, lookup_during_probe;
+    struct coxvbn_device_registry *registry;
+    const char *probe_name;
+};
+static int probe(void *p)
+{
+    struct mock_device *m = p;
+    struct coxvbn_device_ref ref;
+    ++m->probes;
+    if (m->registry != 0 && m->probe_name != 0)
+        m->lookup_during_probe =
+            coxvbn_device_lookup(m->registry, m->probe_name, &ref);
+    return m->fail_probe;
+}
 static int remove_device(void *p) { ++((struct mock_device *)p)->removes; return 0; }
 static int suspend_device(void *p) { ++((struct mock_device *)p)->suspends; return 0; }
 static int resume_device(void *p) { ++((struct mock_device *)p)->resumes; return 0; }
@@ -22,9 +35,12 @@ int main(void)
     char name[COXVBN_DEVICE_NAME_MAX + 1U];
 
     coxvbn_device_registry_init(&registry);
+    mock.registry = &registry;
+    mock.probe_name = "virtio-net0";
     assert(coxvbn_device_register(&registry, "virtio-net0",
         COXVBN_DEVICE_CLASS_NETWORK, &ops, &mock, &ref) == 0);
     assert(mock.probes == 1 && registry.count == 1U);
+    assert(mock.lookup_during_probe == -2);
     assert(coxvbn_device_lookup(&registry, "virtio-net0", &found) == 0);
     assert(found.id == ref.id && found.generation == ref.generation);
     assert(coxvbn_device_register(&registry, "virtio-net0",
