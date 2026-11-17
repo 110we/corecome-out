@@ -49,7 +49,7 @@ void pg_activate(u64 *l1);
 int pg_selftest(void);
 
 /* ---- 调度：内核线程 ---- */
-#define KTHREAD_MAX 40
+#define KTHREAD_MAX 64
 int kthread_create(const char *name, void (*fn)(void *), void *arg);
 int uart_tryget(void);
 extern volatile int g_shell_mode;
@@ -81,6 +81,8 @@ void user_fork_thread(void *arg);
 void user_trunc_thread(void *arg);
 void user_append_thread(void *arg);
 void user_seek_thread(void *arg);
+void user_rename_thread(void *arg);
+void user_dup_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 void proc_exec_path(u64 *f, u64 upath);
@@ -161,6 +163,8 @@ i64 vfs_mkdir(const char *path);
 int vfs_selftest(void);
 i64 vfs_size(const char *path);
 i64 vfs_seek(int fd, i64 off);
+i64 vfs_rename(const char *oldp, const char *newp);
+i64 vfs_dup(int fd);
 i64 vfs_unlink(const char *path);
 
 #endif

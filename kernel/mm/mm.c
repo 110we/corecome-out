@@ -1,13 +1,13 @@
 /* mm.c —— 页分配 + slab。大内核里所有对象都从这里出。
  *
- * 页：512 KiB 静态池，128 个 4K 页，位图管理。
+ * 页：1 MiB 静态池，256 个 4K 页，位图管理。
  * slab：7 个尺寸档，每块前面 16 字节头（next + meta），free 可复用。
  * 先不做页回收：块回了 slab，页不还池子——够跑，且能看出泄漏。
  */
 #include "kern.h"
 
 #define PAGE_SIZE   4096UL
-#define POOL_PAGES  128UL
+#define POOL_PAGES  256UL
 #define MAGIC       0xA5A5A5A5UL
 #define NCLASS      7
 

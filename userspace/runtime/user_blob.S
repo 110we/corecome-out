@@ -944,3 +944,137 @@ user_seek_start:
     .ascii "abcdef"
     .balign 8
 user_seek_end:
+
+/* RENAME：/tmp/ra -> /tmp/rb，旧路径失效、新路径可 stat */
+    .balign 8
+    .global user_rename_start
+    .global user_rename_end
+user_rename_start:
+    adr x0, 131f
+    mov x1, #3
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 138f
+    mov x19, x0
+    mov x0, x19
+    adr x1, 134f
+    mov x2, #1
+    mov x8, #4
+    svc #0x80
+    mov x0, x19
+    mov x8, #7
+    svc #0x80
+
+    adr x0, 131f
+    adr x1, 135f
+    mov x8, #26             /* rename */
+    svc #0x80
+    cbnz x0, 138f
+
+    adr x0, 135f
+    mov x8, #22
+    svc #0x80
+    cmp x0, #1
+    b.ne 138f
+
+    adr x0, 131f
+    mov x8, #22
+    svc #0x80
+    cmp x0, #0
+    b.ge 138f               /* 旧路径仍存在 → 失败 */
+
+    mov x0, #1
+    adr x1, 132f
+    mov x2, #11
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+138:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+131:
+    .asciz "/tmp/ra"
+132:
+    .ascii "rename: ok\n"
+134:
+    .ascii "x"
+135:
+    .asciz "/tmp/rb"
+    .balign 8
+user_rename_end:
+
+/* DUP：复制 fd 后从副本读，仍应读到 "abc" 的 'a' */
+    .balign 8
+    .global user_dup_start
+    .global user_dup_end
+user_dup_start:
+    adr x0, 141f
+    mov x1, #3
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 148f
+    mov x19, x0
+    mov x0, x19
+    adr x1, 144f
+    mov x2, #3
+    mov x8, #4
+    svc #0x80
+    mov x0, x19
+    mov x8, #7
+    svc #0x80
+
+    adr x0, 141f
+    mov x1, #0
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 148f
+    mov x19, x0
+    mov x0, x19
+    mov x8, #27             /* dup */
+    svc #0x80
+    cmp x0, #0
+    b.lt 148f
+    mov x20, x0
+
+    mov x0, x20
+    sub x1, sp, #16
+    mov x2, #1
+    mov x8, #6
+    svc #0x80
+    cmp x0, #1
+    b.ne 148f
+    ldrb w9, [sp, #-16]
+    mov w10, #'a'
+    cmp w9, w10
+    b.ne 148f
+
+    mov x0, #1
+    adr x1, 142f
+    mov x2, #8
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+148:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+141:
+    .asciz "/tmp/du"
+142:
+    .ascii "dup: ok\n"
+144:
+    .ascii "abc"
+    .balign 8
+user_dup_end:

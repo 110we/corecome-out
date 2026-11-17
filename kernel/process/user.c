@@ -28,6 +28,10 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_dup_start[];
+extern const u8 user_dup_end[];
+extern const u8 user_rename_start[];
+extern const u8 user_rename_end[];
 extern const u8 user_seek_start[];
 extern const u8 user_seek_end[];
 extern const u8 user_append_start[];
@@ -124,6 +128,20 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* DUP 靶子：复制 fd 后从副本读。 */
+void user_dup_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_dup_start, user_dup_end, "dup");
+}
+
+/* RENAME 靶子：改名后旧路径消失、新路径可查。 */
+void user_rename_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_rename_start, user_rename_end, "rename");
 }
 
 /* SEEK 靶子：seek(5) 后读到 'f'。 */

@@ -175,7 +175,7 @@ magic / memory / uart+gic 三行，坏了会红。
 | 信号 | 仅 KILL/TERM/SEGV 默认动作 | 不能注册 handler，没有 sigreturn/信号栈 | 用户态信号分支 |
 | 调度 | 100 Hz 固定片轮转，内核不可抢占 | 无优先级/公平性/实时性承诺；长 syscall 会拖拍 | 需要时再做（不在 Non-goals 之外承诺） |
 | 驱动 | virtio-mmio legacy、PL011、GICv2 均手写轮询/最小实现 | 无错误恢复、无热插拔、无电源管理 | 按设备逐个补 |
-| 内存 | 固定页池 + 简单 slab，无 swap/回收 | 页耗尽即失败；无 OOM 策略 | 不计划 |
+| 内存 | 固定页池 + 简单 slab，无 swap/回收 | 256 页池（1 MiB）；页耗尽即失败；无 OOM 策略 | 不计划 |
 
 **隔离验证的边界**：`make test` 证明的是「已知的越权路径会失败」，
 不证明「不存在未知越权路径」。在 SMP、cache 一致性、DMA 隔离三项补齐之前，
