@@ -5,8 +5,11 @@ and READY, RUNNING, BLOCKED, and ZOMBIE transitions. Task creation validates the
 entry address, caller-owned stack alignment and size, and optional owner metadata.
 
 Each task record now has a saved exception-frame pointer. A caller can attach a
-16-byte-aligned first-run frame with `coxvbn_task_set_initial_frame()`. The
-`coxvbn_scheduler_schedule_frame()` primitive saves the interrupted task's frame,
+16-byte-aligned first-run frame with `coxvbn_task_set_initial_frame()`; the
+frame's full 304-byte assembly allocation must lie inside that task's owned stack.
+The same range check is applied when saving an interrupted frame, preventing a
+pointer into a shared boot/exception stack or another task's stack from being retained.
+The `coxvbn_scheduler_schedule_frame()` primitive saves the interrupted task's frame,
 moves that task back to READY, and selects the next READY task with a frame. It
 returns the selected frame for the exception-return path. Host tests exercise
 first dispatch, round-robin frame selection, and preservation of each task's
