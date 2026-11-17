@@ -322,3 +322,18 @@ int wifi_parse_beacon(const uint8_t *frame, size_t frame_len,
     *network = parsed;
     return 0;
 }
+
+/* Driver RX path: only complete Beacon/Probe Response frames are accepted. */
+int wifi_scan_report_frame(struct wifi_device *device, const uint8_t *frame,
+                           size_t frame_len, int16_t rssi_dbm)
+{
+    struct wifi_network network;
+    int rc;
+
+    if (device == 0 || device->state != WIFI_STATE_SCANNING)
+        return -1;
+    rc = wifi_parse_beacon(frame, frame_len, rssi_dbm, &network);
+    if (rc != 0)
+        return rc;
+    return wifi_scan_report(device, &network);
+}
