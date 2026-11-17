@@ -37,6 +37,30 @@ int main(void)
     net.rssi_dbm = -42;
     net.security = WIFI_SECURITY_WPA2_PSK;
 
+    {
+        uint8_t beacon[64] = {0};
+        struct wifi_network parsed;
+        size_t n = 36U;
+        /* Management beacon: subtype 8, BSSID at addr3, no WEP privacy. */
+        beacon[0] = 0x80U;
+        beacon[16] = 0x02U;
+        beacon[21] = 0x01U;
+        beacon[36] = 0U; beacon[37] = 4U;
+        memcpy(beacon + 38U, "test", 4U); n = 42U;
+        beacon[n++] = 3U; beacon[n++] = 1U; beacon[n++] = 11U;
+        assert(wifi_parse_beacon(beacon, n, -55, &parsed) == 0);
+        assert(parsed.ssid_len == 4U && memcmp(parsed.ssid, "test", 4U) == 0);
+        assert(parsed.channel == 11U && parsed.rssi_dbm == -55);
+        assert(parsed.security == WIFI_SECURITY_OPEN);
+        beacon[0] = 0x40U; /* Probe request is not a scan result. */
+        assert(wifi_parse_beacon(beacon, n, -55, &parsed) == -2);
+        beacon[0] = 0x80U;
+        beacon[34] = 0x10U; /* WEP privacy bit. */
+        assert(wifi_parse_beacon(beacon, n, -55, &parsed) == -4);
+        beacon[34] = 0U;
+        assert(wifi_parse_beacon(beacon, 37U, -55, &parsed) == -5);
+    }
+
     assert(wifi_device_init(&dev, &ops, &mock) == 0);
     assert(wifi_scan(&dev) == -1);
     assert(wifi_start(&dev) == 0 && dev.state == WIFI_STATE_READY);
