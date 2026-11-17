@@ -38,7 +38,7 @@ int main(void)
     net.security = WIFI_SECURITY_WPA2_PSK;
 
     {
-        uint8_t beacon[64] = {0};
+        uint8_t beacon[96] = {0};
         struct wifi_network parsed;
         size_t n = 36U;
         /* Management beacon: subtype 8, BSSID at addr3, no WEP privacy. */
@@ -76,7 +76,7 @@ int main(void)
         beacon[16] = 0x03U;
         assert(wifi_parse_beacon(beacon, 45U, -60, &parsed) == -3);
         beacon[16] = 0x02U;
-        beacon[0] = 0x50U;
+        beacon[0] = 0x40U;
         assert(wifi_parse_beacon(beacon, 45U, -60, &parsed) == -2);
         beacon[0] = 0x80U;
 
@@ -104,18 +104,18 @@ int main(void)
             base += sizeof(rsn_psk);
             assert(wifi_parse_beacon(beacon, base, -50, &parsed) == 0);
             assert(parsed.security == WIFI_SECURITY_WPA2_PSK);
-            beacon[43U] = 48U;
-            beacon[44U] = (uint8_t)sizeof(rsn_sae);
-            memcpy(beacon + 45U, rsn_sae, sizeof(rsn_sae));
-            assert(wifi_parse_beacon(beacon, 45U + sizeof(rsn_sae),
+            beacon[45U] = 48U;
+            beacon[46U] = (uint8_t)sizeof(rsn_sae);
+            memcpy(beacon + 47U, rsn_sae, sizeof(rsn_sae));
+            assert(wifi_parse_beacon(beacon, 47U + sizeof(rsn_sae),
                                      -50, &parsed) == 0);
             assert(parsed.security == WIFI_SECURITY_WPA3_SAE);
             /* Duplicate RSN IE is rejected. */
-            beacon[45U + sizeof(rsn_sae)] = 48U;
-            beacon[46U + sizeof(rsn_sae)] = (uint8_t)sizeof(rsn_sae);
-            memcpy(beacon + 47U + sizeof(rsn_sae), rsn_sae,
+            beacon[47U + sizeof(rsn_sae)] = 48U;
+            beacon[48U + sizeof(rsn_sae)] = (uint8_t)sizeof(rsn_sae);
+            memcpy(beacon + 49U + sizeof(rsn_sae), rsn_sae,
                    sizeof(rsn_sae));
-            assert(wifi_parse_beacon(beacon, 47U + 2U * sizeof(rsn_sae),
+            assert(wifi_parse_beacon(beacon, 49U + 2U * sizeof(rsn_sae),
                                      -50, &parsed) == -8);
             /* Truncated IE payload is rejected without output mutation. */
             assert(wifi_parse_beacon(beacon, 46U, -50, &parsed) == -5);
