@@ -42,7 +42,8 @@ int exception_register_irq_handler(uint32_t interrupt_id,
 int exception_unregister_irq_handler(uint32_t interrupt_id);
 
 /* Called by the vector assembly with a 16-byte-aligned saved frame. */
-void exception_dispatch(struct exception_frame *frame);
+/* Return the frame to restore; handlers may select a different task frame. */
+struct exception_frame *exception_dispatch(struct exception_frame *frame);
 
 #if defined(__GNUC__)
 __attribute__((noreturn))
