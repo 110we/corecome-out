@@ -1,4 +1,5 @@
 #include "scheduler.h"
+#include "exception.h"
 
 #include <limits.h>
 
@@ -46,6 +47,7 @@ void coxvbn_scheduler_init(struct coxvbn_scheduler *scheduler)
         scheduler->tasks[i].argument = 0U;
         scheduler->tasks[i].stack_base = 0U;
         scheduler->tasks[i].stack_size = 0U;
+        scheduler->tasks[i].saved_frame = 0;
         scheduler->tasks[i].exit_code = 0;
     }
 }
@@ -84,12 +86,28 @@ int coxvbn_task_create(struct coxvbn_scheduler *scheduler,
     task->argument = argument;
     task->stack_base = stack_base;
     task->stack_size = stack_size;
+    task->saved_frame = 0;
     task->exit_code = 0;
     task->owner.module_id = owner == 0 ? 0U : owner->module_id;
     task->owner.generation = owner == 0 ? 0U : owner->generation;
     task->state = COXVBN_TASK_READY;
     ++scheduler->task_count;
     *ref_out = task->ref;
+    return 0;
+}
+
+int coxvbn_task_set_initial_frame(struct coxvbn_scheduler *scheduler,
+                                  const struct coxvbn_task_ref *ref,
+                                  struct exception_frame *frame)
+{
+    struct coxvbn_task_record *task;
+    if (!task_ref_valid(scheduler, ref) || frame == 0 ||
+        ((uintptr_t)frame & 0xfU) != 0U)
+        return -1;
+    task = &scheduler->tasks[ref->slot];
+    if (task->state != COXVBN_TASK_READY || task->saved_frame != 0)
+        return -2;
+    task->saved_frame = frame;
     return 0;
 }
 
@@ -111,6 +129,40 @@ int coxvbn_scheduler_pick_next(struct coxvbn_scheduler *scheduler,
         return 0;
     }
     return -2;
+}
+
+struct exception_frame *coxvbn_scheduler_schedule_frame(
+    struct coxvbn_scheduler *scheduler,
+    struct exception_frame *current_frame)
+{
+    uint32_t offset;
+
+    if (scheduler == 0)
+        return 0;
+
+    if (scheduler->current_slot >= 0) {
+        struct coxvbn_task_record *current = current_task(scheduler);
+        if (current == 0 || current_frame == 0 ||
+            ((uintptr_t)current_frame & 0xfU) != 0U)
+            return 0;
+        current->saved_frame = current_frame;
+        current->state = COXVBN_TASK_READY;
+        scheduler->current_slot = -1;
+    } else if (current_frame != 0) {
+        return 0;
+    }
+
+    for (offset = 0U; offset < COXVBN_TASK_CAPACITY; ++offset) {
+        uint32_t slot = (scheduler->cursor + offset) % COXVBN_TASK_CAPACITY;
+        struct coxvbn_task_record *task = &scheduler->tasks[slot];
+        if (task->state != COXVBN_TASK_READY || task->saved_frame == 0)
+            continue;
+        task->state = COXVBN_TASK_RUNNING;
+        scheduler->current_slot = (int32_t)slot;
+        scheduler->cursor = (slot + 1U) % COXVBN_TASK_CAPACITY;
+        return task->saved_frame;
+    }
+    return 0;
 }
 
 int coxvbn_task_yield(struct coxvbn_scheduler *scheduler)
@@ -171,6 +223,7 @@ int coxvbn_task_reap(struct coxvbn_scheduler *scheduler,
     task->argument = 0U;
     task->stack_base = 0U;
     task->stack_size = 0U;
+    task->saved_frame = 0;
     task->owner.module_id = 0U;
     task->owner.generation = 0U;
     task->exit_code = 0;
