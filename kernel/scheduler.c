@@ -28,6 +28,26 @@ static struct coxvbn_task_record *current_task(
     return task;
 }
 
+/* boot.S allocates 304 bytes for each exception frame (288-byte payload). */
+#define COXVBN_EXCEPTION_FRAME_BYTES 304U
+
+static int frame_in_task_stack(const struct coxvbn_task_record *task,
+                               const struct exception_frame *frame)
+{
+    uintptr_t base, address, end;
+    if (task == 0 || frame == 0)
+        return 0;
+    base = task->stack_base;
+    address = (uintptr_t)frame;
+    if (task->stack_size > UINTPTR_MAX - base)
+        return 0;
+    end = base + task->stack_size;
+    if ((address & 0xfU) != 0U || address < base ||
+        address > end || end - address < COXVBN_EXCEPTION_FRAME_BYTES)
+        return 0;
+    return 1;
+}
+
 void coxvbn_scheduler_init(struct coxvbn_scheduler *scheduler)
 {
     uint32_t i;
@@ -107,6 +127,8 @@ int coxvbn_task_set_initial_frame(struct coxvbn_scheduler *scheduler,
     task = &scheduler->tasks[ref->slot];
     if (task->state != COXVBN_TASK_READY || task->saved_frame != 0)
         return -2;
+    if (!frame_in_task_stack(task, frame))
+        return -3;
     task->saved_frame = frame;
     return 0;
 }
@@ -142,8 +164,7 @@ struct exception_frame *coxvbn_scheduler_schedule_frame(
 
     if (scheduler->current_slot >= 0) {
         struct coxvbn_task_record *current = current_task(scheduler);
-        if (current == 0 || current_frame == 0 ||
-            ((uintptr_t)current_frame & 0xfU) != 0U)
+        if (current == 0 || !frame_in_task_stack(current, current_frame))
             return 0;
         current->saved_frame = current_frame;
         current->state = COXVBN_TASK_READY;
