@@ -10,6 +10,9 @@
 #define DESC_PXN         (1ULL << 53)
 #define DESC_UXN         (1ULL << 54)
 #define DESC_ADDR_MASK   0x0000fffffffff000ULL
+#define DESC_LEAF_ALLOWED (DESC_ADDR_MASK | DESC_TABLE_PAGE | DESC_ATTR_DEVICE | \
+                           DESC_AP_USER | DESC_AP_RDONLY | DESC_SH_INNER | \
+                           DESC_AF | DESC_PXN | DESC_UXN)
 #define VM_ALLOWED_FLAGS (VM_MAP_READ | VM_MAP_WRITE | VM_MAP_EXEC | VM_MAP_USER | VM_MAP_DEVICE)
 
 static int aligned_page(uint64_t value)
@@ -314,13 +317,17 @@ int vm_address_space_validate(const struct vm_address_space *space)
             if (descriptor == 0ULL)
                 continue;
             if ((descriptor & DESC_TABLE_PAGE) != DESC_TABLE_PAGE ||
+                (descriptor & ~DESC_LEAF_ALLOWED) != 0ULL ||
                 (descriptor & DESC_AF) == 0ULL ||
                 ((descriptor & (DESC_PXN | DESC_UXN)) !=
                  (DESC_PXN | DESC_UXN) &&
                  (descriptor & DESC_AP_RDONLY) == 0ULL) ||
                 ((descriptor & DESC_ATTR_DEVICE) != 0ULL &&
-                 (descriptor & (DESC_PXN | DESC_UXN)) !=
-                 (DESC_PXN | DESC_UXN)))
+                 ((descriptor & (DESC_PXN | DESC_UXN)) !=
+                  (DESC_PXN | DESC_UXN) ||
+                  (descriptor & (DESC_AP_USER | DESC_SH_INNER)) != 0ULL)) ||
+                ((descriptor & DESC_ATTR_DEVICE) == 0ULL &&
+                 (descriptor & DESC_SH_INNER) != DESC_SH_INNER))
                 return -7;
         }
     }
