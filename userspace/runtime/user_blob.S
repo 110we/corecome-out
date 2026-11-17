@@ -620,3 +620,34 @@ user_dir_start:
     .ascii "dir ok\n"
     .balign 8
 user_dir_end:
+
+/* 取文件大小：stat("/hello.txt") 应返回 >0，否则 exit 1 */
+    .balign 8
+    .global user_stat_start
+    .global user_stat_end
+user_stat_start:
+    adr x0, 71f
+    mov x8, #22             /* stat */
+    svc #0x80
+    cmp x0, #0
+    b.le 79f
+    mov x0, #1
+    adr x1, 72f
+    mov x2, #9
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+79:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+71:
+    .asciz "/hello.txt"
+72:
+    .ascii "stat: ok\n"
+    .balign 8
+user_stat_end:

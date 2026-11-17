@@ -590,6 +590,25 @@ static void path_num(char *dst, u32 n)
     dst[len] = '\0';
 }
 
+i64 vfs_size(const char *path)
+{
+    ino_t *n;
+
+    if (is_mnt_path(path)) {
+        ino_t *mnt = walk("/mnt");
+        n = mnt != (ino_t *)0 ? ino_find(mnt, path + 5) : (ino_t *)0;
+        if (n != (ino_t *)0 && n->data == (char *)0) {
+            return -1; /* 尚未物化，调用方先 open/read 一次 */
+        }
+    } else {
+        n = walk(path);
+    }
+    if (n == (ino_t *)0) {
+        return -1;
+    }
+    return (i64)n->size;
+}
+
 int vfs_selftest(void)
 {
     char path[32];

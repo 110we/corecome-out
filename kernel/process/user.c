@@ -28,6 +28,8 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_stat_start[];
+extern const u8 user_stat_end[];
 extern const u8 user_dir_start[];
 extern const u8 user_dir_end[];
 extern const u8 user_ep_start[];
@@ -110,6 +112,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* stat 靶子：查文件大小。 */
+void user_stat_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_stat_start, user_stat_end, "stat");
 }
 
 /* 目录操作靶子：mkdir / O_CREAT / write / unlink。 */

@@ -33,6 +33,7 @@
 #define SYS_KILL   18
 #define SYS_MKDIR  20
 #define SYS_UNLINK 21
+#define SYS_STAT   22
 
 extern u64 heap_used(void);
 
@@ -151,6 +152,15 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
             return (u64)vfs_unlink(path);
         }
         return (u64)vfs_unlink((const char *)a0);
+    case SYS_STAT:
+        if (g_from_el0) {
+            char path[VFS_PATH_MAX];
+            if (u_str(a0, path, sizeof(path)) < 0) {
+                return deny(nr, a0);
+            }
+            return (u64)vfs_size(path);
+        }
+        return (u64)vfs_size((const char *)a0);
     case SYS_CLOSE:
         return (u64)vfs_close((int)a0);
     case SYS_YIELD:
