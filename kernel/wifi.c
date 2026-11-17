@@ -12,6 +12,8 @@ static int network_valid(const struct wifi_network *network)
         network->security > WIFI_SECURITY_WPA3_SAE)
         return 0;
 
+    if ((network->bssid[0] & 1U) != 0U)
+        return 0; /* BSSIDs must be individual (unicast) addresses. */
     for (i = 0U; i < WIFI_BSSID_LEN; ++i)
         nonzero_bssid |= network->bssid[i];
     return nonzero_bssid != 0;
