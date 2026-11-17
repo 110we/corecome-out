@@ -337,3 +337,10 @@ int vm_address_space_validate(const struct vm_address_space *space)
     }
     return 0;
 }
+
+uint64_t vm_address_space_root(const struct vm_address_space *space)
+{
+    if (vm_address_space_validate(space) != 0)
+        return 0ULL;
+    return (uint64_t)(uintptr_t)space->l1;
+}
