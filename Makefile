@@ -11,7 +11,7 @@ CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin \
 ASFLAGS := $(CFLAGS)
 LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 
-SOURCES_C := kernel/main.c kernel/execution_context.c kernel/uart.c kernel/fdt.c kernel/key_vault.c \
+SOURCES_C := kernel/main.c kernel/execution_context.c kernel/scheduler.c kernel/uart.c kernel/fdt.c kernel/key_vault.c \
              kernel/information_store.c kernel/emergency_recovery.c \
              kernel/phys_alloc.c kernel/vm_page.c kernel/mmu.c kernel/mmu_layout.c kernel/module_registry.c kernel/exception.c \
              kernel/exception_decode.c kernel/gicv2.c kernel/arm_timer.c kernel/redlab_policy.c \
@@ -75,6 +75,8 @@ test-host:
 	$(BUILD)/vfs_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/device_test.c kernel/device.c -o $(BUILD)/device_test
 	$(BUILD)/device_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/scheduler_test.c kernel/scheduler.c -o $(BUILD)/scheduler_test
+	$(BUILD)/scheduler_test
 
 run: all
 	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/coxvbn.bin
