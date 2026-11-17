@@ -39,10 +39,10 @@ static void test_frame_selection(void)
     assert(selected == frames[1]);
     frames[1].elr = 0x2220U;
     selected = coxvbn_scheduler_schedule_frame(&scheduler, frames[1]);
-    assert(selected == &frames[0]);
+    assert(selected == frames[0]);
     assert(frames[0].elr == 0x1110U);
-    selected = coxvbn_scheduler_schedule_frame(&scheduler, &frames[0]);
-    assert(selected == &frames[1]);
+    selected = coxvbn_scheduler_schedule_frame(&scheduler, frames[0]);
+    assert(selected == frames[1]);
     assert(frames[1].elr == 0x2220U);
 }
 
