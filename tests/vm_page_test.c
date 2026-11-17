@@ -100,6 +100,10 @@ int main(void)
             assert(vm_address_space_validate(&space) == -7);
             space.l3[0].entries[0] = saved;
             assert(vm_address_space_validate(&space) == 0);
+            space.l3[0].entries[0] = saved | (1ULL << 52);
+            assert(vm_address_space_validate(&space) == -7);
+            space.l3[0].entries[0] = saved;
+            assert(vm_address_space_validate(&space) == 0);
         }
 
         assert(vm_address_space_init(&range_space, as_base) == 0);
