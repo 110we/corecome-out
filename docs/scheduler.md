@@ -13,7 +13,7 @@ layout consumed by the exception-return assembly. It initializes x0 with the tas
 argument, x30 with a caller-supplied return trampoline, ELR with the entry point, and
 SPSR for masked EL1h execution. The 304-byte allocation preserves the assembly's
 16-byte stack alignment while the C-visible exception-frame payload is 288 bytes.
-The helper does not install the frame, switch SP, or supply the return trampoline. All callers must serialize access; the component is not IRQ-safe or
+The helper does not install the frame, switch SP, or supply the return trampoline. The exception dispatcher now returns the frame pointer that the vector assembly restores, and the assembly rejects a null return frame. At present the dispatcher deliberately returns the interrupted frame unchanged: no scheduler hook selects another task yet. This is only the architectural hand-off needed for a later context switch, not a working context switch. All callers must serialize access; the component is not IRQ-safe or
 SMP-safe. The stack memory is supplied by the caller and is not allocated or
 freed by this component.
 
