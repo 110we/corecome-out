@@ -13,7 +13,7 @@ LDFLAGS := -nostdlib -Wl,-T,$(ARCH)/linker.ld -Wl,--build-id=none
 
 SOURCES_C := kernel/main.c kernel/execution_context.c kernel/uart.c kernel/fdt.c kernel/key_vault.c \
              kernel/information_store.c kernel/emergency_recovery.c \
-             kernel/phys_alloc.c kernel/mmu.c kernel/mmu_layout.c kernel/module_registry.c kernel/exception.c \
+             kernel/phys_alloc.c kernel/vm_page.c kernel/mmu.c kernel/mmu_layout.c kernel/module_registry.c kernel/exception.c \
              kernel/exception_decode.c kernel/gicv2.c kernel/arm_timer.c kernel/redlab_policy.c \
              kernel/privacy_profile.c
 SOURCES_S := $(ARCH)/boot.S
@@ -41,6 +41,8 @@ test-host:
 	@mkdir -p $(BUILD)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/fdt_test.c kernel/fdt.c -o $(BUILD)/fdt_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/phys_alloc_test.c kernel/phys_alloc.c -o $(BUILD)/phys_alloc_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/vm_page_test.c kernel/vm_page.c -o $(BUILD)/vm_page_test
+	$(BUILD)/vm_page_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/mmu_layout_test.c kernel/mmu_layout.c -o $(BUILD)/mmu_layout_test
 	$(BUILD)/mmu_layout_test
 	$(BUILD)/phys_alloc_test
