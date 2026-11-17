@@ -13,7 +13,7 @@ extern const u8 user_shell_end[];
 /* ramfs 单文件上限：从 1 KiB 提到 64 KiB，够放真实程序与数据。 */
 #define RAMFS_FILE_MAX (64UL * 1024UL)
 
-#define MAX_INO   24
+#define MAX_INO   192
 #define MAX_FD    16
 #define T_DIR     0
 #define T_FILE    1
@@ -77,14 +77,29 @@ static int str_eq(const char *a, const char *b)
     return *a == *b;
 }
 
-static ino_t *ino_new(ino_t *parent, const char *name, int type)
+/* 取一个槽位：优先复用被 unlink 释放的（type=-1），否则从池尾新开。 */
+static ino_t *ino_slot(void)
 {
-    ino_t *n;
+    int i;
 
+    for (i = 0; i < np; i++) {
+        if (pool[i].type == -1) {
+            return &pool[i];
+        }
+    }
     if (np >= MAX_INO) {
         return (ino_t *)0;
     }
-    n = &pool[np++];
+    return &pool[np++];
+}
+
+static ino_t *ino_new(ino_t *parent, const char *name, int type)
+{
+    ino_t *n = ino_slot();
+
+    if (n == (ino_t *)0) {
+        return (ino_t *)0;
+    }
     n->type = type;
     n->dev = 0;
     n->parent = parent;
@@ -495,6 +510,80 @@ i64 vfs_list(const char *path, char *out, u64 cap)
     return (i64)used;
 }
 /* ---- 每进程 fd 表：新建 / fork 时深拷贝 ---- */
+
+/* ramfs 自检：连续建 50 个文件 -> 写 -> 删，验证 inode 池与链表回收。
+ * 这个测试是内核侧的（不起进程），目的是尽早暴露“池子太小/删链漏了”。 */
+static void path_num(char *dst, u32 n)
+{
+    char tmp[12];
+    u32 i = 0;
+    u32 len = 0;
+
+    dst[0] = '/';
+    dst[1] = 't';
+    dst[2] = 'm';
+    dst[3] = 'p';
+    dst[4] = '/';
+    dst[5] = 's';
+    len = 6;
+    if (n == 0) {
+        tmp[i++] = '0';
+    }
+    while (n > 0) {
+        tmp[i++] = (char)('0' + (n % 10));
+        n /= 10;
+    }
+    while (i > 0) {
+        dst[len++] = tmp[--i];
+    }
+    dst[len] = '\0';
+}
+
+int vfs_selftest(void)
+{
+    char path[32];
+    u32 i;
+    int ok = 1;
+
+    for (i = 0; i < 50; i++) {
+        i64 fd;
+
+        path_num(path, i);
+        fd = vfs_open(path, 1);
+        if (fd < 0) {
+            ok = 0;
+            break;
+        }
+        if (vfs_write(fd, "x", 1) != 1) {
+            ok = 0;
+        }
+        vfs_close(fd);
+        if (!ok) {
+            break;
+        }
+    }
+    for (i = 0; i < 50 && ok; i++) {
+        path_num(path, i);
+        if (vfs_unlink(path) != 0) {
+            ok = 0;
+        }
+    }
+    /* 第二轮：如果 unlink 没有把槽位还回来，这里一定失败 */
+    for (i = 0; i < 50 && ok; i++) {
+        i64 fd;
+
+        path_num(path, i);
+        fd = vfs_open(path, 1);
+        if (fd < 0) {
+            ok = 0;
+            break;
+        }
+        vfs_close(fd);
+        vfs_unlink(path);
+    }
+    return ok;
+}
+
 struct filetable *vfs_ftab_new(void)
 {
     struct filetable *t = (struct filetable *)kmalloc(sizeof(struct filetable));

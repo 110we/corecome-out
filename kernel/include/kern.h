@@ -151,6 +151,7 @@ i64 vfs_write(int fd, const void *buf, u64 n);
 i64 vfs_close(int fd);
 i64 vfs_list(const char *path, char *out, u64 cap);
 i64 vfs_mkdir(const char *path);
+int vfs_selftest(void);
 i64 vfs_unlink(const char *path);
 
 #endif

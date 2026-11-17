@@ -635,6 +635,11 @@ int kmain(u64 dtb)
     mm_init();
     puts_("[kern] init: vfs\n");
     vfs_init();
+    if (vfs_selftest()) {
+        puts_("[kern] vfs: inode stress ok\n");
+    } else {
+        puts_("[kern] vfs: inode stress FAIL\n");
+    }
     puts_("[kern] init: sched\n");
     sched_init();
     puts_("[kern] init: done\n");
