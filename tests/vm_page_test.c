@@ -79,6 +79,28 @@ int main(void)
                    as_base + (uint64_t)VM_ADDRESS_SPACE_L3_TABLES * VM_L3_SPAN,
                    0x62000000ULL, VM_MAP_READ) == 0);
         assert(vm_address_space_init(&space, as_base + VM_PAGE_SIZE) == -1);
+
+        assert(vm_address_space_map_range(&space, as_base + 0x8000ULL,
+                   0x63000000ULL, 3ULL * VM_PAGE_SIZE,
+                   VM_MAP_READ | VM_MAP_WRITE) == 0);
+        assert(vm_address_space_lookup(&space, as_base + 0xa000ULL,
+                                       &mapping) == 0);
+        assert(mapping.physical_address == 0x63002000ULL);
+        assert(vm_address_space_map(&space, as_base + 0x11000ULL,
+                   0x64000000ULL, VM_MAP_READ) == 0);
+        assert(vm_address_space_map_range(&space, as_base + 0x10000ULL,
+                   0x65000000ULL, 3ULL * VM_PAGE_SIZE,
+                   VM_MAP_READ) == -2);
+        assert(vm_address_space_lookup(&space, as_base + 0x10000ULL,
+                                       &mapping) == -2);
+        assert(vm_address_space_lookup(&space, as_base + 0x11000ULL,
+                                       &mapping) == 0);
+        assert(mapping.physical_address == 0x64000000ULL);
+        assert(vm_address_space_map_range(&space, as_base, 0x60000000ULL,
+                   0ULL, VM_MAP_READ) == -1);
+        assert(vm_address_space_map_range(&space, UINT64_MAX - 0xfffULL,
+                   0x66000000ULL, 2ULL * VM_PAGE_SIZE,
+                   VM_MAP_READ) == -1);
     }
 
     puts("vm page table tests: ok");
