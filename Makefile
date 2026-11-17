@@ -15,7 +15,7 @@ SOURCES_C := kernel/main.c kernel/execution_context.c kernel/uart.c kernel/fdt.c
              kernel/information_store.c kernel/emergency_recovery.c \
              kernel/phys_alloc.c kernel/vm_page.c kernel/mmu.c kernel/mmu_layout.c kernel/module_registry.c kernel/exception.c \
              kernel/exception_decode.c kernel/gicv2.c kernel/arm_timer.c kernel/redlab_policy.c \
-             kernel/privacy_profile.c
+             kernel/privacy_profile.c kernel/wifi.c
 SOURCES_S := $(ARCH)/boot.S
 OBJECTS   := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES_C)) \
              $(patsubst %.S,$(BUILD)/%.o,$(SOURCES_S))
@@ -69,6 +69,8 @@ test-host:
 	$(BUILD)/redlab_admission_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/privacy_profile_test.c kernel/privacy_profile.c -o $(BUILD)/privacy_profile_test
 	$(BUILD)/privacy_profile_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/wifi_test.c kernel/wifi.c -o $(BUILD)/wifi_test
+	$(BUILD)/wifi_test
 
 run: all
 	qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -monitor none -serial stdio -kernel $(BUILD)/coxvbn.bin
