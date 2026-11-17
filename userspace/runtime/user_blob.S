@@ -1211,3 +1211,42 @@ user_pipe_start:
     .ascii "hi"
     .balign 8
 user_pipe_end:
+
+/* ACCESS：存在的路径返回 0，不存在的返回 -1 */
+    .balign 8
+    .global user_access_start
+    .global user_access_end
+user_access_start:
+    adr x0, 171f
+    mov x8, #29
+    svc #0x80
+    cbnz x0, 178f
+
+    adr x0, 174f
+    mov x8, #29
+    svc #0x80
+    cmp x0, #0
+    b.ge 178f
+
+    mov x0, #1
+    adr x1, 172f
+    mov x2, #11
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+178:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+171:
+    .asciz "/hello.txt"
+172:
+    .ascii "access: ok\n"
+174:
+    .asciz "/no/such/file"
+    .balign 8
+user_access_end:

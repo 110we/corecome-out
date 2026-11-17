@@ -28,6 +28,8 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_access_start[];
+extern const u8 user_access_end[];
 extern const u8 user_pipe_start[];
 extern const u8 user_pipe_end[];
 extern const u8 user_ulo_start[];
@@ -132,6 +134,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* ACCESS 靶子：存在/不存在两条路径。 */
+void user_access_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_access_start, user_access_end, "access");
 }
 
 /* 管道靶子：写入 2 字节再从读端取回。 */

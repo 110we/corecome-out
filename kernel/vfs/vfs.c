@@ -777,6 +777,11 @@ i64 vfs_rename(const char *oldp, const char *newp)
     return 0;
 }
 
+i64 vfs_access(const char *path)
+{
+    return vfs_size(path) >= 0 ? 0 : -1;
+}
+
 i64 vfs_seek(int fd, i64 off)
 {
     if (fd < 3 || fd >= MAX_FD || !fds[fd].used) {

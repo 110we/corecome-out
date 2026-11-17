@@ -757,6 +757,10 @@ int kmain(u64 dtb)
         puts_("[kern] user: create thread u6 failed\n");
     }
     /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    /* 第二十三个：路径存在性检查（SYS_ACCESS）。 */
+    if (kthread_create("um", user_access_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread um failed\n");
+    }
     /* 第二十二个：管道（SYS_PIPE）。 */
     if (kthread_create("ul", user_pipe_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread ul failed\n");
