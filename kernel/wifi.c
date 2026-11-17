@@ -135,9 +135,21 @@ int wifi_connect(struct wifi_device *device, const struct wifi_network *network,
     } else if (credential == 0 || credential_len == 0U ||
                credential_len > WIFI_KEY_MAX) {
         return -2;
-    } else if (network->security == WIFI_SECURITY_WPA2_PSK &&
-               credential_len != 64U &&
-               (credential_len < 8U || credential_len > 63U)) {
+    } else if (network->security == WIFI_SECURITY_WPA2_PSK) {
+        size_t i;
+        if (credential_len == 64U) {
+            for (i = 0U; i < credential_len; ++i) {
+                uint8_t ch = credential[i];
+                if (!((ch >= '0' && ch <= '9') ||
+                      (ch >= 'a' && ch <= 'f') ||
+                      (ch >= 'A' && ch <= 'F')))
+                    return -2;
+            }
+        } else if (credential_len < 8U || credential_len > 63U) {
+            return -2;
+        }
+    } else if (network->security == WIFI_SECURITY_WPA3_SAE &&
+               credential_len > 63U) {
         return -2;
     }
 
