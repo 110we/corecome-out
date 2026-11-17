@@ -8,6 +8,7 @@ static int network_valid(const struct wifi_network *network)
     if (network == 0 || network->ssid_len == 0U ||
         network->ssid_len > WIFI_SSID_MAX || network->channel == 0U ||
         network->channel > 196U ||
+        network->security < WIFI_SECURITY_OPEN ||
         network->security > WIFI_SECURITY_WPA3_SAE)
         return 0;
 
@@ -296,6 +297,14 @@ int wifi_parse_beacon(const uint8_t *frame, size_t frame_len,
         } else if (id == 3U) {
             if (have_channel || length != 1U || value[0] == 0U ||
                 value[0] > 196U)
+                return -7;
+            parsed.channel = value[0];
+            have_channel = 1;
+        } else if (id == 61U) {
+            /* HT Operation also carries the primary channel (notably 5 GHz). */
+            if (length < 1U || value[0] == 0U || value[0] > 196U)
+                return -7;
+            if (have_channel && parsed.channel != value[0])
                 return -7;
             parsed.channel = value[0];
             have_channel = 1;
