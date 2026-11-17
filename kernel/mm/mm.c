@@ -9,7 +9,7 @@
 #define PAGE_SIZE   4096UL
 #define POOL_PAGES  256UL
 #define MAGIC       0xA5A5A5A5UL
-#define NCLASS      7
+#define NCLASS      8
 
 static u8 pool[POOL_PAGES * PAGE_SIZE] __attribute__((aligned(4096)));
 static u64 bitmap[POOL_PAGES / 64];
@@ -18,7 +18,7 @@ static u64 bitmap[POOL_PAGES / 64];
  * 两者一起才能把“写时复制”和“本来就只读（代码页）”分开。 */
 static u16 refs[POOL_PAGES];
 static u8 cowf[POOL_PAGES];
-static const u64 cls_size[NCLASS] = {16, 32, 64, 128, 256, 512, 1024};
+static const u64 cls_size[NCLASS] = {16, 32, 64, 128, 256, 512, 1024, 2048};
 static void *freelist[NCLASS];
 
 typedef struct blk {

@@ -28,6 +28,8 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_elfrun_start[];
+extern const u8 user_elfrun_end[];
 extern const u8 user_access_start[];
 extern const u8 user_access_end[];
 extern const u8 user_pipe_start[];
@@ -134,6 +136,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* ELF 加载靶子：孩子 exec 真正的 ELF 文件。 */
+void user_elfrun_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_elfrun_start, user_elfrun_end, "elfrun");
 }
 
 /* ACCESS 靶子：存在/不存在两条路径。 */

@@ -16,7 +16,7 @@
 | 页表 | 4K 多级、每进程 TTBR0 | 4K，L1/L2/L3，每进程 aspace | 已验证 | `pg_activate` 切 TTBR0 |
 | 隔离 | PTE U/AP/UXN + 故障杀进程 | 同三层 | 已验证 | `insn-fault` / `data-fault` 杀线程；边界见技术债 |
 | 进程创建 | fork + COW | fork 共享页 + 引用计数 | 已验证 | `cow: parent intact` |
-| 程序装载 | execve 换 mm、加载 ELF | `SYS_EXEC` 内置 blob；**`SYS_EXEC_PATH` 从 ramfs 读镜像**（M4 的 init 已走 `/bin/sh`） | 部分 | **不是 ELF 加载器**，裸代码固定入口，没有 argv/envp |
+| 程序装载 | execve 换 mm、加载 ELF | `SYS_EXEC_PATH` 支持 **ELF64 静态映像**（PT_LOAD 逐页映射）与裸代码；M4 的 init 走 `/bin/sh` | 部分 | 无 argv/envp、无动态链接、镜像受 ramfs 2 KiB 上限限制 |
 | 退出/回收 | 僵尸 + wait4 | 僵尸 + `SYS_WAIT` | 已验证 | `wait pid=… code=7/-15`；wait 是让出轮询，非睡眠队列 |
 | 调度 | CFS/EEVDF、多核、就绪队列 | 100 Hz 固定片轮转、单核、线程表 40 槽 | 部分 | **无就绪队列/优先级/负载均衡**；仅用户态可抢占；8 个并发子进程的 fork/wait 压力测试通过 |
 | 抢占 | 内核可抢占 | 用户态可抢占，内核靠关中断 | 部分 | 长 syscall 拖拍 |

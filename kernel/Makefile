@@ -10,6 +10,7 @@ CC := $(CROSS)gcc
 LD := $(CROSS)ld
 
 BUILD := build
+.DEFAULT_GOAL := all
 ARCH := arch/aarch64
 
 # 每个源文件只出现一次；对象名取 basename，分散目录由 vpath 解析。
@@ -34,6 +35,11 @@ SRCS := \
 
 OBJS := $(addprefix $(BUILD)/,$(notdir $(SRCS:.c=.o)))
 OBJS := $(OBJS:.S=.o)
+
+# 独立 ELF 用户程序：先链成 ELF，再作为二进制对象塞进内核镜像
+USER_ELF := $(BUILD)/user_elf.elf
+USER_ELF_OBJ := $(BUILD)/user_elf_blob.o
+OBJS += $(USER_ELF_OBJ)
 
 # 头文件所在目录：include/ 是公共边界，架构与各子系统目录也一并覆盖。
 INCLUDES := -Iinclude -I. \
@@ -75,6 +81,12 @@ $(BUILD)/%.o: %.S | $(BUILD)
 
 $(BUILD)/%.o: %.c | $(BUILD)
 > $(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(USER_ELF): ../userspace/programs/hello_elf.S | $(BUILD)
+> $(CC) -nostdlib -static -Wl,-Ttext=0x10000000 -Wl,-z,max-page-size=4 -o $@ $<
+
+$(USER_ELF_OBJ): $(USER_ELF)
+> $(CROSS)objcopy -I binary -O elf64-littleaarch64 -B aarch64 $< $@
 
 $(BUILD)/kernel.elf: $(OBJS) $(ARCH)/boot/linker.ld
 > $(LD) $(LDFLAGS) -o $@ $(OBJS)
@@ -136,6 +148,8 @@ test: $(BUILD)/kernel.bin $(DISK)
 > @grep -q "unlink-open: ok" $(BUILD)/serial.log || (echo "FAIL: unlink open"; exit 1)
 > @grep -q "pipe: ok" $(BUILD)/serial.log || (echo "FAIL: pipe"; exit 1)
 > @grep -q "access: ok" $(BUILD)/serial.log || (echo "FAIL: access"; exit 1)
+> @grep -q "elf: hello from ELF" $(BUILD)/serial.log || (echo "FAIL: elf load"; exit 1)
+> @grep -q "elf-run: ok" $(BUILD)/serial.log || (echo "FAIL: elf run"; exit 1)
 > @grep -q "proc: fork pid=" $(BUILD)/serial.log || (echo "FAIL: fork"; exit 1)
 > @grep -q "exec: hello from child" $(BUILD)/serial.log || (echo "FAIL: exec"; exit 1)
 > @grep -q "proc: wait pid=.* code=7" $(BUILD)/serial.log || (echo "FAIL: wait code"; exit 1)

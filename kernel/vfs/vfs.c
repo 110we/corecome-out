@@ -9,10 +9,12 @@
 extern const u8 user_blob_start[];
 extern const u8 user_blob_end[];
 extern const u8 user_shell_start[];
+extern const u8 _binary_build_user_elf_elf_start[];
+extern const u8 _binary_build_user_elf_elf_end[];
 extern const u8 user_shell_end[];
 
-/* ramfs 单文件上限：从 1 KiB 提到 64 KiB，够放真实程序与数据。 */
-#define RAMFS_FILE_MAX (64UL * 1024UL)
+/* ramfs 单文件上限：受 slab 最大块（2048B）限制，先按 2 KiB 用。 */
+#define RAMFS_FILE_MAX 2048UL
 
 #define MAX_INO   192
 #define MAX_FD    16
@@ -355,6 +357,10 @@ void vfs_init(void)
         /* shell 也进 ramfs：M4 的 init 用 exec_path("/bin/sh") 拉起它 */
         set_data(ino_new(bin, "sh", T_FILE),
                  user_shell_start, (u64)(user_shell_end - user_shell_start));
+        /* 真正独立的 ELF 可执行文件，供 ELF 加载器验证 */
+        set_data(ino_new(bin, "elfhello", T_FILE),
+                 _binary_build_user_elf_elf_start,
+                 (u64)(_binary_build_user_elf_elf_end - _binary_build_user_elf_elf_start));
     }
 
     con = ino_new(dev, "console", T_DEV);

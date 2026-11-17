@@ -1250,3 +1250,46 @@ user_access_start:
     .asciz "/no/such/file"
     .balign 8
 user_access_end:
+
+/* ELF 加载：fork 后孩子 exec_path("/bin/elfhello")，父亲 wait 后打印标记 */
+    .balign 8
+    .global user_elfrun_start
+    .global user_elfrun_end
+user_elfrun_start:
+    mov x0, #0
+    mov x8, #11
+    svc #0x80
+    cbnz x0, 181f
+    adr x0, 183f
+    mov x8, #19
+    svc #0x80
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+181:
+    mvn x0, xzr
+    mov x8, #13
+    svc #0x80
+    cmp x0, #0
+    b.ne 188f
+    mov x0, #1
+    adr x1, 182f
+    mov x2, #11
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+188:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+182:
+    .ascii "elf-run: ok\n"
+183:
+    .asciz "/bin/elfhello"
+    .balign 8
+user_elfrun_end:

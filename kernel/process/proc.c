@@ -170,8 +170,106 @@ static int u_copy_path(char *dst, u64 uaddr, u64 cap)
     return -1;
 }
 
-/* exec-by-path：从 ramfs 读程序镜像进新 aspace，再改 trap frame 返回 EL0。
- * 暂定可执行格式 = 裸代码，入口固定在 USER_WIN_BASE（与内置 blob 一致）。 */
+/* ELF 小工具（小端） */
+static u32 elf_u32(const u8 *p)
+{
+    return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24);
+}
+
+static u64 elf_u64(const u8 *p)
+{
+    return (u64)elf_u32(p) | ((u64)elf_u32(p + 4) << 32);
+}
+
+static u16 elf_u16(const u8 *p)
+{
+    return (u16)((u16)p[0] | ((u16)p[1] << 8));
+}
+
+/* 把 ELF64 的 PT_LOAD 段逐页装进用户窗；成功返回 0 并带出入口地址。 */
+static int elf_load(u64 *l1, const u8 *img, u64 len, u64 *entry)
+{
+    u64 phoff;
+    u64 entry_v;
+    u64 phnum;
+    u64 phentsize;
+    u64 i;
+
+    if (len < 64 || img[0] != 0x7f || img[1] != 'E' || img[2] != 'L' || img[3] != 'F') {
+        return -1;
+    }
+    if (img[4] != 2 || img[5] != 1) {
+        return -1;
+    }
+    entry_v = elf_u64(img + 24);
+    phoff = elf_u64(img + 32);
+    phentsize = elf_u16(img + 54);
+    phnum = elf_u16(img + 56);
+    if (phentsize < 56 || phnum == 0 || phoff + phnum * phentsize > len) {
+        return -1;
+    }
+    for (i = 0; i < phnum; i++) {
+        const u8 *ph = img + phoff + i * phentsize;
+        u32 type = elf_u32(ph);
+        u32 flags = elf_u32(ph + 4);
+        u64 off = elf_u64(ph + 8);
+        u64 vaddr = elf_u64(ph + 16);
+        u64 filesz = elf_u64(ph + 32);
+        u64 memsz = elf_u64(ph + 40);
+        u64 page_va;
+        u64 page_count;
+        u64 p;
+        u64 attr;
+
+        if (type != 1) {
+            continue;
+        }
+        if (memsz == 0 || off + filesz > len) {
+            return -1;
+        }
+        /* 链接器会额外生成只装 ELF 头的段（地址在 0x400000 一带），
+         * 那种段运行期用不到，跳过；真正要加载的段必须落在用户窗内。 */
+        if (vaddr < USER_WIN_BASE || vaddr + memsz > USER_WIN_TOP - 0x1000UL) {
+            continue;
+        }
+        attr = PG_USER_RO;
+        if ((flags & 2) != 0) {
+            attr = PG_USER_RW;
+        } else if ((flags & 1) != 0) {
+            attr = PG_USER_RX;
+        }
+        page_va = vaddr & ~0xFFFUL;
+        page_count = ((vaddr - page_va) + memsz + 4095UL) / 4096UL;
+        for (p = 0; p < page_count; p++) {
+            u8 *pg = (u8 *)mm_page_alloc();
+            u64 base = page_va + p * 4096UL;
+            u64 k;
+
+            if (pg == (u8 *)0) {
+                return -1;
+            }
+            for (k = 0; k < 4096UL; k++) {
+                u64 va = base + k;
+
+                if (va >= vaddr && va < vaddr + filesz) {
+                    u64 src = off + (va - vaddr);
+
+                    if (src < len) {
+                        pg[k] = img[src];
+                    }
+                }
+            }
+            if (pg_map_user(l1, base, (u64)pg, attr) != 0) {
+                return -1;
+            }
+        }
+    }
+    *entry = entry_v;
+    return 0;
+}
+
+/* exec-by-path：从 ramfs 读镜像进新 aspace，再改 trap frame 返回 EL0。
+ * 认两种格式：ELF64（PT_LOAD）与裸代码（固定入口）。 */
 void proc_exec_path(u64 *f, u64 upath)
 {
     char path[64];
@@ -181,6 +279,9 @@ void proc_exec_path(u64 *f, u64 upath)
     i64 fd;
     i64 n;
     u64 i;
+    u64 entry = USER_WIN_BASE;
+    int is_elf = 0;
+    u64 sp;
 
     if (u_copy_path(path, upath, sizeof(path)) != 0) {
         printk("[kern] proc: exec path bad ptr\n");
@@ -188,8 +289,7 @@ void proc_exec_path(u64 *f, u64 upath)
     }
     l1 = pg_aspace_new();
     code = (u8 *)mm_page_alloc();
-    stk = (u8 *)mm_page_alloc();
-    if (l1 == (u64 *)0 || code == (u8 *)0 || stk == (u8 *)0) {
+    if (l1 == (u64 *)0 || code == (u8 *)0) {
         printk("[kern] proc: exec-file failed (mem)\n");
         return;
     }
@@ -204,19 +304,37 @@ void proc_exec_path(u64 *f, u64 upath)
         printk("[kern] proc: exec-file read failed path=%s\n", path);
         return;
     }
-    if (pg_map_user(l1, USER_WIN_BASE, (u64)code, PG_USER_RX) != 0 ||
-        pg_map_user(l1, USER_WIN_BASE + 0x1000, (u64)stk, PG_USER_RW) != 0) {
-        printk("[kern] proc: exec-file map failed\n");
-        return;
+    if (n >= 64 && code[0] == 0x7f && code[1] == 'E' && code[2] == 'L' && code[3] == 'F') {
+        if (elf_load(l1, code, (u64)n, &entry) != 0) {
+            printk("[kern] proc: exec-file bad ELF path=%s\n", path);
+            return;
+        }
+        is_elf = 1;
+        stk = (u8 *)mm_page_alloc();
+        if (stk == (u8 *)0 ||
+            pg_map_user(l1, USER_WIN_TOP - 0x1000UL, (u64)stk, PG_USER_RW) != 0) {
+            printk("[kern] proc: exec-file stack map failed\n");
+            return;
+        }
+        sp = USER_WIN_TOP;
+    } else {
+        stk = (u8 *)mm_page_alloc();
+        if (stk == (u8 *)0 ||
+            pg_map_user(l1, USER_WIN_BASE, (u64)code, PG_USER_RX) != 0 ||
+            pg_map_user(l1, USER_WIN_BASE + 0x1000, (u64)stk, PG_USER_RW) != 0) {
+            printk("[kern] proc: exec-file map failed\n");
+            return;
+        }
+        sp = USER_WIN_BASE + 0x2000;
     }
     sched_set_l1(l1);
     pg_activate(l1);
-    for (i = 0; i < 36; i++) {
+    for (i = 0; i < 34; i++) {
         f[i] = 0;
     }
-    f[32] = USER_WIN_BASE;
+    f[32] = entry;
     f[33] = 0;
-    f[34] = USER_WIN_BASE + 0x2000;
-    printk("[kern] proc: exec-file pid=%u path=%s bytes=%u\n",
-           (u32)sched_pid(), path, (u32)n);
+    f[34] = sp;
+    printk("[kern] proc: exec-file pid=%u path=%s bytes=%u %s entry=%x\n",
+           (u32)sched_pid(), path, (u32)n, is_elf ? "elf" : "raw", entry);
 }

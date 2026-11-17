@@ -757,6 +757,10 @@ int kmain(u64 dtb)
         puts_("[kern] user: create thread u6 failed\n");
     }
     /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    /* 第二十四个：ELF64 加载（exec 一个真正的 ELF 文件）。 */
+    if (kthread_create("un", user_elfrun_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread un failed\n");
+    }
     /* 第二十三个：路径存在性检查（SYS_ACCESS）。 */
     if (kthread_create("um", user_access_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread um failed\n");
