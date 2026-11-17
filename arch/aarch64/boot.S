@@ -221,6 +221,7 @@ exception_save_rest:
     cbz     x0, exception_bad_return_frame
     mov     sp, x0
 
+exception_restore_frame:
     /* Return state is taken from the selected saved frame. */
     ldr     x1, [sp, #248]
     msr     elr_el1, x1
@@ -250,4 +251,13 @@ exception_bad_return_frame:
     mov     x0, sp
     bl      exception_panic
     b       .
+
+/* Enter a first task using the same register restore path as exception return. */
+.global coxvbn_aarch64_enter_frame
+.type coxvbn_aarch64_enter_frame, %function
+coxvbn_aarch64_enter_frame:
+    cbz     x0, exception_bad_return_frame
+    mov     sp, x0
+    b       exception_restore_frame
+.size coxvbn_aarch64_enter_frame, . - coxvbn_aarch64_enter_frame
 

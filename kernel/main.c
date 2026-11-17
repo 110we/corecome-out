@@ -6,7 +6,29 @@
 #include "exception.h"
 #include "arm_timer.h"
 #include "vfs.h"
+#include "scheduler.h"
+#include "aarch64_context.h"
 static struct coxvbn_vfs boot_vfs;
+static struct coxvbn_scheduler boot_scheduler;
+static struct gicv2_state boot_gic;
+static uint8_t boot_task_stack[COXVBN_TASK_MIN_STACK_SIZE]
+    __attribute__((aligned(16)));
+
+extern void coxvbn_aarch64_enter_frame(struct exception_frame *frame)
+    __attribute__((noreturn));
+
+static void coxvbn_idle_task(void *argument)
+{
+    (void)argument;
+    uart_write("COXVBN: FIRST TASK RUNNING ON PRIVATE STACK\n");
+    for (;;) __asm__ volatile("wfe");
+}
+
+static void coxvbn_task_return_trampoline(void)
+{
+    uart_write("COXVBN: TASK RETURNED WITHOUT EXIT ABI; HALTED\n");
+    for (;;) __asm__ volatile("wfe");
+}
 
 extern char __kernel_start[];
 extern char __kernel_end[];
@@ -29,6 +51,9 @@ void kernel_main(const void *boot_fdt)
     struct fdt_info fdt;
     uint32_t i;
     int rc;
+    struct coxvbn_task_ref idle_task;
+    struct exception_frame *initial_frame = 0;
+    struct exception_frame *dispatch_frame;
 
     uart_init();
     uart_write("\nCOXVBN: BOOT START\n");
@@ -114,7 +139,6 @@ void kernel_main(const void *boot_fdt)
     uart_write_hex((uintptr_t)arm_timer_now());
     uart_write("; PHYSICAL TIMER IRQ MASKED\n");
     if (fdt.gicv2_found != 0U) {
-        struct gicv2_state gic;
         const uint64_t aperture_start = 0x08000000ULL;
         const uint64_t aperture_end = 0x08200000ULL;
         if (fdt.gicv2_distributor.size < 0x1000U ||
@@ -126,17 +150,39 @@ void kernel_main(const void *boot_fdt)
             uart_write("COXVBN: GICV2 FDT RANGES OUTSIDE BOOT MMIO APERTURE\n");
             for (;;) __asm__ volatile("wfe");
         }
-        rc = gicv2_init(&gic, (uintptr_t)fdt.gicv2_distributor.base,
+        rc = gicv2_init(&boot_gic, (uintptr_t)fdt.gicv2_distributor.base,
                         (uintptr_t)fdt.gicv2_cpu_interface.base);
         if (rc != GICV2_OK) {
             uart_write("COXVBN: GICV2 QUIESCENT INIT FAILED\n");
             for (;;) __asm__ volatile("wfe");
         }
-        exception_set_gicv2(&gic);
+        exception_set_gicv2(&boot_gic);
         uart_write("COXVBN: GICV2 DISCOVERED AND QUIESCED; IRQ DELIVERY DISABLED\n");
     } else {
         uart_write("COXVBN: NO SUPPORTED GICV2 NODE IN FDT\n");
     }
     uart_write("COXVBN: BOOT COMPLETE\n");
-    for (;;) __asm__ volatile("wfe");
+
+    /* Start the first EL1 task on its own stack; IRQ scheduling stays masked. */
+    coxvbn_scheduler_init(&boot_scheduler);
+    if (coxvbn_task_create(&boot_scheduler,
+            (uintptr_t)coxvbn_idle_task, 0U,
+            (uintptr_t)boot_task_stack, sizeof(boot_task_stack),
+            0, &idle_task) != 0 ||
+        coxvbn_aarch64_context_build((uintptr_t)boot_task_stack,
+            sizeof(boot_task_stack), (uintptr_t)coxvbn_idle_task, 0U,
+            (uintptr_t)coxvbn_task_return_trampoline, &initial_frame) != 0 ||
+        coxvbn_task_set_initial_frame(&boot_scheduler, &idle_task,
+                                      initial_frame) != 0) {
+        uart_write("COXVBN: FIRST TASK CONTEXT SETUP FAILED\n");
+        for (;;) __asm__ volatile("wfe");
+    }
+    exception_set_scheduler(&boot_scheduler);
+    dispatch_frame = coxvbn_scheduler_schedule_frame(&boot_scheduler, 0);
+    if (dispatch_frame == 0) {
+        uart_write("COXVBN: FIRST TASK DISPATCH FAILED\n");
+        for (;;) __asm__ volatile("wfe");
+    }
+    uart_write("COXVBN: FIRST TASK DISPATCH\n");
+    coxvbn_aarch64_enter_frame(dispatch_frame);
 }

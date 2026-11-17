@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 struct gicv2_state;
+struct coxvbn_scheduler;
 
 /* Must match the fixed offsets used by arch/aarch64/boot.S. */
 struct exception_frame {
@@ -34,6 +35,7 @@ _Static_assert(sizeof(struct exception_frame) == 288U,
                "exception frame payload size mismatch");
 
 void exception_set_gicv2(struct gicv2_state *state);
+void exception_set_scheduler(struct coxvbn_scheduler *scheduler);
 
 /* Register/unregister only while IRQs are masked; handlers run in IRQ context. */
 int exception_register_irq_handler(uint32_t interrupt_id,

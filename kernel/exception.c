@@ -2,6 +2,7 @@
 #include "exception_decode.h"
 #include "gicv2.h"
 #include "uart.h"
+#include "scheduler.h"
 
 #define EXCEPTION_IRQ_SLOTS 1020U
 
@@ -11,6 +12,7 @@ struct irq_slot {
 };
 
 static struct gicv2_state *active_gic;
+static struct coxvbn_scheduler *active_scheduler;
 static struct irq_slot irq_slots[EXCEPTION_IRQ_SLOTS];
 
 static void write_hex(uint64_t value)
@@ -29,6 +31,11 @@ static void write_hex(uint64_t value)
 void exception_set_gicv2(struct gicv2_state *state)
 {
     active_gic = state;
+}
+
+void exception_set_scheduler(struct coxvbn_scheduler *scheduler)
+{
+    active_scheduler = scheduler;
 }
 
 int exception_register_irq_handler(uint32_t interrupt_id,
@@ -55,7 +62,7 @@ int exception_unregister_irq_handler(uint32_t interrupt_id)
     return 0;
 }
 
-static void dispatch_irq(struct exception_frame *frame)
+static int dispatch_irq(struct exception_frame *frame)
 {
     uint32_t token;
     uint32_t interrupt_id;
@@ -67,7 +74,7 @@ static void dispatch_irq(struct exception_frame *frame)
 
     rc = gicv2_acknowledge(active_gic, &token);
     if (rc == GICV2_NO_INTERRUPT)
-        return;
+        return 0;
     if (rc != GICV2_INTERRUPT_PENDING)
         exception_panic(frame);
 
@@ -84,6 +91,7 @@ static void dispatch_irq(struct exception_frame *frame)
     slot->handler(interrupt_id, slot->context);
     if (gicv2_end_interrupt(active_gic, token) != GICV2_OK)
         exception_panic(frame);
+    return 1;
 }
 
 struct exception_frame *exception_dispatch(struct exception_frame *frame)
@@ -93,7 +101,14 @@ struct exception_frame *exception_dispatch(struct exception_frame *frame)
 
     /* Current-EL SPx IRQ and lower-EL AArch64 IRQ vector slots. */
     if (frame->vector == 5U || frame->vector == 9U) {
-        dispatch_irq(frame);
+        int handled = dispatch_irq(frame);
+        if (handled != 0 && active_scheduler != 0) {
+            struct exception_frame *next =
+                coxvbn_scheduler_schedule_frame(active_scheduler, frame);
+            if (next == 0)
+                exception_panic(frame);
+            return next;
+        }
         return frame;
     }
 

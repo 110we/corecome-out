@@ -22,11 +22,21 @@ the entry point, and SPSR for masked EL1h execution. The 304-byte allocation
 preserves the assembly's 16-byte stack alignment while the C-visible frame
 payload is 288 bytes.
 
-This is an important scheduler primitive, but it is not yet a complete runtime
-context switch: the exception dispatcher is not yet wired to a live scheduler,
-no initial task is installed during boot, the return trampoline is not supplied,
-and timer IRQ delivery remains disabled. The component still requires external
-serialization and is not IRQ-safe or SMP-safe. Task stacks are caller-owned.
+This now includes the first real EL1 task handoff. `kernel_main()` builds the
+initial frame in a dedicated, statically owned task stack, registers it with the
+scheduler, and enters it through `coxvbn_aarch64_enter_frame()`, which shares the
+exception-return register restore path. The initial task runs with masked IRQs;
+its first exception frame will therefore be allocated on its own SP_EL1 stack.
+The exception dispatcher can be attached to a scheduler and, after a real GIC
+IRQ has been acknowledged and serviced, save the interrupted task frame and
+return the next READY task frame. The host exception-dispatch test exercises
+round-robin handoff between two task-owned frames.
+
+This is not yet preemptive runtime validation: GIC delivery and the physical
+timer IRQ remain disabled, so the boot task is not yet time-sliced on hardware.
+The return trampoline deliberately fail-stops if a task returns; task-exit/SVC
+handoff, IRQ-safe serialization, per-CPU state, idle integration, and QEMU task
+switch stress tests remain outstanding. Task stacks are caller-owned.
 
 ## State transitions
 
