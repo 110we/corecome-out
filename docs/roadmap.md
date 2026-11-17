@@ -42,7 +42,7 @@
 
 ## Milestone 5 — kernel services
 - [x] Add a bounded, host-tested in-memory VFS core (fixed node/file capacities; boot-initialized and self-tested, but not persistent)
-- [ ] Device model and driver lifecycle
+- [ ] Full device model and driver lifecycle (bounded lifecycle registry is implemented and host-tested; bus discovery, matching, binding, and IRQ/DMA integration remain open)
 - [ ] IPC and capability-based resource handles
 - [ ] Implement COXVBN Direct Port Communication: paired endpoints, direct shared-channel data path, no bridge/relay
 - [ ] Central Security Plugin request interface backed by kernel-enforced policy
