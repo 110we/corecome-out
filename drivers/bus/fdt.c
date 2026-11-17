@@ -124,10 +124,10 @@ static int str_eq_bounded(const u8 *s, u32 len, const char *want)
 {
     u32 i = 0;
 
-    while (i < len && want[i] != '\\0' && s[i] == (u8)want[i]) {
+    while (i < len && want[i] != '\0' && s[i] == (u8)want[i]) {
         i++;
     }
-    return i < len && s[i] == 0 && want[i] == '\\0';
+    return i < len && s[i] == 0 && want[i] == '\0';
 }
 
 /* compatible is a NUL-separated string list. Reject an unterminated tail. */
