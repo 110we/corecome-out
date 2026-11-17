@@ -450,8 +450,8 @@ user_m4_init_start:
     mov x8, #11
     svc #0x80
     cbnz x0, 2f
-    mov x0, #1                  /* id=1：shell 镜像 */
-    mov x8, #12
+    adr x0, 4f                  /* "/bin/sh"：从 ramfs 加载 shell */
+    mov x8, #19                 /* exec_path */
     svc #0x80
     b .
 2:
@@ -468,6 +468,8 @@ user_m4_init_start:
     .asciz "init: up, starting shell\n"
 3:
     .asciz "init: shell exited\n"
+4:
+    .asciz "/bin/sh"
     .balign 8
 user_m4_init_end:
 
