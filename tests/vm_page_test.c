@@ -53,10 +53,12 @@ int main(void)
         const uint64_t as_base = 0x0000000080000000ULL;
         uint32_t i;
         assert(vm_address_space_init(&space, as_base) == 0);
+        assert(vm_address_space_validate(&space) == 0);
         assert(vm_address_space_map(&space, as_base, 0x60000000ULL,
                                     VM_MAP_READ | VM_MAP_WRITE | VM_MAP_USER) == 0);
         assert(vm_address_space_map(&space, as_base + VM_L3_SPAN,
                                     0x60001000ULL, VM_MAP_READ | VM_MAP_USER) == 0);
+        assert(vm_address_space_validate(&space) == 0);
         assert(vm_address_space_lookup(&space, as_base + VM_L3_SPAN,
                                        &mapping) == 0);
         assert(mapping.physical_address == 0x60001000ULL);
@@ -81,7 +83,15 @@ int main(void)
                    0x62000000ULL, VM_MAP_READ) == 0);
         assert(vm_address_space_init(&space, as_base + VM_PAGE_SIZE) == -1);
 
+        assert(vm_address_space_validate(&space) == 0);
+        assert(vm_address_space_validate(&space) == 0);
+        space.l2[511] = 1ULL;
+        assert(vm_address_space_validate(&space) == -8);
+        space.l2[511] = 0ULL;
+        assert(vm_address_space_validate(&space) == 0);
+
         assert(vm_address_space_init(&range_space, as_base) == 0);
+        assert(vm_address_space_validate(&range_space) == 0);
         assert(vm_address_space_map_range(&range_space, as_base + 0x8000ULL,
                    0x63000000ULL, 3ULL * VM_PAGE_SIZE,
                    VM_MAP_READ | VM_MAP_WRITE) == 0);
@@ -98,6 +108,7 @@ int main(void)
         assert(vm_address_space_lookup(&range_space, as_base + 0x11000ULL,
                                        &mapping) == 0);
         assert(mapping.physical_address == 0x64000000ULL);
+        assert(vm_address_space_validate(&range_space) == 0);
         assert(vm_address_space_map_range(&range_space, as_base, 0x60000000ULL,
                    0ULL, VM_MAP_READ) == -1);
         assert(vm_address_space_map_range(&range_space, UINT64_MAX - 0xfffULL,
