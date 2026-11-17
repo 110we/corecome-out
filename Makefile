@@ -61,6 +61,8 @@ test-host:
 	$(BUILD)/arm_timer_test
 	$(HOST_CC) -DCOXVBN_REDLAB_TESTING -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/redlab_policy_test.c kernel/redlab_policy.c kernel/execution_context.c kernel/module_registry.c kernel/key_vault.c -o $(BUILD)/redlab_policy_test
 	$(BUILD)/redlab_policy_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/redlab_admission_test.c kernel/redlab_policy.c kernel/execution_context.c kernel/module_registry.c kernel/key_vault.c -o $(BUILD)/redlab_admission_test
+	$(BUILD)/redlab_admission_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel tests/privacy_profile_test.c kernel/privacy_profile.c -o $(BUILD)/privacy_profile_test
 	$(BUILD)/privacy_profile_test
 

@@ -70,9 +70,11 @@
 ## Milestone 8 — COXVBN RedLab authorized security assessment
 - [ ] Define immutable engagement scope schema, target exclusions, and authorization metadata
 - [x] Implement host-tested deny-by-default IPv4/IPv6 CIDR, port, and monotonic-time scope guard (no network I/O)
-- [ ] Add separate discovery, passive-capture, and active-probe capability classes
+- [x] Define separate discovery, passive-capture, and active-probe capability classes with independent grants
 - [x] Add host-tested per-target rate/concurrency limits, per-job time/byte budgets, audit callbacks, and sticky global stop (kernel identity/locking integration remains open)
-- [x] Bind host-tested scope/policy admission to active module identity and revocable, domain-separated capabilities (kernel execution-context plumbing remains open)
+- [x] Bind host-tested scope/policy admission to active module identity and revocable, domain-separated capabilities (scheduler-backed execution-context plumbing remains open)
+- [x] Route production policy checks through one current-context entrypoint; keep raw scope-only and explicit-module helpers test-only
+- [x] Test per-operation least privilege, cross-domain rejection, pending/revoked denial, audit propagation, invalid calls, and global stop through the combined admission path
 - [x] Record canonical module identity and operation in RedLab audit events (host-tested; persistent audit storage remains open)
 - [ ] Add isolated user-space assessment runner after scheduler, address-space isolation, and syscall/IPC ABI
 - [ ] Add bounded discovery, service enumeration, TLS/configuration, and web/API assessment tools
@@ -81,6 +83,7 @@
 ## Milestone 9 — Daily Privacy Profile
 - [x] Define a host-tested profile identity, generation-bound handles, and domain-specific handle validation contract (cross-profile data isolation remains open)
 - [x] Add host-tested profile-scoped handles; daily profile cannot inherit RedLab domain authority
+- [x] Reject RedLab modules requesting Daily data/settings and reject Daily modules requesting RedLab capability bits; no elevated grants are implicit
 - [x] Implement a host-tested fail-closed transition controller (trusted authentication/UI and runtime revocation integration remain open)
 - [ ] Add lock-screen/notification sensitive-preview controls without suppressing security alerts
 - [ ] Add permission review and revocation UI

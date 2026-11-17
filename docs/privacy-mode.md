@@ -4,7 +4,7 @@
 
 The Daily Privacy Profile is an ordinary, user-controlled operating profile for reducing incidental disclosure during everyday use. It is not an evasion mode, covert mode, or identity-spoofing feature. It must remain compatible with platform security controls, endpoint protection, audit requirements, and applicable organizational policy.
 
-This document defines a design contract. The module registry now has a host-tested domain boundary that prevents Daily Profile modules from requesting or receiving RedLab assessment capabilities. The current kernel does not yet implement user sessions, a desktop, application sandboxing, notification services, or profile switching.
+This document defines a design contract. The module registry has a host-tested domain boundary: Daily Profile modules can request/grant only Daily data/settings capabilities, while RedLab modules can request/grant only RedLab discovery/passive/active capabilities. Cross-domain registration is rejected, authorization rechecks the domain, and a newly registered module receives only the explicit grant mask supplied by the kernel loader—there is no automatic elevated grant. The current kernel does not yet implement user sessions, a desktop, application sandboxing, notification services, or production profile switching.
 
 ## Intended controls
 
@@ -21,6 +21,8 @@ This document defines a design contract. The module registry now has a host-test
 The Daily Privacy Profile and RedLab are separate security domains:
 
 - Daily mode receives no discovery, passive-capture, or active-probe capability; the domain-aware module registration API rejects any Daily Profile request or grant containing those capability bits.
+- RedLab modules likewise cannot request or receive Daily profile data/settings capabilities. A RedLab capability check cannot be combined with a Daily-domain permission to cross the boundary.
+- No profile or module receives elevated permissions by default; each grant must be explicit and no broader than the request.
 - Switching into RedLab requires an explicit confirmation and a separate authorization/scope workflow.
 - Switching back to daily mode revokes RedLab job handles and assessment capabilities before the profile transition completes.
 - A failed revocation or uncertain transition fails closed and leaves the system in a clearly indicated restricted state.
@@ -35,7 +37,7 @@ The profile must not:
 - impersonate a real person, organization, device, or trusted service;
 - silently falsify device identity, location, or security posture.
 
-Legitimate privacy measures such as reducing lock-screen previews, separating personal/work data, limiting unnecessary app permissions, and choosing a less revealing user-facing theme are in scope.
+Legitimate privacy measures such as reducing lock-screen previews, separating personal/work/test configurations, limiting unnecessary app permissions, choosing a user-facing theme, and selecting nonessential telemetry preferences are in scope. Any implemented controls must be visible, user-controlled, reversible, and auditable; security alerts and mandatory audit events remain available. These are planned controls, not features currently provided by this kernel.
 
 ## State model
 

@@ -32,3 +32,12 @@ The explicit-module admission wrapper is compiled only with COXVBN_REDLAB_TESTIN
 Module activation and revocation use explicit transitional states. The registry lock protects only short metadata transitions. Proof-of-possession verification/enrollment and Key Vault revocation execute after releasing the registry lock, avoiding callback re-entry deadlocks. While activation or revocation is in progress, the module is not ACTIVE and authorization fails closed. Failed enrollment returns the record to PENDING; failed key revocation restores ACTIVE because the Key Vault reports that its key remains active.
 
 Host coverage includes a proof-verifier callback that re-enters the registry and observes ACTIVATING, demonstrating that the registry lock is not held across that callback. This remains a bounded in-memory Key Vault contract, not a persistent or hardware-backed key store.
+
+
+## R2 single-entry admission
+
+The production admission entrypoint is `coxvbn_redlab_policy_check_current()`. It obtains the current module reference only from the install-once execution-context provider, resolves the canonical registry identity for audit, maps the requested operation to exactly one capability, rejects pending/inactive/revoked or wrong-domain modules, and only then invokes the R1 scope/rate/concurrency/time/byte-budget evaluator. Discovery, passive capture, and active probing are independent grants. An active-probe request must also carry the active request flag; non-active operations must not carry it.
+
+The raw scope-only function and explicit-module adapter are available only when `COXVBN_REDLAB_TESTING` is defined. The production kernel build omits the scope-only symbol, and CI checks this with `nm`. A dedicated host test is compiled without the test macro and exercises only the current-context entrypoint. It covers unbound and unavailable providers, pending and revoked modules, least-privilege grants, all three operation classes, cross-domain denials, invalid operations/requests, audit identity and operation fields, and sticky global stop through the combined entrypoint.
+
+This remains a kernel-interface contract, not a trusted runtime boundary. The loader authority pointer is not a hardware boundary, and the execution-context provider is not yet backed by a scheduler-owned per-CPU current-task source. Kernel locking is not yet preemption/IRQ-aware; audit is an in-memory callback, not durable storage. No network I/O or scan runner is implemented.
