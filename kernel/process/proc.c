@@ -141,7 +141,8 @@ u64 proc_wait(u64 *f)
             printk("[kern] proc: wait no child\n");
             return (u64)-1;
         }
-        schedule();
+        /* 阻塞到子进程退出（僵尸产生时会唤醒父进程），不再忙等 */
+        sched_block_wait(want);
     }
 }
 

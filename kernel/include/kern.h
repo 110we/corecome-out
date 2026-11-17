@@ -59,6 +59,8 @@ void sched_go(void);
 void schedule(void);
 void kthread_exit(void);
 void sched_tick(void);
+void sched_sleep(u64 ticks);
+void sched_block_wait(int pid);
 u64 kthread_alive(void);
 const char *kthread_cur(void);
 

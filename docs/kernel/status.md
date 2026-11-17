@@ -18,7 +18,7 @@
 | 进程创建 | fork + COW | fork 共享页 + 引用计数 | 已验证 | `cow: parent intact` |
 | 程序装载 | execve 换 mm、加载 ELF | `SYS_EXEC_PATH` 支持 **ELF64 静态映像** + `argc/argv`；M4 的 init 走 `/bin/sh` | 部分 | 无 envp、无动态链接、镜像受 ramfs 4 KiB 上限限制 |
 | 退出/回收 | 僵尸 + wait4 | 僵尸 + `SYS_WAIT` | 已验证 | `wait pid=… code=7/-15`；wait 是让出轮询，非睡眠队列 |
-| 调度 | CFS/EEVDF、多核、就绪队列 | 100 Hz 固定片轮转、单核、线程表 40 槽 | 部分 | **无就绪队列/优先级/负载均衡**；仅用户态可抢占；8 个并发子进程的 fork/wait 压力测试通过 |
+| 调度 | CFS/EEVDF、多核、就绪队列 | 100 Hz 固定片轮转、单核；**BLOCKED 状态 + 唤醒**（wait 阻塞、sleep 按 tick 唤醒） | 部分 | **无优先级/负载均衡**；仅用户态可抢占；fork/wait 压力测试通过 |
 | 抢占 | 内核可抢占 | 用户态可抢占，内核靠关中断 | 部分 | 长 syscall 拖拍 |
 | 文件 | VFS + 页缓存 + 多 FS | VFS + ramfs root + `/dev/console` + **ext2 挂载到 `/mnt`**；EL0 可 open/read、mkdir/unlink、O_CREAT | 部分 | 无页缓存、无写、无日志；ext2 仍是整文件读进内存 |
 | fd | 每进程 files_struct | 每进程 filetable | 已验证 | fork 深拷贝，clone 共享 |

@@ -14,6 +14,7 @@
 #define ST_RUN     2
 #define ST_EXIT   3
 #define ST_ZOMBIE 4      /* 已退出，等父进程 wait 收尸 */
+#define ST_BLOCKED 5     /* 阻塞：等子进程退出（wait）或等 tick（sleep） */
 
 typedef struct tcb {
     u64 x19, x20, x21, x22, x23, x24, x25, x26, x27, x28;
@@ -32,6 +33,8 @@ typedef struct tcb {
     int tgid;               /* 线程组：clone 出来的线程与创建者同组 */
     u64 sig_pending;        /* 待投递信号：位图，bit n = signal n */
     u64 code;               /* 退出码：僵尸态留给父进程收 */
+    u64 wake_tick;          /* sleep：到点唤醒的 tick；0 = 不按时间唤醒 */
+    int wait_pid;           /* wait：等哪个 pid（-1 = 任意） */
 } tcb_t;
 
 extern void switch_to(tcb_t *prev, tcb_t *next);
@@ -144,7 +147,19 @@ void schedule(void)
         if (prev->state == ST_RUN) {
             return; /* 只剩自己，继续跑 */
         }
-        panic("sched: no runnable");
+        /* 全都阻塞了：睡到下一次中断，中断里可能有人被唤醒 */
+        for (;;) {
+            __asm__ volatile("wfi");
+            for (i = 0; i < nth; i++) {
+                if (tcbs[i].state == ST_READY) {
+                    next = &tcbs[i];
+                    break;
+                }
+            }
+            if (next != (tcb_t *)0) {
+                break;
+            }
+        }
     }
     if (next == prev) {
         return;
@@ -166,10 +181,68 @@ void schedule(void)
     switch_to(prev, next);
 }
 
+/* 让当前线程阻塞 ticks 个拍，交给调度器挑别人跑。 */
+void sched_sleep(u64 ticks)
+{
+    if (cur == (tcb_t *)0) {
+        return;
+    }
+    cur->wake_tick = tick_count() + ticks;
+    cur->state = ST_BLOCKED;
+    schedule();
+    if (cur != (tcb_t *)0) {
+        cur->wake_tick = 0;
+    }
+}
+
+/* 等 pid（-1 = 任意）的子进程退出；被唤醒后由调用方重新检查。 */
+void sched_block_wait(int pid)
+{
+    if (cur == (tcb_t *)0) {
+        return;
+    }
+    cur->wait_pid = pid;
+    cur->state = ST_BLOCKED;
+    schedule();
+    if (cur != (tcb_t *)0) {
+        cur->wait_pid = -1;
+    }
+}
+
+/* 僵尸产生时唤醒等它的父进程。 */
+static void wake_parent_of(tcb_t *child)
+{
+    int i;
+
+    for (i = 0; i < nth; i++) {
+        tcb_t *t = &tcbs[i];
+
+        if (t->pid != child->ppid || t->state != ST_BLOCKED) {
+            continue;
+        }
+        if (t->wait_pid == -1 || t->wait_pid == child->pid) {
+            t->state = ST_READY;
+        }
+    }
+}
+
 void sched_tick(void)
 {
     if (sched_on == 0 || cur == (tcb_t *)0) {
         return;
+    }
+    {
+        int i;
+
+        for (i = 0; i < nth; i++) {
+            tcb_t *t = &tcbs[i];
+
+            if (t->state == ST_BLOCKED && t->wake_tick != 0 &&
+                tick_count() >= t->wake_tick) {
+                t->wake_tick = 0;
+                t->state = ST_READY;
+            }
+        }
     }
     if (cur->slice > 0) {
         cur->slice--;
@@ -312,6 +385,7 @@ void sched_exit_zombie(int code)
     cur->code = (u64)code;
     cur->sig_pending = 0;
     cur->state = ST_ZOMBIE;
+    wake_parent_of(cur);
     schedule();
     panic("sched: zombie returned");
 }
