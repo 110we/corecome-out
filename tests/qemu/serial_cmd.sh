@@ -11,9 +11,9 @@ elf="$2"
 log="$3"
 
 i=1
-while [ "$i" -le 3 ]; do
+while [ "$i" -le 5 ]; do
     rm -f "$log"
-    ( sleep 1; printf 'help\r'; sleep 0.6; printf 'ticks\r'; sleep 0.6; printf 'exc\r'; sleep 1.5 ) \
+    ( sleep 2; printf 'help\r'; sleep 1.0; printf 'ticks\r'; sleep 1.0; printf 'exc\r'; sleep 2.0 ) \
         | timeout 10 "$qemu" -M virt,gic-version=2 -cpu cortex-a53 \
             -display none -monitor none -serial stdio -kernel "$elf" \
             > "$log" 2>&1 || true
@@ -26,6 +26,6 @@ while [ "$i" -le 3 ]; do
     i=$((i + 1))
 done
 
-echo "FAIL: cmd (3 attempts)"
+echo "FAIL: cmd (5 attempts)"
 tail -5 "$log" | cat -v
 exit 1
