@@ -86,6 +86,9 @@ jobs:
           bash .github/scripts/bare-qemu-test.sh 2>&1 | tee kernel/build/ci.log
 
       # 第二轮：新增的用户态/文件测试有时序成分，跑两遍抓偶发失败
+      - name: M4 验收（EL0 init → shell → ls/cat）
+        run: make -C kernel test-m4
+
       - name: 复跑一遍（抖动检查）
         run: |
           set -o pipefail
