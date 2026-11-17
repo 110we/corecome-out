@@ -1078,3 +1078,82 @@ user_dup_start:
     .ascii "abc"
     .balign 8
 user_dup_end:
+
+/* 打开着 unlink：名字立刻失效，但已打开的 fd 仍可读，关闭后才释放 */
+    .balign 8
+    .global user_ulo_start
+    .global user_ulo_end
+user_ulo_start:
+    adr x0, 151f
+    mov x1, #3
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 158f
+    mov x19, x0
+    mov x0, x19
+    adr x1, 154f
+    mov x2, #3
+    mov x8, #4
+    svc #0x80
+    mov x0, x19
+    mov x8, #7
+    svc #0x80
+
+    adr x0, 151f
+    mov x1, #0
+    mov x8, #5              /* 重新打开 */
+    svc #0x80
+    cmp x0, #0
+    b.lt 158f
+    mov x19, x0
+
+    adr x0, 151f
+    mov x8, #21             /* unlink（文件还开着） */
+    svc #0x80
+    cbnz x0, 158f
+
+    mov x0, x19
+    sub x1, sp, #16
+    mov x2, #1
+    mov x8, #6              /* fd 仍能读 */
+    svc #0x80
+    cmp x0, #1
+    b.ne 158f
+    ldrb w9, [sp, #-16]
+    mov w10, #'x'
+    cmp w9, w10
+    b.ne 158f
+
+    mov x0, x19
+    mov x8, #7              /* 关掉最后一个 fd，此时才真正释放 */
+    svc #0x80
+
+    adr x0, 151f
+    mov x8, #22             /* 名字已不存在 */
+    svc #0x80
+    cmp x0, #0
+    b.ge 158f
+
+    mov x0, #1
+    adr x1, 152f
+    mov x2, #16
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+158:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+151:
+    .asciz "/tmp/uo"
+152:
+    .ascii "unlink-open: ok\n"
+154:
+    .ascii "xyz"
+    .balign 8
+user_ulo_end:

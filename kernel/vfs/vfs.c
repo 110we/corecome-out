@@ -32,6 +32,8 @@ typedef struct inode {
     char *data;
     u64 size;
     u64 cap;
+    int refs;      /* 打开的 fd 数（含 dup/fork 克隆） */
+    int unlinked;  /* 已从目录树摘除，等最后一个 fd 关闭再释放 */
 } ino_t;
 
 static ino_t pool[MAX_INO];
@@ -110,6 +112,8 @@ static ino_t *ino_new(ino_t *parent, const char *name, int type)
     n->data = (char *)0;
     n->size = 0;
     n->cap = 0;
+    n->refs = 0;
+    n->unlinked = 0;
     str_copy(n->name, name, sizeof(n->name));
 
     if (parent != (ino_t *)0) {
@@ -301,6 +305,11 @@ i64 vfs_unlink(const char *path)
     }
     victim->sib = (ino_t *)0;
     victim->parent = (ino_t *)0;
+    if (victim->refs > 0) {
+        /* 还有 fd 打开着：名字没了，数据留到最后一次 close */
+        victim->unlinked = 1;
+        return 0;
+    }
     if (victim->data != (char *)0) {
         kfree(victim->data);
     }
@@ -405,6 +414,7 @@ i64 vfs_open(const char *path, int flags)
         n->size = 0;
         n->cap = 0;
     }
+    n->refs++;
     for (i = 3; i < MAX_FD; i++) {
         if (!fds[i].used) {
             fds[i].ino = n;
@@ -539,6 +549,23 @@ i64 vfs_close(int fd)
     if (fd < 3 || fd >= MAX_FD || !fds[fd].used) {
         return fd < 3 && fd >= 0 ? 0 : -1;
     }
+    if (fds[fd].ino != (ino_t *)0) {
+        ino_t *n = fds[fd].ino;
+
+        if (n->refs > 0) {
+            n->refs--;
+        }
+        if (n->refs == 0 && n->unlinked) {
+            if (n->data != (char *)0) {
+                kfree(n->data);
+            }
+            n->data = (char *)0;
+            n->size = 0;
+            n->cap = 0;
+            n->type = -1;
+            n->name[0] = '\0';
+        }
+    }
     fds[fd].used = 0;
     fds[fd].ino = (ino_t *)0;
     fds[fd].off = 0;
@@ -612,6 +639,9 @@ i64 vfs_dup(int fd)
     for (i = 3; i < MAX_FD; i++) {
         if (!fds[i].used) {
             fds[i] = fds[fd];
+            if (fds[i].ino != (ino_t *)0) {
+                fds[i].ino->refs++;
+            }
             return (i64)i;
         }
     }
@@ -770,6 +800,9 @@ struct filetable *vfs_ftab_clone(void)
     }
     for (i = 0; i < MAX_FD; i++) {
         dst->f[i] = src->f[i];
+        if (i >= 3 && src->f[i].used && src->f[i].ino != (ino_t *)0) {
+            src->f[i].ino->refs++;
+        }
     }
     return dst;
 }

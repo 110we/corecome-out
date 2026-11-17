@@ -25,7 +25,7 @@
 | 18 | KILL | `x0`=pid `x1`=sig | 0 | 仅默认动作 |
 | 19 | EXEC_PATH | `x0`=路径 | 不返回 | 从 ramfs 读镜像（裸代码，入口 USER_WIN_BASE） |
 | 20 | MKDIR | `x0`=路径 | 0 / -1 | |
-| 21 | UNLINK | `x0`=路径 | 0 / -1 | 目录非空拒绝 |
+| 21 | UNLINK | `x0`=路径 | 0 / -1 | 目录非空拒绝；文件仍被打开时名字先失效、数据留到最后一个 close |
 | 22 | STAT | `x0`=路径 | 大小 / -1 | |
 | 23 | TIME | — | tick 数 | |
 | 24 | SLEEP | `x0`=ticks | 0 | yield 轮询到目标 tick |

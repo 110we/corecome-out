@@ -757,6 +757,10 @@ int kmain(u64 dtb)
         puts_("[kern] user: create thread u6 failed\n");
     }
     /* 第八个：信号 —— kill 一个死循环的子进程，wait 拿 -15。 */
+    /* 第二十一个：打开着的文件被 unlink。 */
+    if (kthread_create("uk", user_ulo_thread, (void *)0) < 0) {
+        puts_("[kern] user: create thread uk failed\n");
+    }
     /* 第二十个：EL0 的 dup。 */
     if (kthread_create("uj", user_dup_thread, (void *)0) < 0) {
         puts_("[kern] user: create thread uj failed\n");

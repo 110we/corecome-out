@@ -83,6 +83,7 @@ void user_append_thread(void *arg);
 void user_seek_thread(void *arg);
 void user_rename_thread(void *arg);
 void user_dup_thread(void *arg);
+void user_ulo_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 void proc_exec_path(u64 *f, u64 upath);
