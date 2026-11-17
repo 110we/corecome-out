@@ -46,6 +46,7 @@ int vm_address_space_map_range(struct vm_address_space *space,
                                uint32_t flags);
 int vm_address_space_unmap(struct vm_address_space *space,
                            uint64_t virtual_address);
+int vm_address_space_validate(const struct vm_address_space *space);
 int vm_address_space_lookup(const struct vm_address_space *space,
                             uint64_t virtual_address,
                             struct vm_mapping *mapping);
