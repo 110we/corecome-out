@@ -319,7 +319,7 @@ int vm_address_space_validate(const struct vm_address_space *space)
                  (descriptor & DESC_AP_RDONLY) == 0ULL) ||
                 ((descriptor & DESC_ATTR_DEVICE) != 0ULL &&
                  (descriptor & (DESC_PXN | DESC_UXN)) !=
-                 (DESC_PXN | DESC_UXN))
+                 (DESC_PXN | DESC_UXN)))
                 return -7;
         }
     }
