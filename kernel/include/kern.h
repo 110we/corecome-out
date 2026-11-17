@@ -124,6 +124,7 @@ void sched_set_ftab(u64 ftab);
 struct filetable;
 struct filetable *vfs_ftab_new(void);
 struct filetable *vfs_ftab_clone(void);
+void vfs_ftab_release(struct filetable *t);
 void syscall_dump(void);
 u64 heap_size(void);
 u64 heap_used(void);

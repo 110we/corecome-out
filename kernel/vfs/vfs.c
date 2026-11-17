@@ -346,6 +346,34 @@ i64 vfs_unlink(const char *path)
     return 0;
 }
 
+/* 进程被收尸时释放它的 fd 表：归还 inode 引用，必要时真正释放数据。 */
+void vfs_ftab_release(struct filetable *t)
+{
+    int i;
+
+    if (t == (struct filetable *)0) {
+        return;
+    }
+    for (i = 3; i < MAX_FD; i++) {
+        ino_t *n = t->f[i].ino;
+
+        if (!t->f[i].used || n == (ino_t *)0) {
+            continue;
+        }
+        if (n->refs > 0) {
+            n->refs--;
+        }
+        if (n->refs == 0 && (n->unlinked || n->type == T_PIPE)) {
+            ino_free_data(n);
+            n->type = -1;
+            n->name[0] = '\0';
+        }
+        t->f[i].used = 0;
+        t->f[i].ino = (ino_t *)0;
+    }
+    kfree(t);
+}
+
 void vfs_init(void)
 {
     ino_t *dev;

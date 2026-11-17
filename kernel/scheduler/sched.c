@@ -390,6 +390,8 @@ int sched_wait_child(int pid, int *code)
          * clone 的线程共享同一份，refs>1 时只减一，最后一个才真拆。 */
         pg_aspace_unref(t->l1);
         t->l1 = (u64 *)0;
+        vfs_ftab_release((struct filetable *)t->ftab);
+        t->ftab = 0;
         return t->pid;
     }
     return 0;
