@@ -129,6 +129,11 @@ int main(void)
     assert(wifi_scan_report(&dev, &net) == 0);
     assert(wifi_scan_report(&dev, &net) == 0);
     {
+        struct wifi_network invalid = net;
+        invalid.bssid[0] = 0x03U;
+        assert(wifi_scan_report(&dev, &invalid) == -1);
+    }
+    {
         uint8_t frame[48] = {0};
         frame[0] = 0x80U;
         frame[16] = 0x02U;
