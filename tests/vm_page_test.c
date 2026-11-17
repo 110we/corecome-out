@@ -81,7 +81,8 @@ int main(void)
                    0x62000000ULL, VM_MAP_READ) == 0);
         assert(vm_address_space_init(&space, as_base + VM_PAGE_SIZE) == -1);
 
-        assert(vm_address_space_init(&range_space, as_base) == 0);\n        assert(vm_address_space_map_range(&range_space, as_base + 0x8000ULL,
+        assert(vm_address_space_init(&range_space, as_base) == 0);
+        assert(vm_address_space_map_range(&range_space, as_base + 0x8000ULL,
                    0x63000000ULL, 3ULL * VM_PAGE_SIZE,
                    VM_MAP_READ | VM_MAP_WRITE) == 0);
         assert(vm_address_space_lookup(&range_space, as_base + 0xa000ULL,
