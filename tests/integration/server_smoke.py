@@ -119,6 +119,12 @@ def main():
         check("路由数 = 13", snap.get("routes") == 13, str(snap.get("routes")))
         sides = [(s["name"], s["order"], s["state"]) for s in snap.get("sides", [])]
         check("面名单/顺序/状态", sides == EXPECTED_SIDES, str(sides))
+        # 进程刚起来时 tick 可能还是 0（CI 上偶发）：给 2 秒等第一拍
+        deadline = time.time() + 2.0
+        while snap.get("ticks", 0) < 1 and time.time() < deadline:
+            time.sleep(0.05)
+            st, body = call("/api/kernel")
+            snap = body.get("data", {})
         check("拍子在走", snap.get("ticks", 0) >= 1, str(snap.get("ticks")))
 
         st, body = call("/api/kernel/routes")
