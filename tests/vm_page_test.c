@@ -89,6 +89,14 @@ int main(void)
         assert(vm_address_space_validate(&space) == -8);
         space.l2[511] = 0ULL;
         assert(vm_address_space_validate(&space) == 0);
+        {
+            uint64_t saved = space.l3[0].entries[0];
+            space.l3[0].entries[0] &= ~((1ULL << 7) |
+                                         (1ULL << 53) | (1ULL << 54));
+            assert(vm_address_space_validate(&space) == -7);
+            space.l3[0].entries[0] = saved;
+            assert(vm_address_space_validate(&space) == 0);
+        }
 
         assert(vm_address_space_init(&range_space, as_base) == 0);
         assert(vm_address_space_validate(&range_space) == 0);
