@@ -4,7 +4,7 @@ COXVBN is a new operating-system implementation, not a Linux distribution. The c
 
 ## Implemented boot path
 
-The current image is linked for the QEMU AArch64 direct-kernel boot path at `0x40080000`. Its entry assembly masks interrupts, preserves the incoming FDT pointer, installs the EL1 vector-table base, establishes a bootstrap stack, clears BSS, and calls `kernel_main`. The C kernel initializes the PL011 console, parses the FDT, initializes the bounded physical page allocator, and enables an initial EL1 identity map.
+The current image is linked for the QEMU AArch64 direct-kernel boot path at `0x40080000`. Its entry assembly masks interrupts, preserves the incoming FDT pointer, installs the EL1 vector-table base, establishes a bootstrap stack, clears BSS, and calls `kernel_main`. The C kernel initializes a bounded in-memory VFS instance and performs a file write/read integrity self-test, then initializes the PL011 console, parses the FDT, initializes the bounded physical page allocator, and enables an initial EL1 identity map.
 
 The initial translation regime is intentionally machine-specific: a 39-bit VA, 4-KiB granule, 2-MiB block mappings, QEMU virt RAM in the supported 0x40000000–0x80000000 window, and known GIC/PL011 device windows. It is not yet a general-purpose virtual-memory manager and does not provide per-process address spaces or EL0 isolation.
 
@@ -16,7 +16,7 @@ All vectors still take the fatal path: there is no IRQ dispatch, exception retur
 
 - The supported boot/test target is QEMU `virt` with GICv2 selected explicitly; CI compiles the generated device tree and checks the GICv2 compatibility and interrupt-controller property. Arbitrary firmware handoff, EL3 transitions, and secondary CPUs are not supported.
 - Interrupts are masked at boot. A GICv2 quiescent-initialization routine accepts explicit distributor/CPU-interface bases, disables both interfaces, reads the implemented interrupt-line count, and prepares the priority mask. It deliberately does not enable either interface; timer interrupts, IRQ dispatch, acknowledgement/EOI, and exception return remain unimplemented.
-- There is no scheduler, kernel-thread context switch, user mode, syscall ABI, or process address-space isolation. A bounded in-memory VFS core now exists as a host-tested subsystem, but it is not mounted by the boot path and has no persistent storage backend.
+- There is no scheduler, kernel-thread context switch, user mode, syscall ABI, or process address-space isolation. A bounded in-memory VFS instance is initialized and self-tested during boot; it remains non-persistent and has no block-device or crash-consistent storage backend.
 - The physical allocator is a bounded bootstrap allocator; page-table allocation and dynamic virtual mappings are not implemented.
 - The Key Vault, Information Store, and Emergency Recovery are in-memory interfaces/contracts only. There is no persistent vault, audited cryptographic backend, watchdog takeover, network stack, or TCP listener. TCP port 3000 is not live.
 
