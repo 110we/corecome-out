@@ -17,6 +17,7 @@ enum coxvbn_device_class {
 
 enum coxvbn_device_state {
     COXVBN_DEVICE_UNUSED = 0,
+    COXVBN_DEVICE_PROBING,
     COXVBN_DEVICE_ACTIVE,
     COXVBN_DEVICE_SUSPENDED
 };
