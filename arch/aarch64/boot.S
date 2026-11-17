@@ -215,11 +215,13 @@ exception_save_rest:
     mrs     x1, far_el1
     str     x1, [sp, #272]
 
-    /* C dispatcher either handles a registered IRQ or panics. */
+    /* Dispatcher returns the frame that must be restored. */
     mov     x0, sp
     bl      exception_dispatch
+    cbz     x0, exception_bad_return_frame
+    mov     sp, x0
 
-    /* Return state is taken from the saved frame, not C caller registers. */
+    /* Return state is taken from the selected saved frame. */
     ldr     x1, [sp, #248]
     msr     elr_el1, x1
     ldr     x1, [sp, #256]
@@ -242,4 +244,10 @@ exception_save_rest:
     ldr     x30, [sp, #240]
     add     sp, sp, #304
     eret
+
+exception_bad_return_frame:
+    /* A null frame is a fatal dispatcher contract violation. */
+    mov     x0, sp
+    bl      exception_panic
+    b       .
 
