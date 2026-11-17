@@ -264,3 +264,76 @@ int vm_address_space_map_range(struct vm_address_space *space,
     }
     return 0;
 }
+
+int vm_address_space_validate(const struct vm_address_space *space)
+{
+    uint32_t i, j;
+    uint32_t root_index;
+    if (space == 0 ||
+        (space->virtual_base & (VM_L2_SPAN - 1ULL)) != 0ULL ||
+        space->virtual_base >= (1ULL << 38) ||
+        !table_pointer_valid(space->l1) ||
+        !table_pointer_valid(space->l2))
+        return -1;
+
+    root_index = (uint32_t)(space->virtual_base >> 30);
+    for (i = 0; i < 512U; ++i) {
+        uint64_t expected = 0ULL;
+        if (i == root_index)
+            expected = ((uint64_t)(uintptr_t)space->l2 &
+                        DESC_TABLE_ADDR_MASK) |
+                       DESC_VALID | DESC_TABLE_PAGE;
+        if (space->l1[i] != expected)
+            return -2;
+    }
+
+    for (i = 0; i < VM_ADDRESS_SPACE_L3_TABLES; ++i) {
+        uint32_t index;
+        uint64_t expected;
+        if (space->l3_used[i] > 1U)
+            return -3;
+        if (space->l3_used[i] == 0U)
+            continue;
+        index = space->l3_l2_index[i];
+        if (index >= 512U || !table_pointer_valid(space->l3[i].entries) ||
+            space->l3[i].virtual_base !=
+                space->virtual_base + (uint64_t)index * VM_L3_SPAN)
+            return -4;
+        for (j = i + 1U; j < VM_ADDRESS_SPACE_L3_TABLES; ++j)
+            if (space->l3_used[j] != 0U &&
+                space->l3_l2_index[j] == index)
+                return -5;
+        expected = ((uint64_t)(uintptr_t)space->l3[i].entries &
+                    DESC_TABLE_ADDR_MASK) |
+                   DESC_VALID | DESC_TABLE_PAGE;
+        if (space->l2[index] != expected)
+            return -6;
+        for (j = 0; j < 512U; ++j) {
+            uint64_t descriptor = space->l3[i].entries[j];
+            if (descriptor == 0ULL)
+                continue;
+            if ((descriptor & DESC_TABLE_PAGE) != DESC_TABLE_PAGE ||
+                (descriptor & DESC_AF) == 0ULL ||
+                ((descriptor & (DESC_PXN | DESC_UXN)) !=
+                 (DESC_PXN | DESC_UXN) &&
+                 (descriptor & DESC_AP_RDONLY) == 0ULL) ||
+                ((descriptor & DESC_ATTR_DEVICE) != 0ULL &&
+                 (descriptor & (DESC_PXN | DESC_UXN)) !=
+                 (DESC_PXN | DESC_UXN))
+                return -7;
+        }
+    }
+
+    for (i = 0; i < 512U; ++i) {
+        int found = 0;
+        if (space->l2[i] == 0ULL)
+            continue;
+        for (j = 0; j < VM_ADDRESS_SPACE_L3_TABLES; ++j)
+            if (space->l3_used[j] != 0U &&
+                space->l3_l2_index[j] == i)
+                found = 1;
+        if (found == 0)
+            return -8;
+    }
+    return 0;
+}
