@@ -177,3 +177,127 @@ int wifi_disconnect(struct wifi_device *device)
     device->last_error = 0;
     return 0;
 }
+
+
+static uint16_t wifi_get_le16(const uint8_t *p)
+{
+    return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
+}
+
+/* Parse the RSN information element and accept only PSK or SAE AKMs. */
+static int wifi_parse_rsn(const uint8_t *p, size_t length,
+                          enum wifi_security *security)
+{
+    size_t pos = 0U;
+    uint16_t count;
+    uint32_t i;
+    int has_psk = 0;
+    int has_sae = 0;
+
+    if (p == 0 || security == 0 || length < 2U + 4U + 2U)
+        return -1;
+    if (wifi_get_le16(p) != 1U)
+        return -1;
+    pos = 2U;
+    if (length - pos < 4U) return -1;
+    pos += 4U; /* Group data cipher suite. */
+
+    if (length - pos < 2U) return -1;
+    count = wifi_get_le16(p + pos);
+    pos += 2U;
+    if (count == 0U || (size_t)count > (length - pos) / 4U)
+        return -1;
+    pos += (size_t)count * 4U;
+
+    if (length - pos < 2U) return -1;
+    count = wifi_get_le16(p + pos);
+    pos += 2U;
+    if (count == 0U || (size_t)count > (length - pos) / 4U)
+        return -1;
+    for (i = 0U; i < count; ++i) {
+        const uint8_t *suite = p + pos + (size_t)i * 4U;
+        if (suite[0] == 0x00U && suite[1] == 0x0fU &&
+            suite[2] == 0xacU) {
+            if (suite[3] == 2U) has_psk = 1;
+            if (suite[3] == 8U) has_sae = 1;
+        }
+    }
+    if (!has_psk && !has_sae)
+        return -2;
+    *security = has_sae ? WIFI_SECURITY_WPA3_SAE : WIFI_SECURITY_WPA2_PSK;
+    return 0;
+}
+
+int wifi_parse_beacon(const uint8_t *frame, size_t frame_len,
+                      int16_t rssi_dbm, struct wifi_network *network)
+{
+    uint16_t fc;
+    uint16_t capability;
+    uint32_t i;
+    size_t pos;
+    int have_ssid = 0;
+    int have_channel = 0;
+    int have_rsn = 0;
+    struct wifi_network parsed;
+
+    if (frame == 0 || network == 0 || frame_len < 36U)
+        return -1;
+
+    fc = wifi_get_le16(frame);
+    if ((fc & 0x0003U) != 0U || ((fc >> 2) & 0x3U) != 0U ||
+        ((((fc >> 4) & 0x0fU) != 8U) && (((fc >> 4) & 0x0fU) != 5U)) ||
+        (fc & 0x4000U) != 0U)
+        return -2;
+
+    for (i = 0U; i < WIFI_BSSID_LEN; ++i)
+        parsed.bssid[i] = frame[16U + i];
+    if ((parsed.bssid[0] & 1U) != 0U)
+        return -3;
+
+    capability = wifi_get_le16(frame + 34U);
+    if ((capability & 0x0010U) != 0U)
+        return -4; /* Legacy WEP privacy is deliberately unsupported. */
+
+    parsed.ssid_len = 0U;
+    parsed.channel = 0U;
+    parsed.rssi_dbm = rssi_dbm;
+    parsed.security = WIFI_SECURITY_OPEN;
+
+    pos = 36U;
+    while (pos < frame_len) {
+        uint8_t id, length;
+        const uint8_t *value;
+        if (frame_len - pos < 2U) return -5;
+        id = frame[pos];
+        length = frame[pos + 1U];
+        pos += 2U;
+        if ((size_t)length > frame_len - pos) return -5;
+        value = frame + pos;
+
+        if (id == 0U) {
+            if (have_ssid || length == 0U || length > WIFI_SSID_MAX)
+                return -6;
+            for (i = 0U; i < length; ++i)
+                parsed.ssid[i] = value[i];
+            parsed.ssid_len = length;
+            have_ssid = 1;
+        } else if (id == 3U) {
+            if (have_channel || length != 1U || value[0] == 0U ||
+                value[0] > 196U)
+                return -7;
+            parsed.channel = value[0];
+            have_channel = 1;
+        } else if (id == 48U) {
+            if (have_rsn || wifi_parse_rsn(value, length,
+                                           &parsed.security) != 0)
+                return -8;
+            have_rsn = 1;
+        }
+        pos += length;
+    }
+
+    if (!have_ssid || !have_channel)
+        return -9;
+    *network = parsed;
+    return 0;
+}
