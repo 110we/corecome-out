@@ -84,6 +84,7 @@ void user_seek_thread(void *arg);
 void user_rename_thread(void *arg);
 void user_dup_thread(void *arg);
 void user_ulo_thread(void *arg);
+void user_pipe_thread(void *arg);
 int proc_fork(u64 *f);
 void proc_exec(u64 *f, u64 id);
 void proc_exec_path(u64 *f, u64 upath);
@@ -166,6 +167,7 @@ i64 vfs_size(const char *path);
 i64 vfs_seek(int fd, i64 off);
 i64 vfs_rename(const char *oldp, const char *newp);
 i64 vfs_dup(int fd);
+i64 vfs_pipe(int out[2]);
 i64 vfs_unlink(const char *path);
 
 #endif

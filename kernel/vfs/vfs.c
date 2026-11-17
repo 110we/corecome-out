@@ -20,6 +20,7 @@ extern const u8 user_shell_end[];
 #define T_FILE    1
 #define T_DEV     2
 #define T_EXT2    3   /* 指向 ext2 只读文件：首次 read 时把内容读进内存 */
+#define T_PIPE    4   /* 管道：4 KiB 环形缓冲，非阻塞 */
 #define DEV_CON   1
 
 typedef struct inode {
@@ -32,6 +33,8 @@ typedef struct inode {
     char *data;
     u64 size;
     u64 cap;
+    u64 rpos;      /* 管道读位置 */
+    u64 wpos;      /* 管道写位置 */
     int refs;      /* 打开的 fd 数（含 dup/fork 克隆） */
     int unlinked;  /* 已从目录树摘除，等最后一个 fd 关闭再释放 */
 } ino_t;
@@ -112,6 +115,8 @@ static ino_t *ino_new(ino_t *parent, const char *name, int type)
     n->data = (char *)0;
     n->size = 0;
     n->cap = 0;
+    n->rpos = 0;
+    n->wpos = 0;
     n->refs = 0;
     n->unlinked = 0;
     str_copy(n->name, name, sizeof(n->name));
@@ -467,6 +472,17 @@ i64 vfs_read(int fd, void *buf, u64 n)
         return -1;
     }
     f = &fds[fd];
+    if (f->ino->type == T_PIPE) {
+        u64 got = 0;
+        u8 *d = (u8 *)buf;
+
+        while (got < n && f->ino->size > 0) {
+            d[got++] = (u8)f->ino->data[f->ino->rpos];
+            f->ino->rpos = (f->ino->rpos + 1) % f->ino->cap;
+            f->ino->size--;
+        }
+        return (i64)got;
+    }
     if (f->ino->type == T_DEV) {
         /* 控制台读：从 UART 环形缓冲取，非阻塞。shell 用 read(0,…,1)
          * 轮询；没数据返回 0，调用方 yield 后再试。 */
@@ -513,6 +529,17 @@ i64 vfs_write(int fd, const void *buf, u64 n)
         }
         return (i64)n;
     }
+    if (f->ino->type == T_PIPE) {
+        u64 put = 0;
+        u8 *d = (u8 *)buf;
+
+        while (put < n && f->ino->size < f->ino->cap) {
+            f->ino->data[f->ino->wpos] = (char)d[put++];
+            f->ino->wpos = (f->ino->wpos + 1) % f->ino->cap;
+            f->ino->size++;
+        }
+        return (i64)put;
+    }
     if (f->ino->type != T_FILE) {
         return -1;
     }
@@ -555,7 +582,7 @@ i64 vfs_close(int fd)
         if (n->refs > 0) {
             n->refs--;
         }
-        if (n->refs == 0 && n->unlinked) {
+        if (n->refs == 0 && (n->unlinked || n->type == T_PIPE)) {
             if (n->data != (char *)0) {
                 kfree(n->data);
             }
@@ -627,6 +654,66 @@ static void path_num(char *dst, u32 n)
         dst[len++] = tmp[--i];
     }
     dst[len] = '\0';
+}
+
+/* 建一个管道，写出读/写两个 fd；缓冲用一页，非阻塞语义。 */
+i64 vfs_pipe(int out[2])
+{
+    ino_t *n;
+    int r;
+    int w;
+
+    n = ino_new((ino_t *)0, "pipe", T_PIPE);
+    if (n == (ino_t *)0) {
+        return -1;
+    }
+    n->data = (char *)mm_page_alloc();
+    if (n->data == (char *)0) {
+        n->type = -1;
+        return -1;
+    }
+    n->cap = 4096;
+    r = -1;
+    w = -1;
+    {
+        int i;
+
+        for (i = 3; i < MAX_FD; i++) {
+            if (!fds[i].used) {
+                fds[i].ino = n;
+                fds[i].off = 0;
+                fds[i].used = 1;
+                r = i;
+                break;
+            }
+        }
+    }
+    if (r >= 0) {
+        int i;
+
+        for (i = 3; i < MAX_FD; i++) {
+            if (!fds[i].used) {
+                fds[i].ino = n;
+                fds[i].off = 0;
+                fds[i].used = 1;
+                w = i;
+                break;
+            }
+        }
+    }
+    if (r < 0 || w < 0) {
+        if (r >= 0) {
+            fds[r].used = 0;
+        }
+        mm_page_free(n->data);
+        n->data = (char *)0;
+        n->type = -1;
+        return -1;
+    }
+    n->refs = 2;
+    out[0] = r;
+    out[1] = w;
+    return 0;
 }
 
 i64 vfs_dup(int fd)

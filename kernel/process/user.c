@@ -28,6 +28,8 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_pipe_start[];
+extern const u8 user_pipe_end[];
 extern const u8 user_ulo_start[];
 extern const u8 user_ulo_end[];
 extern const u8 user_dup_start[];
@@ -130,6 +132,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* 管道靶子：写入 2 字节再从读端取回。 */
+void user_pipe_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_pipe_start, user_pipe_end, "pipe");
 }
 
 /* unlink-open 靶子：删名之后 fd 仍可读，关闭才释放。 */

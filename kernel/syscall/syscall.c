@@ -39,6 +39,7 @@
 #define SYS_SEEK   25
 #define SYS_RENAME 26
 #define SYS_DUP    27
+#define SYS_PIPE   28
 
 extern u64 heap_used(void);
 
@@ -159,6 +160,19 @@ u64 syscall_dispatch(u64 nr, u64 a0, u64 a1, u64 a2)
         return (u64)vfs_unlink((const char *)a0);
     case SYS_TIME:
         return tick_count();
+    case SYS_PIPE: {
+        int pair[2];
+
+        if (g_from_el0 && !u_ok(a0, sizeof(pair))) {
+            return deny(nr, a0);
+        }
+        if (vfs_pipe(pair) != 0) {
+            return (u64)-1;
+        }
+        ((int *)a0)[0] = pair[0];
+        ((int *)a0)[1] = pair[1];
+        return 0;
+    }
     case SYS_DUP:
         return (u64)vfs_dup((int)a0);
     case SYS_RENAME:

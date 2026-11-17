@@ -1157,3 +1157,57 @@ user_ulo_start:
     .ascii "xyz"
     .balign 8
 user_ulo_end:
+
+/* 管道：写 2 字节再从读端取回，首字节应为 'h' */
+    .balign 8
+    .global user_pipe_start
+    .global user_pipe_end
+user_pipe_start:
+    sub sp, sp, #32
+    mov x0, sp
+    mov x8, #28             /* pipe */
+    svc #0x80
+    cbnz x0, 168f
+    ldr w19, [sp]           /* read fd */
+    ldr w20, [sp, #4]       /* write fd */
+
+    mov x0, x20
+    adr x1, 164f
+    mov x2, #2
+    mov x8, #4
+    svc #0x80
+    cmp x0, #2
+    b.ne 168f
+
+    mov x0, x19
+    add x1, sp, #8
+    mov x2, #2
+    mov x8, #6
+    svc #0x80
+    cmp x0, #2
+    b.ne 168f
+    ldrb w9, [sp, #8]
+    mov w10, #'h'
+    cmp w9, w10
+    b.ne 168f
+
+    mov x0, #1
+    adr x1, 162f
+    mov x2, #9
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+168:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+162:
+    .ascii "pipe: ok\n"
+164:
+    .ascii "hi"
+    .balign 8
+user_pipe_end:
