@@ -40,7 +40,7 @@ int main(void)
     assert(exception_register_irq_handler(5U, test_handler,
                                            &context_count) != 0);
 
-    exception_dispatch(&frame);
+    assert(exception_dispatch(&frame) == &frame);
     assert(handled_count == 1U);
     assert(handled_id == 5U);
     assert(context_count == 1U);
@@ -52,7 +52,7 @@ int main(void)
     /* A spurious interrupt returns without dispatching or writing EOI. */
     cpu_regs[3] = 1023U;
     cpu_regs[4] = 0U;
-    exception_dispatch(&frame);
+    assert(exception_dispatch(&frame) == &frame);
     assert(handled_count == 1U);
     assert(cpu_regs[4] == 0U);
 
