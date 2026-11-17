@@ -59,6 +59,8 @@ int wifi_stop(struct wifi_device *device);
 int wifi_scan(struct wifi_device *device);
 int wifi_scan_report(struct wifi_device *device,
                      const struct wifi_network *network);
+int wifi_scan_report_frame(struct wifi_device *device, const uint8_t *frame,
+                           size_t frame_len, int16_t rssi_dbm);
 int wifi_scan_complete(struct wifi_device *device, int status);
 int wifi_connect(struct wifi_device *device, const struct wifi_network *network,
                  const uint8_t *credential, size_t credential_len);
