@@ -37,7 +37,10 @@
 - [ ] Enable and QEMU-test hardware IRQ delivery after timer and exception-return runtime validation
 
 ## Milestone 4 — execution
-- [ ] Add per-CPU state, kernel threads, context switching, and a scheduler
+- [x] Add host-tested bounded task lifecycle records, generation-bound references, and round-robin READY-task selection model (bookkeeping only; no CPU context switch)
+- [ ] Add AArch64 context-save/restore, first-run stack frames, per-CPU state, and a runnable scheduler
+- [ ] Add IRQ/preemption-safe synchronization and timer-driven preemption
+- [ ] Bind scheduler-owned active execution context to module identity
 - [ ] Introduce user mode only after address-space isolation and syscall validation exist
 
 ## Milestone 5 — kernel services
@@ -50,7 +53,7 @@
 - [x] Add bounded kernel module registry with requested/granted capability checks and terminal revocation (host-tested)
 - [x] Serialize registry metadata and use ACTIVATING/REVOKING transitions so Key Vault callbacks run outside the registry lock (host-tested reentrant proof callback; IRQ/preemption integration remains open)
 - [x] Add a fail-closed current-module execution-context provider contract and route the production RedLab admission entry through it (host-tested; scheduler provider and privileged-boundary rollout remain open)
-- [ ] Bind scheduler-owned active execution context to module identity and enforce capabilities at every privileged subsystem boundary
+- [ ] Enforce capabilities at every privileged subsystem boundary
 - [ ] Integrate audited cryptography and persistent anti-rollback key storage
 
 ## Milestone 6 — isolated recovery foundations
