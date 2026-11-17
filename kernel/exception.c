@@ -99,15 +99,24 @@ struct exception_frame *exception_dispatch(struct exception_frame *frame)
     if (frame == 0)
         exception_panic(0);
 
-    /* SVC #0 from an EL1h task is the cooperative-yield ABI. */
+    /* EL1h SVC #0 yields; SVC #1 retires the current task. */
     if (frame->vector == 4U &&
-        ((frame->esr >> 26) & 0x3fU) == 0x15U &&
-        (frame->esr & 0xffffU) == 0U) {
+        ((frame->esr >> 26) & 0x3fU) == 0x15U) {
+        uint32_t immediate = (uint32_t)(frame->esr & 0xffffU);
         struct exception_frame *next;
-        if (active_scheduler == 0 || frame->elr > UINT64_MAX - 4U)
+        if (active_scheduler == 0)
             exception_panic(frame);
-        frame->elr += 4U;
-        next = coxvbn_scheduler_schedule_frame(active_scheduler, frame);
+        if (immediate == 0U) {
+            if (frame->elr > UINT64_MAX - 4U)
+                exception_panic(frame);
+            frame->elr += 4U;
+            next = coxvbn_scheduler_schedule_frame(active_scheduler, frame);
+        } else if (immediate == 1U) {
+            next = coxvbn_scheduler_exit_frame(active_scheduler, frame,
+                                               (int32_t)(uint32_t)frame->x[0]);
+        } else {
+            exception_panic(frame);
+        }
         if (next == 0)
             exception_panic(frame);
         return next;

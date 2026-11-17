@@ -15,6 +15,8 @@ static uint8_t boot_task_stacks[2][COXVBN_TASK_MIN_STACK_SIZE]
     __attribute__((aligned(16)));
 static volatile uint32_t boot_task_a_runs;
 static volatile uint32_t boot_task_b_runs;
+static volatile uint32_t boot_task_a_exited;
+static volatile uint32_t boot_task_b_after_exit_reported;
 
 extern void coxvbn_aarch64_enter_frame(struct exception_frame *frame)
     __attribute__((noreturn));
@@ -24,17 +26,16 @@ static void coxvbn_task_yield_cpu(void)
     __asm__ volatile("svc #0" ::: "memory");
 }
 
-static void coxvbn_task_a(void *argument)
+static int coxvbn_task_a(void *argument)
 {
+    uint32_t i;
     (void)argument;
-    for (;;) {
-        if (boot_task_a_runs < 3U) {
-            ++boot_task_a_runs;
-            if (boot_task_a_runs == 3U)
-                uart_write("COXVBN: TASK A COOPERATIVE SWITCH PASS\n");
-        }
+    for (i = 0U; i < 3U; ++i) {
+        ++boot_task_a_runs;
         coxvbn_task_yield_cpu();
     }
+    uart_write("COXVBN: TASK A COOPERATIVE SWITCH PASS\n");
+    return 42;
 }
 
 static void coxvbn_task_b(void *argument)
@@ -46,13 +47,22 @@ static void coxvbn_task_b(void *argument)
             if (boot_task_b_runs == 3U)
                 uart_write("COXVBN: TASK B COOPERATIVE SWITCH PASS\n");
         }
+        if (boot_task_a_exited != 0U &&
+            boot_task_b_after_exit_reported == 0U) {
+            boot_task_b_after_exit_reported = 1U;
+            uart_write("COXVBN: TASK B AFTER TASK A EXIT PASS\n");
+        }
         coxvbn_task_yield_cpu();
     }
 }
 
-static void coxvbn_task_return_trampoline(void)
+static void __attribute__((noreturn))
+coxvbn_task_return_trampoline(int exit_code)
 {
-    uart_write("COXVBN: TASK RETURNED WITHOUT EXIT ABI; HALTED\n");
+    register uintptr_t result __asm__("x0") = (uintptr_t)(intptr_t)exit_code;
+    if (exit_code == 42)
+        boot_task_a_exited = 1U;
+    __asm__ volatile("svc #1" : "+r"(result) :: "memory");
     for (;;) __asm__ volatile("wfe");
 }
 

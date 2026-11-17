@@ -68,6 +68,12 @@ struct exception_frame *coxvbn_scheduler_schedule_frame(
     struct coxvbn_scheduler *scheduler,
     struct exception_frame *current_frame);
 
+/* Retire the current task and select another saved READY frame. */
+struct exception_frame *coxvbn_scheduler_exit_frame(
+    struct coxvbn_scheduler *scheduler,
+    struct exception_frame *current_frame,
+    int exit_code);
+
 int coxvbn_task_yield(struct coxvbn_scheduler *scheduler);
 int coxvbn_task_block(struct coxvbn_scheduler *scheduler);
 int coxvbn_task_wake(struct coxvbn_scheduler *scheduler,

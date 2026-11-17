@@ -100,6 +100,19 @@ int main(void)
         assert(frames[0]->elr == 0x4004U);
         assert(exception_dispatch(frames[1]) == frames[0]);
         assert(frames[1]->elr == 0x5004U);
+
+        /* SVC #1 retires the current task and never saves its dead frame. */
+        {
+            enum coxvbn_task_state state;
+            int exit_code = 0;
+            frames[0]->esr = ((uint64_t)0x15U << 26) | 1U;
+            frames[0]->x[0] = 42U;
+            assert(exception_dispatch(frames[0]) == frames[1]);
+            assert(coxvbn_task_get_state(&scheduler, &first, &state,
+                                         &exit_code) == 0);
+            assert(state == COXVBN_TASK_ZOMBIE && exit_code == 42);
+            assert(scheduler.tasks[first.slot].saved_frame == 0);
+        }
         exception_set_scheduler(0);
     }
     assert(exception_unregister_irq_handler(5U) == 0);

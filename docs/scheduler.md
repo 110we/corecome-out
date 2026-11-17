@@ -39,13 +39,17 @@ the next saved task frame. Other synchronous exceptions and unsupported SVC
 numbers still fail closed. Host tests verify the SVC handoff and ELR advancement.
 
 The boot path creates two task-owned stacks and enters the first task. Both tasks
-increment bounded startup counters and yield through SVC, allowing QEMU to
-exercise real exception entry, saved-frame ownership, scheduler rotation, and
-exception return without enabling external IRQ delivery. GIC delivery and the
-physical timer IRQ remain disabled, so this is cooperative—not preemptive—
-scheduling. The return trampoline deliberately fail-stops if a task returns;
-task-exit, IRQ-safe serialization, per-CPU state, and timer preemption remain
-outstanding. Task stacks are caller-owned.
+yield through SVC, allowing QEMU to exercise real exception entry, saved-frame
+ownership, scheduler rotation, and exception return without enabling external
+IRQ delivery. GIC delivery and the physical timer IRQ remain disabled, so this
+is cooperative—not preemptive—scheduling.
+
+A task that returns enters the `SVC #1` exit ABI through its return trampoline.
+The dispatcher retires the running task, records the signed 32-bit result, drops
+its saved frame, and selects another READY task. If no saved task remains, the
+kernel fails closed rather than returning through a dead stack. IRQ-safe
+serialization, per-CPU state, and timer preemption remain outstanding. Task
+stacks are caller-owned.
 
 ## State transitions
 
@@ -64,9 +68,7 @@ until the scheduler is integrated with a trusted execution-context provider.
 
 ## Remaining execution work
 
-- connect the frame scheduler to exception dispatch and install an initial task
-- implement a safe task-return trampoline and task exit handoff
 - add IRQ/preemption-safe serialization and per-CPU current-task state
 - enable timer-driven preemption only after IRQ routing and EOI behavior are verified
-- add idle-task integration, syscall ABI, and EL0/address-space isolation
-- run runtime exception/IRQ tests and QEMU scheduling tests
+- add idle-task integration and EL0/address-space isolation
+- run hardware IRQ, timer-preemption, and Vectras VM validation

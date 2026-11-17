@@ -186,6 +186,39 @@ struct exception_frame *coxvbn_scheduler_schedule_frame(
     return 0;
 }
 
+struct exception_frame *coxvbn_scheduler_exit_frame(
+    struct coxvbn_scheduler *scheduler,
+    struct exception_frame *current_frame,
+    int exit_code)
+{
+    struct coxvbn_task_record *current;
+    uint32_t offset;
+
+    if (scheduler == 0)
+        return 0;
+    current = current_task(scheduler);
+    if (current == 0 || !frame_in_task_stack(current, current_frame))
+        return 0;
+
+    /* A retired task must never be selected again with its dead stack frame. */
+    current->saved_frame = 0;
+    current->exit_code = exit_code;
+    current->state = COXVBN_TASK_ZOMBIE;
+    scheduler->current_slot = -1;
+
+    for (offset = 0U; offset < COXVBN_TASK_CAPACITY; ++offset) {
+        uint32_t slot = (scheduler->cursor + offset) % COXVBN_TASK_CAPACITY;
+        struct coxvbn_task_record *task = &scheduler->tasks[slot];
+        if (task->state != COXVBN_TASK_READY || task->saved_frame == 0)
+            continue;
+        task->state = COXVBN_TASK_RUNNING;
+        scheduler->current_slot = (int32_t)slot;
+        scheduler->cursor = (slot + 1U) % COXVBN_TASK_CAPACITY;
+        return task->saved_frame;
+    }
+    return 0;
+}
+
 int coxvbn_task_yield(struct coxvbn_scheduler *scheduler)
 {
     struct coxvbn_task_record *task = current_task(scheduler);
