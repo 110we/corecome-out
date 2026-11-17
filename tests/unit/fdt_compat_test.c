@@ -11,7 +11,7 @@ int main(void)
         'a','r','m',',','p','l','0','1','1',0
     };
     static const u8 prefix_only[] = {
-        'a','r','m',',','p','l','0','1','1','-','extra',0
+        'a','r','m',',','p','l','0','1','1','-','e','x','t','r','a',0
     };
     static const u8 unterminated[] = {
         'a','r','m',',','p','l','0','1','1'
