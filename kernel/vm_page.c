@@ -108,7 +108,8 @@ int vm_page_lookup(const struct vm_page_table *table, uint64_t va,
         mapping->flags |= VM_MAP_WRITE;
     if ((descriptor & DESC_ATTR_DEVICE) != 0ULL)
         mapping->flags |= VM_MAP_DEVICE;
-    if ((descriptor & DESC_PXN) != (descriptor & DESC_UXN))
+    if ((descriptor & (DESC_PXN | DESC_UXN)) !=
+        (DESC_PXN | DESC_UXN))
         mapping->flags |= VM_MAP_EXEC;
     return 0;
 }
