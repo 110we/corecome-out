@@ -41,7 +41,7 @@ void kernel_main(const void *boot_fdt)
     {
         static const char config[] = "name=COXVBN";
         char verify[sizeof(config)];
-        size_t written = 0U, read_count = 0U, i;
+        size_t written = 0U, read_count = 0U;
         if (coxvbn_vfs_write(&boot_vfs, "/etc/kernel.conf", 0U,
                              config, sizeof(config) - 1U, &written) != 0 ||
             written != sizeof(config) - 1U ||
@@ -50,6 +50,15 @@ void kernel_main(const void *boot_fdt)
             read_count != written) {
             uart_write("COXVBN: VFS SELFTEST FAILED\n");
             for (;;) __asm__ volatile("wfe");
+        }
+        {
+            size_t verify_index;
+            for (verify_index = 0U; verify_index < written; ++verify_index) {
+                if (verify[verify_index] != config[verify_index]) {
+                    uart_write("COXVBN: VFS SELFTEST DATA MISMATCH\n");
+                    for (;;) __asm__ volatile("wfe");
+                }
+            }
         }
         uart_write("COXVBN: VFS IN-MEMORY READY; SELFTEST PASS\n");
     }
