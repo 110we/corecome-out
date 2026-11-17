@@ -396,6 +396,15 @@ i64 vfs_open(const char *path, int flags)
             return -1;
         }
     }
+    /* O_TRUNC(2)：把已有文件清零 */
+    if ((flags & 2) != 0 && n != (ino_t *)0 && n->type == T_FILE) {
+        if (n->data != (char *)0) {
+            kfree(n->data);
+        }
+        n->data = (char *)0;
+        n->size = 0;
+        n->cap = 0;
+    }
     for (i = 3; i < MAX_FD; i++) {
         if (!fds[i].used) {
             fds[i].ino = n;

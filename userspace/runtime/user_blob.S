@@ -760,3 +760,62 @@ user_fork_start:
     .ascii "stress: ok\n"
     .balign 8
 user_fork_end:
+
+/* O_TRUNC：写 10 字节 -> 以 O_TRUNC 重开 -> stat 必须为 0 */
+    .balign 8
+    .global user_trunc_start
+    .global user_trunc_end
+user_trunc_start:
+    adr x0, 101f
+    mov x1, #3              /* O_CREAT|O_TRUNC */
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 108f
+    mov x19, x0
+
+    mov x0, x19
+    adr x1, 104f
+    mov x2, #10
+    mov x8, #4
+    svc #0x80
+    mov x0, x19
+    mov x8, #7
+    svc #0x80
+
+    adr x0, 101f
+    mov x1, #2              /* O_TRUNC */
+    mov x8, #5
+    svc #0x80
+    cmp x0, #0
+    b.lt 108f
+    mov x8, #7
+    svc #0x80
+
+    adr x0, 101f
+    mov x8, #22             /* stat -> 0 */
+    svc #0x80
+    cbnz x0, 108f
+
+    mov x0, #1
+    adr x1, 102f
+    mov x2, #10
+    mov x8, #4
+    svc #0x80
+    mov x0, #0
+    mov x8, #9
+    svc #0x80
+    b .
+108:
+    mov x0, #1
+    mov x8, #9
+    svc #0x80
+    b .
+101:
+    .asciz "/tmp/tr"
+102:
+    .ascii "trunc: ok\n"
+104:
+    .ascii "abcdefghij"
+    .balign 8
+user_trunc_end:

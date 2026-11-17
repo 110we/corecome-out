@@ -28,6 +28,8 @@ extern const u8 user_thr_end[];
 extern const u8 user_sig_start[];
 extern const u8 user_sig_end[];
 extern const u8 user_file_start[];
+extern const u8 user_trunc_start[];
+extern const u8 user_trunc_end[];
 extern const u8 user_fork_start[];
 extern const u8 user_fork_end[];
 extern const u8 user_sleep_start[];
@@ -118,6 +120,13 @@ static void user_spawn(const u8 *blob, const u8 *blob_end, const char *tag)
     sched_set_l1((u64 *)0);
     pg_activate((u64 *)0);
     kthread_exit();
+}
+
+/* O_TRUNC 靶子：重开清零后 stat 为 0。 */
+void user_trunc_thread(void *arg)
+{
+    (void)arg;
+    user_spawn(user_trunc_start, user_trunc_end, "trunc");
 }
 
 /* fork/wait 压力靶子：8 个孩子依次退出并被回收。 */
