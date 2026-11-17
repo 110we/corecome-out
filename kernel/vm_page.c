@@ -238,3 +238,29 @@ int vm_address_space_lookup(const struct vm_address_space *space,
         return -2;
     return vm_page_lookup(&space->l3[slot], va, mapping);
 }
+
+int vm_address_space_map_range(struct vm_address_space *space,
+                               uint64_t va, uint64_t pa, uint64_t size,
+                               uint32_t flags)
+{
+    uint64_t offset;
+    if (space == 0 || size == 0ULL ||
+        (va & (VM_PAGE_SIZE - 1ULL)) != 0ULL ||
+        (pa & (VM_PAGE_SIZE - 1ULL)) != 0ULL ||
+        (size & (VM_PAGE_SIZE - 1ULL)) != 0ULL ||
+        va > UINT64_MAX - size || pa > UINT64_MAX - size ||
+        va < space->virtual_base ||
+        va - space->virtual_base > VM_L2_SPAN ||
+        size > VM_L2_SPAN - (va - space->virtual_base))
+        return -1;
+    for (offset = 0ULL; offset < size; offset += VM_PAGE_SIZE) {
+        if (vm_address_space_map(space, va + offset, pa + offset, flags) != 0) {
+            while (offset != 0ULL) {
+                offset -= VM_PAGE_SIZE;
+                (void)vm_address_space_unmap(space, va + offset);
+            }
+            return -2;
+        }
+    }
+    return 0;
+}
