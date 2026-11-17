@@ -54,8 +54,15 @@ int main(void)
     {
         const uint64_t as_base = 0x0000000080000000ULL;
         uint32_t i;
+        int validation_result;
         assert(vm_address_space_init(&space, as_base) == 0);
-        assert(vm_address_space_validate(&space) == 0);
+        validation_result = vm_address_space_validate(&space);
+        if (validation_result != 0)
+            fprintf(stderr, "initial address-space validation=%d l1=%p l2=%p l1root=%llx expected=%llx\\n",
+                    validation_result, (void *)space.l1, (void *)space.l2,
+                    (unsigned long long)space.l1[as_base >> 30],
+                    (unsigned long long)(((uint64_t)(uintptr_t)space.l2 & 0x0000fffffffff000ULL) | 3ULL));
+        assert(validation_result == 0);
         assert(vm_address_space_root(&space) == (uint64_t)(uintptr_t)space.l1);
         assert(vm_address_space_map(&space, as_base, 0x60000000ULL,
                                     VM_MAP_READ | VM_MAP_WRITE | VM_MAP_USER) == 0);
