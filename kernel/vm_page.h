@@ -40,6 +40,10 @@ int vm_address_space_init(struct vm_address_space *space,
 int vm_address_space_map(struct vm_address_space *space,
                          uint64_t virtual_address, uint64_t physical_address,
                          uint32_t flags);
+int vm_address_space_map_range(struct vm_address_space *space,
+                               uint64_t virtual_address,
+                               uint64_t physical_address, uint64_t size,
+                               uint32_t flags);
 int vm_address_space_unmap(struct vm_address_space *space,
                            uint64_t virtual_address);
 int vm_address_space_lookup(const struct vm_address_space *space,
