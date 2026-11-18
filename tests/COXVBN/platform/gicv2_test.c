@@ -19,16 +19,23 @@ int main(void)
     struct gicv2_state state = {0};
     uint32_t token = 0U;
 
-    assert(gicv2_init(NULL, (uintptr_t)distributor,
-                      (uintptr_t)cpu_interface) == GICV2_ERR_ARGUMENT);
-    assert(gicv2_init(&state, 0U, (uintptr_t)cpu_interface) ==
+    assert(gicv2_init(NULL, (uintptr_t)distributor, sizeof(distributor),
+                      (uintptr_t)cpu_interface, sizeof(cpu_interface)) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_init(&state, 0U, sizeof(distributor),
+                      (uintptr_t)cpu_interface, sizeof(cpu_interface)) ==
            GICV2_ERR_ARGUMENT);
-    assert(gicv2_init(&state, (uintptr_t)distributor,
-                      (uintptr_t)distributor) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_init(&state, (uintptr_t)distributor, sizeof(distributor),
+                      (uintptr_t)distributor, sizeof(distributor)) == GICV2_ERR_ARGUMENT);
     assert(gicv2_acknowledge(&state, &token) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_init(&state, (uintptr_t)distributor, 4U,
+                      (uintptr_t)cpu_interface, sizeof(cpu_interface)) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_init(&state, (uintptr_t)distributor, sizeof(distributor),
+                      (uintptr_t)cpu_interface, 16U) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_init(&state, UINTPTR_MAX - 3U, 16U,
+                      (uintptr_t)cpu_interface, sizeof(cpu_interface)) == GICV2_ERR_ARGUMENT);
 
-    assert(gicv2_init(&state, (uintptr_t)distributor,
-                      (uintptr_t)cpu_interface) == GICV2_OK);
+    assert(gicv2_init(&state, (uintptr_t)distributor, sizeof(distributor),
+                      (uintptr_t)cpu_interface, sizeof(cpu_interface)) == GICV2_OK);
     assert(state.initialized == 1U);
     assert(state.interrupt_lines == 1020U);
     assert(distributor[GICD_CTLR / 4U] == 0U);
@@ -56,8 +63,8 @@ int main(void)
 
     state.initialized = 1U;
     distributor[GICD_TYPER / 4U] = 0U;
-    assert(gicv2_init(&state, (uintptr_t)distributor,
-                      (uintptr_t)cpu_interface) == GICV2_OK);
+    assert(gicv2_init(&state, (uintptr_t)distributor, sizeof(distributor),
+                      (uintptr_t)cpu_interface, sizeof(cpu_interface)) == GICV2_OK);
     assert(state.interrupt_lines == 32U);
     cpu_interface[GICC_IAR / 4U] = 40U;
     assert(gicv2_acknowledge(&state, &token) == GICV2_NO_INTERRUPT);

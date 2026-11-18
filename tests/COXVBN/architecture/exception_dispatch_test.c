@@ -24,10 +24,12 @@ static void test_handler(uint32_t id, void *context)
 int main(void)
 {
     struct gicv2_state gic = {
-        (uintptr_t)distributor_regs,
-        (uintptr_t)cpu_regs,
-        64U,
-        1U
+        .distributor_base = (uintptr_t)distributor_regs,
+        .cpu_interface_base = (uintptr_t)cpu_regs,
+        .distributor_size = sizeof(distributor_regs),
+        .cpu_interface_size = sizeof(cpu_regs),
+        .interrupt_lines = 64U,
+        .initialized = 1U
     };
     struct exception_frame frame = { {0}, 0x1000U, 0U, 0U, 0U, 5U };
     uint32_t context_count = 0U;
@@ -46,14 +48,23 @@ int main(void)
     assert(context_count == 1U);
     assert(cpu_regs[4] == token); /* GICC_EOIR receives the complete token. */
 
+    /* Current-EL SPx IRQ uses vector slot 13, not lower-AArch32 slot 9. */
+    frame.vector = 13U;
+    cpu_regs[3] = token;
+    exception_dispatch(&frame);
+    assert(handled_count == 2U);
+    assert(context_count == 2U);
+    assert(cpu_regs[4] == token);
+
     assert(exception_unregister_irq_handler(5U) == 0);
     assert(exception_unregister_irq_handler(5U) != 0);
 
     /* A spurious interrupt returns without dispatching or writing EOI. */
+    frame.vector = 5U;
     cpu_regs[3] = 1023U;
     cpu_regs[4] = 0U;
     exception_dispatch(&frame);
-    assert(handled_count == 1U);
+    assert(handled_count == 2U);
     assert(cpu_regs[4] == 0U);
 
     puts("exception dispatch tests: PASS");

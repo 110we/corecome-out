@@ -8,6 +8,15 @@
 extern char __kernel_start[];
 extern char __kernel_end[];
 
+static int mmio_region_in_aperture(uint64_t base, uint64_t size,
+                                   uint64_t aperture_start,
+                                   uint64_t aperture_end,
+                                   uint64_t minimum_size)
+{
+    return base >= aperture_start && base <= aperture_end &&
+           size >= minimum_size && size <= aperture_end - base;
+}
+
 static void uart_write_hex(uintptr_t value)
 {
     static const char digits[] = "0123456789abcdef";
@@ -84,17 +93,22 @@ void kernel_main(const void *boot_fdt)
         struct gicv2_state gic;
         const uint64_t aperture_start = 0x08000000ULL;
         const uint64_t aperture_end = 0x08200000ULL;
-        if (fdt.gicv2_distributor.size < 0x1000U ||
-            fdt.gicv2_cpu_interface.size < 0x1000U ||
-            fdt.gicv2_distributor.base < aperture_start ||
-            fdt.gicv2_cpu_interface.base < aperture_start ||
-            fdt.gicv2_distributor.base > aperture_end - 0x1000U ||
-            fdt.gicv2_cpu_interface.base > aperture_end - 0x1000U) {
+        if (!mmio_region_in_aperture(
+                fdt.gicv2_distributor.base,
+                fdt.gicv2_distributor.size,
+                aperture_start, aperture_end, 0x1000U) ||
+            !mmio_region_in_aperture(
+                fdt.gicv2_cpu_interface.base,
+                fdt.gicv2_cpu_interface.size,
+                aperture_start, aperture_end, 0x1000U)) {
             uart_write("COXVBN: GICV2 FDT RANGES OUTSIDE BOOT MMIO APERTURE\n");
             for (;;) __asm__ volatile("wfe");
         }
-        rc = gicv2_init(&gic, (uintptr_t)fdt.gicv2_distributor.base,
-                        (uintptr_t)fdt.gicv2_cpu_interface.base);
+        rc = gicv2_init(&gic,
+                        (uintptr_t)fdt.gicv2_distributor.base,
+                        (uintptr_t)fdt.gicv2_distributor.size,
+                        (uintptr_t)fdt.gicv2_cpu_interface.base,
+                        (uintptr_t)fdt.gicv2_cpu_interface.size);
         if (rc != GICV2_OK) {
             uart_write("COXVBN: GICV2 QUIESCENT INIT FAILED\n");
             for (;;) __asm__ volatile("wfe");

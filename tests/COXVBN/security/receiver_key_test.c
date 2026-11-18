@@ -102,6 +102,13 @@ int main(void)
                                              sizeof(proof_one)));
 
     coxvbn_key_vault_set_receiver_verifier(&vault, test_receiver_proof, NULL);
+    /* Failed proof must roll ROTATING back to ACTIVE and preserve old key. */
+    assert(!coxvbn_key_vault_rotate_receiver(
+        &vault, 7U, &second, key_three, sizeof(key_three), bad_proof,
+        sizeof(bad_proof), &third));
+    assert(coxvbn_key_vault_verify_receiver(&vault, &second, proof_two,
+                                            sizeof(proof_two)));
+    /* A subsequent valid rotation must still succeed. */
     assert(coxvbn_key_vault_rotate_receiver(
         &vault, 7U, &second, key_three, sizeof(key_three), proof_three,
         sizeof(proof_three), &third));

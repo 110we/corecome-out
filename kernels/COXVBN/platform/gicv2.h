@@ -12,6 +12,8 @@
 struct gicv2_state {
     uintptr_t distributor_base;
     uintptr_t cpu_interface_base;
+    uintptr_t distributor_size;
+    uintptr_t cpu_interface_size;
     uint32_t interrupt_lines;
     uint32_t initialized;
 };
@@ -21,8 +23,8 @@ struct gicv2_state {
  * IRQ delivery is not enabled until exception return and dispatch are ready.
  */
 int gicv2_init(struct gicv2_state *state,
-               uintptr_t distributor_base,
-               uintptr_t cpu_interface_base);
+               uintptr_t distributor_base, uintptr_t distributor_size,
+               uintptr_t cpu_interface_base, uintptr_t cpu_interface_size);
 
 /*
  * Read the GICC_IAR acknowledge token. The complete token must be preserved

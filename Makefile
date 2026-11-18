@@ -57,12 +57,14 @@ test-host:
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/platform/fdt_test.c kernels/COXVBN/platform/fdt.c -o $(BUILD)/fdt_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/memory/phys_alloc_test.c kernels/COXVBN/memory/phys_alloc.c -o $(BUILD)/phys_alloc_test
 	$(BUILD)/phys_alloc_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/memory/mmu_test.c -o $(BUILD)/mmu_test
+	$(BUILD)/mmu_test
 	$(BUILD)/fdt_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/recovery/recovery_test.c kernels/COXVBN/security/key_vault.c kernels/COXVBN/recovery/information_store.c kernels/COXVBN/recovery/emergency_recovery.c -o $(BUILD)/recovery_test
 	$(BUILD)/recovery_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $(KERNEL_INCLUDES) tests/COXVBN/security/receiver_key_test.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/receiver_key_test
 	$(BUILD)/receiver_key_test
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $(KERNEL_INCLUDES) tests/COXVBN/security/module_registry_test.c kernels/COXVBN/security/module_registry.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/module_registry_test
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $(KERNEL_INCLUDES) tests/COXVBN/security/module_registry_test.c kernels/COXVBN/core/execution_context.c kernels/COXVBN/security/module_registry.c kernels/COXVBN/security/key_vault.c -o $(BUILD)/module_registry_test
 	$(BUILD)/module_registry_test
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(KERNEL_INCLUDES) tests/COXVBN/architecture/exception_frame_test.c -o $(BUILD)/exception_frame_test
 	$(BUILD)/exception_frame_test

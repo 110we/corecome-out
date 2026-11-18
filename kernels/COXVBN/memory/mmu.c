@@ -55,13 +55,14 @@ int mmu_enable(const struct fdt_info *fdt, uintptr_t kernel_start,
                uintptr_t kernel_end, uintptr_t boot_fdt)
 {
     uint32_t i;
-    uint64_t ram_end;
     if (fdt == 0 || fdt->memory_count == 0U ||
         fdt->memory_count > COXVBN_FDT_MAX_RANGES ||
         kernel_start >= kernel_end ||
         (kernel_start < RAM_WINDOW_BASE) || kernel_end > RAM_WINDOW_END ||
         (uint64_t)boot_fdt < RAM_WINDOW_BASE ||
-        (uint64_t)boot_fdt >= RAM_WINDOW_END) return -1;
+        (uint64_t)boot_fdt >= RAM_WINDOW_END ||
+        fdt->total_size == 0U ||
+        (uint64_t)boot_fdt + fdt->total_size > RAM_WINDOW_END) return -1;
 
     /* The initial implementation deliberately supports one bounded,
        identity-mapped 1-GiB RAM window and QEMU virt's device apertures. */
@@ -103,8 +104,16 @@ int mmu_enable(const struct fdt_info *fdt, uintptr_t kernel_start,
             ram_l2[index] = normal_block(block);
         }
     }
-    ram_end = (uint64_t)kernel_end;
-    if (!range_contains(fdt, kernel_start, ram_end)) return -6;
+    /* FDT containment is not enough: only complete 2-MiB RAM blocks
+       were mapped above. Reject boot objects touching an unmapped edge
+       block before enabling the translation regime. */
+    if (!coxvbn_mmu_range_mapped(ram_l2, L2_ENTRIES,
+                                (uint64_t)kernel_start,
+                                (uint64_t)kernel_end) ||
+        !coxvbn_mmu_range_mapped(ram_l2, L2_ENTRIES,
+                                (uint64_t)boot_fdt,
+                                (uint64_t)boot_fdt + fdt->total_size))
+        return -6;
 
     /* MAIR: Attr0 = Normal WB/WA, Attr1 = Device-nGnRnE.
        TCR: 39-bit VA, 4-KiB granule, inner-shareable WB/WA walks,
