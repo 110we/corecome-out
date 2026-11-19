@@ -17,6 +17,17 @@ static int mmio_region_in_aperture(uint64_t base, uint64_t size,
            size >= minimum_size && size <= aperture_end - base;
 }
 
+static volatile uint32_t timer_irq_count;
+
+static void timer_irq_handler(uint32_t interrupt_id, void *context)
+{
+    (void)interrupt_id;
+    (void)context;
+    (void)arm_timer_disable();
+    ++timer_irq_count;
+    uart_write("COXVBN: TIMER IRQ HANDLED\\n");
+}
+
 static void uart_write_hex(uintptr_t value)
 {
     static const char digits[] = "0123456789abcdef";
