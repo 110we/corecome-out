@@ -9,8 +9,8 @@
 #define ARM_TIMER_ERR_RANGE -3
 
 /*
- * EL1 physical timer interface. One-shot programming deliberately keeps
- * IMASK set: this stage can measure/program time but cannot deliver IRQs.
+ * EL1 physical timer interface. One-shot programming enables the physical
+ * timer IRQ; callers must first register a handler and enable GIC PPI 30.
  */
 int arm_timer_init(void);
 uint64_t arm_timer_frequency(void);
