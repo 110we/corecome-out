@@ -117,11 +117,12 @@ int arm_timer_set_oneshot_ns(uint64_t duration_ns, uint32_t *programmed_ticks)
     if (rc != ARM_TIMER_OK)
         return rc;
 
-    /* Keep the interrupt masked while enabling the physical counter. */
+    /* Program the deadline while disabled, then enable IRQ delivery.
+       The caller must have registered the handler and enabled the GIC PPI. */
     write_cntp_ctl(CNTP_CTL_IMASK);
     write_cntp_tval(ticks);
     timer_isb();
-    write_cntp_ctl(CNTP_CTL_ENABLE | CNTP_CTL_IMASK);
+    write_cntp_ctl(CNTP_CTL_ENABLE);
     timer_isb();
 
     *programmed_ticks = ticks;
