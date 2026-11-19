@@ -122,7 +122,7 @@ int mmu_enable(const struct fdt_info *fdt, uintptr_t kernel_start,
     /* The first W^X implementation deliberately requires the complete
        kernel image to fit in one 2-MiB RAM block. Fail closed otherwise. */
     kernel_block = (uint64_t)kernel_start & ~(BLOCK_SIZE - 1ULL);
-    if (((uint64_t)kernel_end - 1ULL) & ~(BLOCK_SIZE - 1ULL) !=
+    if ((((uint64_t)kernel_end - 1ULL) & ~(BLOCK_SIZE - 1ULL)) !=
         kernel_block)
         return -3;
     if ((text_start & (PAGE_SIZE - 1ULL)) != 0U ||
