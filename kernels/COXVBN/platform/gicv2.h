@@ -26,6 +26,9 @@ int gicv2_init(struct gicv2_state *state,
                uintptr_t distributor_base, uintptr_t distributor_size,
                uintptr_t cpu_interface_base, uintptr_t cpu_interface_size);
 
+/* Enable a registered non-secure Group 1 PPI/SPI and its CPU interface. */
+int gicv2_enable_irq(struct gicv2_state *state, uint32_t interrupt_id);
+
 /*
  * Read the GICC_IAR acknowledge token. The complete token must be preserved
  * and passed unchanged to gicv2_end_interrupt() so the source CPU ID is kept.
