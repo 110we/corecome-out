@@ -4,13 +4,16 @@
 
 #define GICD_CTLR 0x000U
 #define GICD_TYPER 0x004U
+#define GICD_IGROUPR 0x080U
+#define GICD_ISENABLER 0x100U
+#define GICD_IPRIORITYR 0x400U
 #define GICC_CTLR 0x000U
 #define GICC_PMR 0x004U
 #define GICC_BPR 0x008U
 #define GICC_IAR 0x00cU
 #define GICC_EOIR 0x010U
-#define GICD_CTLR_ENABLE_MASK 0x3U
-#define GICC_CTLR_ENABLE_MASK 0x3U
+#define GICD_CTLR_ENABLE_GRP1 (1U << 1)
+#define GICC_CTLR_ENABLE_GRP1 (1U << 1)
 #define GICD_TYPER_ITLINES_MASK 0x1fU
 #define GICV2_MAX_LINES 1020U
 #define GICV2_INTERRUPT_ID_MASK 0x3ffU
@@ -18,6 +21,11 @@
 static volatile uint32_t *reg32(uintptr_t base, uintptr_t offset)
 {
     return (volatile uint32_t *)(base + offset);
+}
+
+static volatile uint8_t *reg8(uintptr_t base, uintptr_t offset)
+{
+    return (volatile uint8_t *)(base + offset);
 }
 
 static void mmio_barrier(void)
@@ -56,15 +64,13 @@ int gicv2_init(struct gicv2_state *state,
     state->interrupt_lines = 0U;
     state->initialized = 0U;
 
-    /* Disable delivery before inspecting controller capabilities. */
+    /* Start quiescent; enable only after a handler is registered. */
     *reg32(cpu_interface_base, GICC_CTLR) = 0U;
     *reg32(distributor_base, GICD_CTLR) = 0U;
     mmio_barrier();
 
-    if ((*reg32(cpu_interface_base, GICC_CTLR) &
-         GICC_CTLR_ENABLE_MASK) != 0U ||
-        (*reg32(distributor_base, GICD_CTLR) &
-         GICD_CTLR_ENABLE_MASK) != 0U)
+    if ((*reg32(cpu_interface_base, GICC_CTLR) & GICC_CTLR_ENABLE_GRP1) != 0U ||
+        (*reg32(distributor_base, GICD_CTLR) & GICD_CTLR_ENABLE_GRP1) != 0U)
         return GICV2_ERR_MMIO;
 
     *reg32(cpu_interface_base, GICC_PMR) = 0xffU;
@@ -77,6 +83,38 @@ int gicv2_init(struct gicv2_state *state,
 
     state->interrupt_lines = lines;
     state->initialized = 1U;
+    return GICV2_OK;
+}
+
+int gicv2_enable_irq(struct gicv2_state *state, uint32_t interrupt_id)
+{
+    uintptr_t enable_offset, group_offset, priority_offset;
+    uint32_t bit;
+
+    if (state == NULL || state->initialized != 1U ||
+        interrupt_id < 16U || interrupt_id >= state->interrupt_lines ||
+        interrupt_id >= GICV2_MAX_LINES)
+        return GICV2_ERR_ARGUMENT;
+
+    enable_offset = GICD_ISENABLER + (uintptr_t)(interrupt_id / 32U) * 4U;
+    group_offset = GICD_IGROUPR + (uintptr_t)(interrupt_id / 32U) * 4U;
+    priority_offset = GICD_IPRIORITYR + (uintptr_t)interrupt_id;
+    if (enable_offset + sizeof(uint32_t) > state->distributor_size ||
+        group_offset + sizeof(uint32_t) > state->distributor_size ||
+        priority_offset + sizeof(uint8_t) > state->distributor_size)
+        return GICV2_ERR_ARGUMENT;
+
+    bit = 1U << (interrupt_id % 32U);
+    /* Route this PPI to non-secure Group 1 and give it a runnable priority. */
+    *reg32(state->distributor_base, group_offset) |= bit;
+    *reg8(state->distributor_base, priority_offset) = 0x80U;
+    *reg32(state->distributor_base, enable_offset) = bit;
+    mmio_barrier();
+
+    *reg32(state->distributor_base, GICD_CTLR) |= GICD_CTLR_ENABLE_GRP1;
+    mmio_barrier();
+    *reg32(state->cpu_interface_base, GICC_CTLR) |= GICC_CTLR_ENABLE_GRP1;
+    mmio_barrier();
     return GICV2_OK;
 }
 
