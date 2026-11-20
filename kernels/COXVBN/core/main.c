@@ -138,7 +138,7 @@ void kernel_main(const void *boot_fdt)
                 uart_write("COXVBN: TIMER ONESHOT PROGRAM FAILED\n");
                 for (;;) __asm__ volatile("wfe");
             }
-            uart_write("COXVBN: GICV2 GROUP1 ENABLED; TIMER PPI 30 ARMED\n");
+            uart_write("COXVBN: GICV2 GROUP0 ENABLED; TIMER PPI 30 ARMED\n");
             start_count = arm_timer_now();
             deadline_ticks = arm_timer_frequency() * 2ULL;
             __asm__ volatile("msr daifclr, #2\n\tisb" ::: "memory");

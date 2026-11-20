@@ -47,11 +47,11 @@ int main(void)
     assert(cpu_interface[GICC_BPR / 4U] == 0U);
     assert(gicv2_enable_irq(&state, 3U) == GICV2_ERR_ARGUMENT);
     assert(gicv2_enable_irq(&state, 30U) == GICV2_OK);
-    assert((distributor[GICD_IGROUPR / 4U] & (1U << 30)) != 0U);
+    assert((distributor[GICD_IGROUPR / 4U] & (1U << 30)) == 0U);
     assert(distributor[GICD_ISENABLER / 4U] == (1U << 30));
     assert(((uint8_t *)distributor)[GICD_IPRIORITYR + 30U] == 0x80U);
-    assert(distributor[GICD_CTLR / 4U] == 2U);
-    assert(cpu_interface[GICC_CTLR / 4U] == 2U);
+    assert(distributor[GICD_CTLR / 4U] == 1U);
+    assert(cpu_interface[GICC_CTLR / 4U] == 1U);
 
     /* Preserve all IAR bits, including the source CPU ID, for EOI. */
     cpu_interface[GICC_IAR / 4U] = 0x00000a21U;

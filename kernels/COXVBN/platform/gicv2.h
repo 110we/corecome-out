@@ -26,7 +26,7 @@ int gicv2_init(struct gicv2_state *state,
                uintptr_t distributor_base, uintptr_t distributor_size,
                uintptr_t cpu_interface_base, uintptr_t cpu_interface_size);
 
-/* Enable a registered non-secure Group 1 PPI/SPI and its CPU interface. */
+/* Enable a registered PPI/SPI in Group 0 and its CPU interface. */
 int gicv2_enable_irq(struct gicv2_state *state, uint32_t interrupt_id);
 
 /*

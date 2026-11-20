@@ -12,8 +12,12 @@
 #define GICC_BPR 0x008U
 #define GICC_IAR 0x00cU
 #define GICC_EOIR 0x010U
-#define GICD_CTLR_ENABLE_GRP1 (1U << 1)
-#define GICC_CTLR_ENABLE_GRP1 (1U << 1)
+/* This kernel runs without a secure monitor and leaves GICC_CTLR.FIQEn=0,
+ * so Group 0 is delivered on the IRQ line. Bit 0 is the matching enable
+ * bit, and is also the Group 1 enable bit on distributors without the
+ * security extensions (where the group registers are RAZ/WI). */
+#define GICD_CTLR_ENABLE_GROUP (1U << 0)
+#define GICC_CTLR_ENABLE_GROUP (1U << 0)
 #define GICD_TYPER_ITLINES_MASK 0x1fU
 #define GICV2_MAX_LINES 1020U
 #define GICV2_INTERRUPT_ID_MASK 0x3ffU
@@ -69,8 +73,8 @@ int gicv2_init(struct gicv2_state *state,
     *reg32(distributor_base, GICD_CTLR) = 0U;
     mmio_barrier();
 
-    if ((*reg32(cpu_interface_base, GICC_CTLR) & GICC_CTLR_ENABLE_GRP1) != 0U ||
-        (*reg32(distributor_base, GICD_CTLR) & GICD_CTLR_ENABLE_GRP1) != 0U)
+    if ((*reg32(cpu_interface_base, GICC_CTLR) & GICC_CTLR_ENABLE_GROUP) != 0U ||
+        (*reg32(distributor_base, GICD_CTLR) & GICD_CTLR_ENABLE_GROUP) != 0U)
         return GICV2_ERR_MMIO;
 
     *reg32(cpu_interface_base, GICC_PMR) = 0xffU;
@@ -105,15 +109,15 @@ int gicv2_enable_irq(struct gicv2_state *state, uint32_t interrupt_id)
         return GICV2_ERR_ARGUMENT;
 
     bit = 1U << (interrupt_id % 32U);
-    /* Route this PPI to non-secure Group 1 and give it a runnable priority. */
-    *reg32(state->distributor_base, group_offset) |= bit;
+    /* Route this PPI to Group 0 and give it a runnable priority. */
+    *reg32(state->distributor_base, group_offset) &= ~bit;
     *reg8(state->distributor_base, priority_offset) = 0x80U;
     *reg32(state->distributor_base, enable_offset) = bit;
     mmio_barrier();
 
-    *reg32(state->distributor_base, GICD_CTLR) |= GICD_CTLR_ENABLE_GRP1;
+    *reg32(state->distributor_base, GICD_CTLR) |= GICD_CTLR_ENABLE_GROUP;
     mmio_barrier();
-    *reg32(state->cpu_interface_base, GICC_CTLR) |= GICC_CTLR_ENABLE_GRP1;
+    *reg32(state->cpu_interface_base, GICC_CTLR) |= GICC_CTLR_ENABLE_GROUP;
     mmio_barrier();
     return GICV2_OK;
 }
