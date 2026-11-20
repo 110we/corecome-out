@@ -17,6 +17,17 @@ static int mmio_region_in_aperture(uint64_t base, uint64_t size,
            size >= minimum_size && size <= aperture_end - base;
 }
 
+static volatile uint32_t timer_irq_count;
+
+static void timer_irq_handler(uint32_t interrupt_id, void *context)
+{
+    (void)interrupt_id;
+    (void)context;
+    (void)arm_timer_disable();
+    ++timer_irq_count;
+    uart_write("COXVBN: TIMER IRQ HANDLED\n");
+}
+
 static void uart_write_hex(uintptr_t value)
 {
     static const char digits[] = "0123456789abcdef";
@@ -114,7 +125,33 @@ void kernel_main(const void *boot_fdt)
             for (;;) __asm__ volatile("wfe");
         }
         exception_set_gicv2(&gic);
-        uart_write("COXVBN: GICV2 DISCOVERED AND QUIESCED; IRQ DELIVERY DISABLED\n");
+        if (exception_register_irq_handler(30U, timer_irq_handler, 0) != 0 ||
+            gicv2_enable_irq(&gic, 30U) != GICV2_OK) {
+            uart_write("COXVBN: TIMER PPI REGISTRATION FAILED\n");
+            for (;;) __asm__ volatile("wfe");
+        }
+        {
+            uint32_t programmed_ticks;
+            uint64_t start_count, deadline_ticks;
+            if (arm_timer_set_oneshot_ns(10000000ULL,
+                                         &programmed_ticks) != ARM_TIMER_OK) {
+                uart_write("COXVBN: TIMER ONESHOT PROGRAM FAILED\n");
+                for (;;) __asm__ volatile("wfe");
+            }
+            uart_write("COXVBN: GICV2 GROUP0 ENABLED; TIMER PPI 30 ARMED\n");
+            start_count = arm_timer_now();
+            deadline_ticks = arm_timer_frequency() * 2ULL;
+            __asm__ volatile("msr daifclr, #2\n\tisb" ::: "memory");
+            while (timer_irq_count == 0U &&
+                   arm_timer_now() - start_count < deadline_ticks)
+                __asm__ volatile("wfe");
+            __asm__ volatile("msr daifset, #2\n\tisb" ::: "memory");
+            if (timer_irq_count == 0U) {
+                uart_write("COXVBN: TIMER IRQ SELFTEST FAILED\n");
+                for (;;) __asm__ volatile("wfe");
+            }
+            uart_write("COXVBN: TIMER IRQ SELFTEST PASS\n");
+        }
     } else {
         uart_write("COXVBN: NO SUPPORTED GICV2 NODE IN FDT\n");
     }

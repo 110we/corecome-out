@@ -23,6 +23,8 @@ jobs:
         run: |
           aarch64-linux-gnu-readelf -h build/coxvbn.elf | grep -E 'Machine:.*AArch64'
           test -s build/coxvbn.bin
+          aarch64-linux-gnu-readelf -l build/coxvbn.elf > build/program-headers.txt
+          awk '/^[[:space:]]*LOAD[[:space:]]/ { getline; if ($0 ~ /RWE|RWX/) exit 1; count++ } END { if (count != 3) exit 1 }' build/program-headers.txt
       - name: Verify exception vector table
         run: |
           vector_addr=$(aarch64-linux-gnu-nm build/coxvbn.elf | awk '$3 == "__exception_vectors" { print $1 }')
@@ -54,6 +56,7 @@ jobs:
           grep -q "COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS" qemu.log
           grep -q "COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE" qemu.log
           grep -q "COXVBN: BOOT COMPLETE" qemu.log
+          grep -q "COXVBN: TIMER IRQ SELFTEST PASS" qemu.log
           grep -Eq "COXVBN: RAM regions 0x0*[1-9a-f][0-9a-f]*" qemu.log
           if grep -q "ELR 0x200" qemu-int.log; then
             echo "Unexpected exception vector at address 0x200"
