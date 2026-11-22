@@ -107,9 +107,11 @@ struct exception_frame *exception_dispatch(struct exception_frame *frame)
         if (active_scheduler == 0)
             exception_panic(frame);
         if (immediate == 0U) {
-            if (frame->elr > UINT64_MAX - 4U)
-                exception_panic(frame);
-            frame->elr += 4U;
+            /*
+             * For AArch64 SVC, ELR_EL1 already points to the instruction
+             * after SVC. Advancing it again skips the caller's next
+             * instruction and corrupts cooperative task control flow.
+             */
             next = coxvbn_scheduler_schedule_frame(active_scheduler, frame);
         } else if (immediate == 1U) {
             next = coxvbn_scheduler_exit_frame(active_scheduler, frame,
