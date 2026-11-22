@@ -14,6 +14,10 @@ struct gicv2_state {
     uintptr_t cpu_interface_base;
     uint32_t interrupt_lines;
     uint32_t initialized;
+    uint32_t security_extensions;
+    uint32_t security_disabled;
+    /* Single-core IRQ entry masks nesting, so one outstanding token is enough. */
+    uint32_t last_ack_alias;
 };
 
 /*
@@ -25,13 +29,13 @@ int gicv2_init(struct gicv2_state *state,
                uintptr_t cpu_interface_base);
 
 /*
- * Read the GICC_IAR acknowledge token. The complete token must be preserved
- * and passed unchanged to gicv2_end_interrupt() so the source CPU ID is kept.
+ * Read the Group 1 acknowledge token from GICC_IAR or the secure GICC_AIAR
+ * alias. Preserve it unchanged for gicv2_end_interrupt() including source CPU ID.
  * Returns PENDING, NO_INTERRUPT for architecturally spurious IDs, or error.
  */
 int gicv2_acknowledge(struct gicv2_state *state, uint32_t *acknowledge);
 
-/* Write the original acknowledge token to GICC_EOIR. */
+/* Write the original token to GICC_EOIR or GICC_AEOIR, matching the read alias. */
 int gicv2_end_interrupt(struct gicv2_state *state, uint32_t acknowledge);
 
 /* Configure and enable a banked PPI as Group 1 while the CPU interface is off. */

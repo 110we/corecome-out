@@ -11,11 +11,13 @@
 #define GICC_BPR 0x008U
 #define GICC_IAR 0x00cU
 #define GICC_EOIR 0x010U
+#define GICC_AIAR 0x020U
+#define GICC_AEOIR 0x024U
 
 int main(void)
 {
-    uint32_t distributor[0x200] = {3U, 31U};
-    uint32_t cpu_interface[8] = {3U, 0U, 0U, 0U, 0U, 0U, 0U, 0U};
+    uint32_t distributor[0x200] = {3U, 31U | (1U << 10)};
+    uint32_t cpu_interface[16] = {3U};
     uint8_t *distributor_bytes = (uint8_t *)distributor;
     struct gicv2_state state = {0};
     uint32_t token = 0U;
@@ -51,12 +53,14 @@ int main(void)
     assert(cpu_interface[GICC_CTLR / 4U] == 2U);
 
     /* Preserve all IAR bits, including the source CPU ID, for EOI. */
-    cpu_interface[GICC_IAR / 4U] = 0x00000a21U;
+    assert(state.security_extensions == 1U);
+    assert(state.security_disabled == 0U);
+    cpu_interface[GICC_AIAR / 4U] = 0x00000a21U;
     assert(gicv2_acknowledge(&state, &token) ==
            GICV2_INTERRUPT_PENDING);
     assert(token == 0x00000a21U);
     assert(gicv2_end_interrupt(&state, token) == GICV2_OK);
-    assert(cpu_interface[GICC_EOIR / 4U] == 0x00000a21U);
+    assert(cpu_interface[GICC_AEOIR / 4U] == 0x00000a21U);
 
     cpu_interface[GICC_IAR / 4U] = 1023U;
     assert(gicv2_acknowledge(&state, &token) == GICV2_NO_INTERRUPT);
@@ -74,6 +78,13 @@ int main(void)
     assert(gicv2_init(&state, (uintptr_t)distributor,
                       (uintptr_t)cpu_interface) == GICV2_OK);
     assert(state.interrupt_lines == 32U);
+    assert(state.security_extensions == 0U);
+    cpu_interface[GICC_IAR / 4U] = 0x00000021U;
+    assert(gicv2_acknowledge(&state, &token) ==
+           GICV2_INTERRUPT_PENDING);
+    assert(token == 0x00000021U);
+    assert(gicv2_end_interrupt(&state, token) == GICV2_OK);
+    assert(cpu_interface[GICC_EOIR / 4U] == 0x00000021U);
     cpu_interface[GICC_IAR / 4U] = 40U;
     assert(gicv2_acknowledge(&state, &token) == GICV2_NO_INTERRUPT);
     assert(gicv2_end_interrupt(&state, 40U) == GICV2_ERR_ARGUMENT);

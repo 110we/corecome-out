@@ -14,6 +14,10 @@
 #define GICC_BPR 0x008U
 #define GICC_IAR 0x00cU
 #define GICC_EOIR 0x010U
+#define GICC_AIAR 0x020U
+#define GICC_AEOIR 0x024U
+#define GICD_TYPER_SECURITY_EXTN (1U << 10)
+#define GICD_CTLR_DS (1U << 6)
 #define GICD_CTLR_ENABLE_MASK 0x3U
 #define GICC_CTLR_ENABLE_MASK 0x3U
 #define GICV2_ENABLE_GRP1 (1U << 1)
@@ -58,6 +62,9 @@ int gicv2_init(struct gicv2_state *state,
     state->cpu_interface_base = cpu_interface_base;
     state->interrupt_lines = 0U;
     state->initialized = 0U;
+    state->security_extensions = 0U;
+    state->security_disabled = 0U;
+    state->last_ack_alias = 0U;
 
     /* Disable delivery before inspecting controller capabilities. */
     *reg32(cpu_interface_base, GICC_CTLR) = 0U;
@@ -79,6 +86,11 @@ int gicv2_init(struct gicv2_state *state,
     if (lines > GICV2_MAX_LINES) lines = GICV2_MAX_LINES;
 
     state->interrupt_lines = lines;
+    state->security_extensions =
+        (typer & GICD_TYPER_SECURITY_EXTN) != 0U ? 1U : 0U;
+    state->security_disabled =
+        (*reg32(distributor_base, GICD_CTLR) & GICD_CTLR_DS) != 0U ? 1U : 0U;
+    state->last_ack_alias = 0U;
     state->initialized = 1U;
     return GICV2_OK;
 }
@@ -92,7 +104,16 @@ int gicv2_acknowledge(struct gicv2_state *state, uint32_t *acknowledge)
         state->initialized != 1U || state->cpu_interface_base == 0U)
         return GICV2_ERR_ARGUMENT;
 
-    token = *reg32(state->cpu_interface_base, GICC_IAR);
+    /*
+     * With GIC security extensions enabled and DS clear, Secure accesses
+     * acknowledge Group 1 through AIAR; Non-secure/single-state accesses use
+     * IAR. QEMU's EL1 boot path is checked through the GIC control readback.
+     */
+    state->last_ack_alias =
+        (state->security_extensions != 0U &&
+         state->security_disabled == 0U) ? 1U : 0U;
+    token = *reg32(state->cpu_interface_base,
+                   state->last_ack_alias != 0U ? GICC_AIAR : GICC_IAR);
     interrupt_id = token & GICV2_INTERRUPT_ID_MASK;
     if (interrupt_id >= GICV2_MAX_LINES ||
         interrupt_id >= state->interrupt_lines) {
@@ -117,7 +138,8 @@ int gicv2_end_interrupt(struct gicv2_state *state, uint32_t acknowledge)
 
     /* GICv2 requires the original IAR token, including source CPU ID bits. */
     mmio_barrier();
-    *reg32(state->cpu_interface_base, GICC_EOIR) = acknowledge;
+    *reg32(state->cpu_interface_base,
+           state->last_ack_alias != 0U ? GICC_AEOIR : GICC_EOIR) = acknowledge;
     mmio_barrier();
     return GICV2_OK;
 }

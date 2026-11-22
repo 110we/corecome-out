@@ -241,7 +241,11 @@ void kernel_main(const void *boot_fdt)
             for (;;) __asm__ volatile("wfe");
         }
         exception_set_gicv2(&boot_gic);
-        uart_write("COXVBN: GICV2 DISCOVERED AND QUIESCED; PPI SETUP PENDING\n");
+        uart_write("COXVBN: GICV2 SECURITY EXTENSIONS ");
+        uart_write_hex((uintptr_t)boot_gic.security_extensions);
+        uart_write(" DS ");
+        uart_write_hex((uintptr_t)boot_gic.security_disabled);
+        uart_write("\nCOXVBN: GICV2 DISCOVERED AND QUIESCED; PPI SETUP PENDING\n");
     } else {
         uart_write("COXVBN: NO SUPPORTED GICV2 NODE IN FDT\n");
     }
