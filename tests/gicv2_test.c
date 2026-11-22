@@ -62,7 +62,7 @@ int main(void)
     assert(gicv2_end_interrupt(&state, token) == GICV2_OK);
     assert(cpu_interface[GICC_AEOIR / 4U] == 0x00000a21U);
 
-    cpu_interface[GICC_IAR / 4U] = 1023U;
+    cpu_interface[GICC_AIAR / 4U] = 1023U;
     assert(gicv2_acknowledge(&state, &token) == GICV2_NO_INTERRUPT);
     assert(token == 1023U);
     assert(gicv2_end_interrupt(&state, token) == GICV2_ERR_ARGUMENT);
