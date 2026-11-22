@@ -44,6 +44,11 @@ jobs:
           dtc -I dtb -O dts build/virt-gicv2.dtb > build/virt-gicv2.dts
           grep -q 'arm,cortex-a15-gic' build/virt-gicv2.dts
           grep -q 'interrupt-controller' build/virt-gicv2.dts
+          grep -q 'arm,armv8-timer' build/virt-gicv2.dts
+          echo "QEMU GICv2 node and register ranges:"
+          grep -n -B 2 -A 8 'arm,cortex-a15-gic' build/virt-gicv2.dts
+          echo "QEMU ARMv8 timer interrupt specifiers:"
+          grep -n -B 2 -A 6 'arm,armv8-timer' build/virt-gicv2.dts
       - name: QEMU serial boot test
         run: |
           set +e
