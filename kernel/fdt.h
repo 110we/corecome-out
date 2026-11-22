@@ -24,6 +24,9 @@ struct fdt_info {
     uint32_t reserved_count;
     uint32_t gicv2_found;
     uint32_t gicv2_reserved;
+    /* ARMv8 timer binding: second specifier is the non-secure physical PPI. */
+    uint32_t armv8_timer_found;
+    uint32_t armv8_timer_ppi;
     struct fdt_range gicv2_distributor;
     struct fdt_range gicv2_cpu_interface;
     struct fdt_range memory[COXVBN_FDT_MAX_RANGES];

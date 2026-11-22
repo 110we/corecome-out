@@ -8,7 +8,8 @@
 #define END_NODE 2U
 #define PROP 3U
 #define END 9U
-static _Alignas(8) uint8_t blob[512];
+static _Alignas(8) uint8_t blob[1024];
+static uint32_t timer_interrupts_value;
 static void put32(uint8_t*p,uint32_t v){p[0]=(uint8_t)(v>>24);p[1]=(uint8_t)(v>>16);p[2]=(uint8_t)(v>>8);p[3]=(uint8_t)v;}
 static uint32_t get32(const uint8_t*p){return ((uint32_t)p[0]<<24)|((uint32_t)p[1]<<16)|((uint32_t)p[2]<<8)|p[3];}
 static uint32_t w(uint32_t p,uint32_t v){put32(blob+p,v);return p+4;}
@@ -38,13 +39,27 @@ static void build(void){
   0,0,0,0,8,1,0,0, 0,0,0,0,0,1,0,0
  });
  p=w(p,END_NODE);
+ p=w(p,BEGIN_NODE);p=str(p,"timer");
+ timer_interrupts_value=p+12U;
+ p=prop(p,48,56,(const uint8_t[]){
+  0,0,0,1,0,0,0,13,0,0,1,4,
+  0,0,0,1,0,0,0,14,0,0,1,4,
+  0,0,0,1,0,0,0,11,0,0,1,4,
+  0,0,0,1,0,0,0,10,0,0,1,4
+ });
+ p=prop(p,32,44,(const uint8_t[]){
+  'a','r','m',',','a','r','m','v','8','-','t','i','m','e','r',0,
+  'a','r','m',',','a','r','m','v','7','-','t','i','m','e','r',0
+ });
+ p=w(p,END_NODE);
  p=w(p,END_NODE);p=w(p,END);ss=p-so;
- sto=p;p=str(p,"#address-cells");p=str(p,"#size-cells");p=str(p,"device_type");p=str(p,"reg");p=str(p,"compatible");sts=p-sto;
+ sto=p;p=str(p,"#address-cells");p=str(p,"#size-cells");p=str(p,"device_type");p=str(p,"reg");p=str(p,"compatible");p=str(p,"interrupts");sts=p-sto;
  put32(blob,0xd00dfeedU);put32(blob+4,p);put32(blob+8,so);put32(blob+12,sto);put32(blob+16,H);put32(blob+20,17);put32(blob+24,16);put32(blob+28,0);put32(blob+32,sts);put32(blob+36,ss);
 }
-static void valid(void){struct fdt_info i;build();assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1);assert(i.memory[0].base==0x40000000ULL);assert(i.memory[0].size==0x1000ULL);assert(i.reserved_count==2);assert(i.reserved[0].base==0x1000ULL);assert(i.reserved[1].base==0x200000ULL);assert(i.reserved[1].size==0x1000ULL);assert(i.gicv2_found==1U);assert(i.gicv2_distributor.base==0x08000000ULL);assert(i.gicv2_distributor.size==0x10000ULL);assert(i.gicv2_cpu_interface.base==0x08010000ULL);assert(i.gicv2_cpu_interface.size==0x10000ULL);}
+static void valid(void){struct fdt_info i;build();assert(fdt_parse(blob,&i)==0);assert(i.memory_count==1);assert(i.memory[0].base==0x40000000ULL);assert(i.memory[0].size==0x1000ULL);assert(i.reserved_count==2);assert(i.reserved[0].base==0x1000ULL);assert(i.reserved[1].base==0x200000ULL);assert(i.reserved[1].size==0x1000ULL);assert(i.gicv2_found==1U);assert(i.gicv2_distributor.base==0x08000000ULL);assert(i.gicv2_distributor.size==0x10000ULL);assert(i.gicv2_cpu_interface.base==0x08010000ULL);assert(i.gicv2_cpu_interface.size==0x10000ULL);assert(i.armv8_timer_found==1U);assert(i.armv8_timer_ppi==30U);}
 static void bad_magic(void){struct fdt_info i;build();put32(blob,0);assert(fdt_parse(blob,&i)==-3);}
 static void overlap(void){struct fdt_info i;build();put32(blob+12,get32(blob+8));assert(fdt_inspect(blob,&i)==-6);}
 static void bad_token(void){struct fdt_info i;build();put32(blob+get32(blob+8),0xdeadbeefU);assert(fdt_parse(blob,&i)==-19);}
+static void bad_timer_ppi(void){struct fdt_info i;build();put32(blob+timer_interrupts_value+16U,16U);assert(fdt_parse(blob,&i)==-14);}
 static void no_reservation_terminator(void){struct fdt_info i;build();put32(blob+8,H+16U);put32(blob+12,H+16U+get32(blob+36));assert(fdt_parse(blob,&i)!=0);}
-int main(void){valid();bad_magic();overlap();bad_token();no_reservation_terminator();puts("COXVBN host FDT tests: PASS");return 0;}
+int main(void){valid();bad_magic();overlap();bad_token();bad_timer_ppi();no_reservation_terminator();puts("COXVBN host FDT tests: PASS");return 0;}

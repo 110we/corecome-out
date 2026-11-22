@@ -40,10 +40,13 @@ struct node_state {
     uint32_t size_cells;
     uint32_t reg_length;
     const uint8_t *reg;
+    uint32_t interrupts_length;
+    const uint8_t *interrupts;
     uint8_t is_memory;
     uint8_t is_reserved;
     uint8_t is_reserved_container;
     uint8_t is_gicv2;
+    uint8_t is_armv8_timer;
 };
 
 static uint32_t be32(const uint8_t *p)
@@ -97,6 +100,26 @@ static int compatible_has_gicv2(const uint8_t *value, uint32_t length)
             if (end - offset != n) continue;
             for (j = 0U; j < n && value[offset + j] == (uint8_t)names[i][j]; ++j) {}
             if (j == n) return 1;
+        }
+        offset = end + 1U;
+    }
+    return 0;
+}
+
+static int compatible_has_armv8_timer(const uint8_t *value,
+                                        uint32_t length)
+{
+    static const char timer_name[] = "arm,armv8-timer";
+    uint32_t offset = 0U;
+    while (offset < length) {
+        uint32_t end = offset;
+        uint32_t i;
+        while (end < length && value[end] != 0U) ++end;
+        if (end == length) return 0;
+        if (end - offset == sizeof(timer_name) - 1U) {
+            for (i = 0U; i < sizeof(timer_name) - 1U &&
+                         value[offset + i] == (uint8_t)timer_name[i]; ++i) {}
+            if (i == sizeof(timer_name) - 1U) return 1;
         }
         offset = end + 1U;
     }
@@ -191,6 +214,8 @@ int fdt_inspect(const void *blob, struct fdt_info *info)
     ((volatile uint32_t *)&info->reserved_count)[0] = 0U;
     info->gicv2_found = 0U;
     info->gicv2_reserved = 0U;
+    info->armv8_timer_found = 0U;
+    info->armv8_timer_ppi = 0U;
     info->gicv2_distributor.base = 0U;
     info->gicv2_distributor.size = 0U;
     info->gicv2_cpu_interface.base = 0U;
@@ -220,6 +245,23 @@ static int parse_reservations(const uint8_t *b, uint32_t limit,
 static int collect_node(struct node_state *n, struct fdt_info *info)
 {
     uint32_t tuple, tuple_bytes, off;
+    if (n->is_armv8_timer) {
+        uint32_t ppi_number;
+        /*
+         * The ARMv8 timer binding orders secure physical, non-secure physical,
+         * virtual, and hypervisor timer interrupts. QEMU virt exposes the
+         * non-secure physical timer as the second three-cell GIC specifier.
+         */
+        if (info->armv8_timer_found != 0U || n->interrupts == NULL ||
+            n->interrupts_length < 24U || n->interrupts_length % 12U != 0U)
+            return -1;
+        if (be32(n->interrupts + 12U) != 1U) return -1;
+        ppi_number = be32(n->interrupts + 16U);
+        if (ppi_number > 15U) return -1;
+        info->armv8_timer_ppi = 16U + ppi_number;
+        info->armv8_timer_found = 1U;
+        return 0;
+    }
     if (n->is_gicv2) {
         uint32_t tuple, tuple_bytes;
         uint64_t db, ds, cb, cs;
@@ -307,16 +349,22 @@ int fdt_parse(const void *blob, struct fdt_info *info)
             pos = (uint32_t)aligned;
             if (depth == 0) {
                 if (len != 0U) return -12;
-                stack[depth] = (struct node_state){2, 1, 0, NULL, 0, 0, 0, 0};
+                stack[depth] = (struct node_state){
+                    .address_cells = 2U,
+                    .size_cells = 1U
+                };
             } else {
                 stack[depth] = stack[depth - 1U];
                 stack[depth].reg = NULL;
                 stack[depth].reg_length = 0;
+                stack[depth].interrupts = NULL;
+                stack[depth].interrupts_length = 0;
                 stack[depth].is_memory = 0;
                 stack[depth].is_reserved =
                     stack[depth - 1U].is_reserved_container;
                 stack[depth].is_reserved_container = 0;
                 stack[depth].is_gicv2 = 0;
+                stack[depth].is_armv8_timer = 0;
             }
             if (string_is((const char *)(structure + start), "memory") ||
                 string_prefix((const char *)(structure + start), "memory@"))
@@ -357,11 +405,16 @@ int fdt_parse(const void *blob, struct fdt_info *info)
                 n->address_cells = be32(value);
             else if (string_is(name, "#size-cells") && len == 4U)
                 n->size_cells = be32(value);
-            else if (string_is(name, "compatible"))
+            else if (string_is(name, "compatible")) {
                 n->is_gicv2 = (uint8_t)compatible_has_gicv2(value, len);
-            else if (string_is(name, "reg")) {
+                n->is_armv8_timer =
+                    (uint8_t)compatible_has_armv8_timer(value, len);
+            } else if (string_is(name, "reg")) {
                 n->reg = value;
                 n->reg_length = len;
+            } else if (string_is(name, "interrupts")) {
+                n->interrupts = value;
+                n->interrupts_length = len;
             } else if (string_is(name, "device_type") &&
                        len == 7U && string_is((const char *)value, "memory"))
                 n->is_memory = 1;
