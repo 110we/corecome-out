@@ -79,12 +79,12 @@ int main(void)
                       (uintptr_t)cpu_interface) == GICV2_OK);
     assert(state.interrupt_lines == 32U);
     assert(state.security_extensions == 0U);
-    cpu_interface[GICC_IAR / 4U] = 0x00000021U;
+    cpu_interface[GICC_IAR / 4U] = 0x0000001fU;
     assert(gicv2_acknowledge(&state, &token) ==
            GICV2_INTERRUPT_PENDING);
-    assert(token == 0x00000021U);
+    assert(token == 0x0000001fU);
     assert(gicv2_end_interrupt(&state, token) == GICV2_OK);
-    assert(cpu_interface[GICC_EOIR / 4U] == 0x00000021U);
+    assert(cpu_interface[GICC_EOIR / 4U] == 0x0000001fU);
     cpu_interface[GICC_IAR / 4U] = 40U;
     assert(gicv2_acknowledge(&state, &token) == GICV2_NO_INTERRUPT);
     assert(gicv2_end_interrupt(&state, 40U) == GICV2_ERR_ARGUMENT);
