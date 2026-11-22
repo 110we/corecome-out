@@ -50,6 +50,7 @@ int gicv2_init(struct gicv2_state *state,
 {
     uint32_t typer;
     uint32_t lines;
+    uint32_t distributor_control;
 
     if (state == NULL || distributor_base == 0U ||
         cpu_interface_base == 0U ||
@@ -65,6 +66,9 @@ int gicv2_init(struct gicv2_state *state,
     state->security_extensions = 0U;
     state->security_disabled = 0U;
     state->last_ack_alias = 0U;
+
+    /* Preserve read-only platform security mode before quiescing delivery. */
+    distributor_control = *reg32(distributor_base, GICD_CTLR);
 
     /* Disable delivery before inspecting controller capabilities. */
     *reg32(cpu_interface_base, GICC_CTLR) = 0U;
@@ -89,7 +93,7 @@ int gicv2_init(struct gicv2_state *state,
     state->security_extensions =
         (typer & GICD_TYPER_SECURITY_EXTN) != 0U ? 1U : 0U;
     state->security_disabled =
-        (*reg32(distributor_base, GICD_CTLR) & GICD_CTLR_DS) != 0U ? 1U : 0U;
+        (distributor_control & GICD_CTLR_DS) != 0U ? 1U : 0U;
     state->last_ack_alias = 0U;
     state->initialized = 1U;
     return GICV2_OK;
