@@ -7,6 +7,8 @@
 
 #define COXVBN_AARCH64_CONTEXT_BYTES 304U
 #define COXVBN_AARCH64_SPSR_EL1H_MASKED 0x3c5U
+/* EL1h with D/A/F masked and IRQ unmasked after controller setup. */
+#define COXVBN_AARCH64_SPSR_EL1H_IRQ_ENABLED 0x345U
 
 /*
  * Build the frame consumed by the common exception-return assembly.

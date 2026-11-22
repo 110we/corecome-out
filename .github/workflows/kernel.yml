@@ -64,7 +64,15 @@ jobs:
           grep -q "COXVBN: MEMORY DISCOVERY READY" qemu.log
           grep -q "COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS" qemu.log
           grep -q "COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE" qemu.log
+          grep -q "COXVBN: GICV2 GROUP1 ENABLED; TIMER PPI 30 ARMED" qemu.log
           grep -q "COXVBN: BOOT COMPLETE" qemu.log
+          grep -q "COXVBN: TIMER IRQ FIRST TICK" qemu.log
+          grep -q "COXVBN: TIMER IRQ PASS" qemu.log
+          grep -q "COXVBN: TASK B TIMER PREEMPTION PASS" qemu.log
+          if grep -q "COXVBN: TIMER IRQ REARM FAILED" qemu.log; then
+            echo "Physical timer failed to rearm"
+            exit 1
+          fi
           grep -q "COXVBN: TASK A COOPERATIVE SWITCH PASS" qemu.log
           grep -q "COXVBN: TASK B COOPERATIVE SWITCH PASS" qemu.log
           grep -q "COXVBN: TASK B AFTER TASK A EXIT PASS" qemu.log

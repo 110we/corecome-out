@@ -17,6 +17,8 @@ static volatile uint32_t boot_task_a_runs;
 static volatile uint32_t boot_task_b_runs;
 static volatile uint32_t boot_task_a_exited;
 static volatile uint32_t boot_task_b_after_exit_reported;
+static volatile uint32_t boot_task_b_timer_preempt_reported;
+static volatile uint32_t boot_timer_ticks;
 
 extern void coxvbn_aarch64_enter_frame(struct exception_frame *frame)
     __attribute__((noreturn));
@@ -26,10 +28,43 @@ static void coxvbn_task_yield_cpu(void)
     __asm__ volatile("svc #0" ::: "memory");
 }
 
+static void coxvbn_timer_irq(uint32_t interrupt_id, void *context)
+{
+    uint32_t programmed_ticks;
+    (void)interrupt_id;
+    (void)context;
+
+    if (arm_timer_start_oneshot_ns(10000000ULL, &programmed_ticks) !=
+        ARM_TIMER_OK) {
+        (void)arm_timer_disable();
+        uart_write("COXVBN: TIMER IRQ REARM FAILED\n");
+        return;
+    }
+
+    ++boot_timer_ticks;
+    if (boot_timer_ticks == 1U)
+        uart_write("COXVBN: TIMER IRQ FIRST TICK\n");
+    if (boot_timer_ticks == 3U)
+        uart_write("COXVBN: TIMER IRQ PASS\n");
+}
+
 static int coxvbn_task_a(void *argument)
 {
     uint32_t i;
+    uint64_t start;
+    uint64_t wait_ticks;
     (void)argument;
+
+    /*
+     * Deliberately do not yield here: the timer PPI must preempt this task
+     * and dispatch task B on its separate stack.
+     */
+    start = arm_timer_now();
+    wait_ticks = arm_timer_frequency() / 20U;
+    if (wait_ticks == 0U) wait_ticks = 1U;
+    while ((arm_timer_now() - start) < wait_ticks)
+        __asm__ volatile("nop");
+
     for (i = 0U; i < 3U; ++i) {
         ++boot_task_a_runs;
         coxvbn_task_yield_cpu();
@@ -46,6 +81,11 @@ static void coxvbn_task_b(void *argument)
             ++boot_task_b_runs;
             if (boot_task_b_runs == 3U)
                 uart_write("COXVBN: TASK B COOPERATIVE SWITCH PASS\n");
+        }
+        if (boot_timer_ticks != 0U &&
+            boot_task_b_timer_preempt_reported == 0U) {
+            boot_task_b_timer_preempt_reported = 1U;
+            uart_write("COXVBN: TASK B TIMER PREEMPTION PASS\n");
         }
         if (boot_task_a_exited != 0U &&
             boot_task_b_after_exit_reported == 0U) {
@@ -90,6 +130,7 @@ void kernel_main(const void *boot_fdt)
     struct coxvbn_task_ref task_a, task_b;
     struct exception_frame *frame_a = 0, *frame_b = 0;
     struct exception_frame *dispatch_frame;
+    uint32_t initial_timer_ticks;
 
     uart_init();
     uart_write("\nCOXVBN: BOOT START\n");
@@ -200,13 +241,11 @@ void kernel_main(const void *boot_fdt)
             for (;;) __asm__ volatile("wfe");
         }
         exception_set_gicv2(&boot_gic);
-        uart_write("COXVBN: GICV2 DISCOVERED AND QUIESCED; IRQ DELIVERY DISABLED\n");
+        uart_write("COXVBN: GICV2 DISCOVERED AND QUIESCED; PPI SETUP PENDING\n");
     } else {
         uart_write("COXVBN: NO SUPPORTED GICV2 NODE IN FDT\n");
     }
-    uart_write("COXVBN: BOOT COMPLETE\n");
-
-    /* Enter two cooperative EL1 tasks on their own kernel stacks. */
+    /* Enter two EL1 tasks on their own kernel stacks. */
     coxvbn_scheduler_init(&boot_scheduler);
     if (coxvbn_task_create(&boot_scheduler,
             (uintptr_t)coxvbn_task_a, 0U,
@@ -227,7 +266,37 @@ void kernel_main(const void *boot_fdt)
         uart_write("COXVBN: TASK CONTEXT SETUP FAILED\n");
         for (;;) __asm__ volatile("wfe");
     }
+    if (boot_gic.initialized != 1U ||
+        fdt.armv8_timer_found == 0U || fdt.armv8_timer_ppi != 30U) {
+        uart_write("COXVBN: TIMER/GIC PLATFORM BINDING FAILED\n");
+        for (;;) __asm__ volatile("wfe");
+    }
+
+    /*
+     * The first-run frames are built masked by default. Only unmask IRQ in
+     * task context after the handler, PPI, and both GIC interfaces are ready.
+     */
+    frame_a->spsr = COXVBN_AARCH64_SPSR_EL1H_IRQ_ENABLED;
+    frame_b->spsr = COXVBN_AARCH64_SPSR_EL1H_IRQ_ENABLED;
     exception_set_scheduler(&boot_scheduler);
+    if (exception_register_irq_handler(fdt.armv8_timer_ppi,
+                                       coxvbn_timer_irq, 0) != 0) {
+        uart_write("COXVBN: TIMER IRQ HANDLER REGISTRATION FAILED\n");
+        for (;;) __asm__ volatile("wfe");
+    }
+    if (gicv2_enable_ppi(&boot_gic, fdt.armv8_timer_ppi, 0x80U) != GICV2_OK ||
+        gicv2_enable_group1(&boot_gic) != GICV2_OK) {
+        uart_write("COXVBN: GICV2 TIMER PPI ENABLE FAILED\n");
+        for (;;) __asm__ volatile("wfe");
+    }
+    if (arm_timer_start_oneshot_ns(10000000ULL,
+                                   &initial_timer_ticks) != ARM_TIMER_OK) {
+        uart_write("COXVBN: PHYSICAL TIMER START FAILED\n");
+        for (;;) __asm__ volatile("wfe");
+    }
+    uart_write("COXVBN: GICV2 GROUP1 ENABLED; TIMER PPI 30 ARMED\n");
+    uart_write("COXVBN: BOOT COMPLETE\n");
+
     dispatch_frame = coxvbn_scheduler_schedule_frame(&boot_scheduler, 0);
     if (dispatch_frame == 0) {
         uart_write("COXVBN: FIRST TASK DISPATCH FAILED\n");
