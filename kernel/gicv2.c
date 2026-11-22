@@ -4,6 +4,11 @@
 
 #define GICD_CTLR 0x000U
 #define GICD_TYPER 0x004U
+#define GICD_IGROUPR0 0x080U
+#define GICD_ISENABLER0 0x100U
+#define GICD_ICENABLER0 0x180U
+#define GICD_ICPENDR0 0x280U
+#define GICD_IPRIORITYR 0x400U
 #define GICC_CTLR 0x000U
 #define GICC_PMR 0x004U
 #define GICC_BPR 0x008U
@@ -11,6 +16,7 @@
 #define GICC_EOIR 0x010U
 #define GICD_CTLR_ENABLE_MASK 0x3U
 #define GICC_CTLR_ENABLE_MASK 0x3U
+#define GICV2_ENABLE_GRP1 (1U << 1)
 #define GICD_TYPER_ITLINES_MASK 0x1fU
 #define GICV2_MAX_LINES 1020U
 #define GICV2_INTERRUPT_ID_MASK 0x3ffU
@@ -18,6 +24,11 @@
 static volatile uint32_t *reg32(uintptr_t base, uintptr_t offset)
 {
     return (volatile uint32_t *)(base + offset);
+}
+
+static volatile uint8_t *reg8(uintptr_t base, uintptr_t offset)
+{
+    return (volatile uint8_t *)(base + offset);
 }
 
 static void mmio_barrier(void)
@@ -108,5 +119,47 @@ int gicv2_end_interrupt(struct gicv2_state *state, uint32_t acknowledge)
     mmio_barrier();
     *reg32(state->cpu_interface_base, GICC_EOIR) = acknowledge;
     mmio_barrier();
+    return GICV2_OK;
+}
+
+int gicv2_enable_ppi(struct gicv2_state *state, uint32_t interrupt_id,
+                     uint8_t priority)
+{
+    uint32_t bit;
+
+    if (state == NULL || state->initialized != 1U ||
+        state->distributor_base == 0U || interrupt_id < 16U ||
+        interrupt_id > 31U || interrupt_id >= state->interrupt_lines)
+        return GICV2_ERR_ARGUMENT;
+
+    bit = 1U << interrupt_id;
+
+    /* PPI enable/group/priority registers are banked for the current CPU. */
+    *reg32(state->distributor_base, GICD_ICENABLER0) = bit;
+    mmio_barrier();
+    *reg32(state->distributor_base, GICD_IGROUPR0) |= bit;
+    *reg8(state->distributor_base, GICD_IPRIORITYR + interrupt_id) = priority;
+    *reg32(state->distributor_base, GICD_ICPENDR0) = bit;
+    mmio_barrier();
+    *reg32(state->distributor_base, GICD_ISENABLER0) = bit;
+    mmio_barrier();
+    return GICV2_OK;
+}
+
+int gicv2_enable_group1(struct gicv2_state *state)
+{
+    if (state == NULL || state->initialized != 1U ||
+        state->distributor_base == 0U || state->cpu_interface_base == 0U)
+        return GICV2_ERR_ARGUMENT;
+
+    *reg32(state->distributor_base, GICD_CTLR) = GICV2_ENABLE_GRP1;
+    *reg32(state->cpu_interface_base, GICC_CTLR) = GICV2_ENABLE_GRP1;
+    mmio_barrier();
+
+    if ((*reg32(state->distributor_base, GICD_CTLR) &
+         GICV2_ENABLE_GRP1) == 0U ||
+        (*reg32(state->cpu_interface_base, GICC_CTLR) &
+         GICV2_ENABLE_GRP1) == 0U)
+        return GICV2_ERR_MMIO;
     return GICV2_OK;
 }

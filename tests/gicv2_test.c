@@ -14,8 +14,9 @@
 
 int main(void)
 {
-    uint32_t distributor[4] = {3U, 31U, 0U, 0U};
+    uint32_t distributor[0x200] = {3U, 31U};
     uint32_t cpu_interface[8] = {3U, 0U, 0U, 0U, 0U, 0U, 0U, 0U};
+    uint8_t *distributor_bytes = (uint8_t *)distributor;
     struct gicv2_state state = {0};
     uint32_t token = 0U;
 
@@ -36,6 +37,19 @@ int main(void)
     assert(cpu_interface[GICC_PMR / 4U] == 0xffU);
     assert(cpu_interface[GICC_BPR / 4U] == 0U);
 
+    /* Configure the QEMU ARMv8 non-secure physical timer PPI (INTID 30). */
+    assert(gicv2_enable_ppi(&state, 15U, 0x80U) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_enable_ppi(&state, 32U, 0x80U) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_enable_ppi(&state, 30U, 0x80U) == GICV2_OK);
+    assert(distributor[0x180U / 4U] == (1U << 30));
+    assert((distributor[0x080U / 4U] & (1U << 30)) != 0U);
+    assert(distributor_bytes[0x400U + 30U] == 0x80U);
+    assert(distributor[0x280U / 4U] == (1U << 30));
+    assert(distributor[0x100U / 4U] == (1U << 30));
+    assert(gicv2_enable_group1(&state) == GICV2_OK);
+    assert(distributor[GICD_CTLR / 4U] == 2U);
+    assert(cpu_interface[GICC_CTLR / 4U] == 2U);
+
     /* Preserve all IAR bits, including the source CPU ID, for EOI. */
     cpu_interface[GICC_IAR / 4U] = 0x00000a21U;
     assert(gicv2_acknowledge(&state, &token) ==
@@ -53,6 +67,7 @@ int main(void)
     state.initialized = 0U;
     assert(gicv2_acknowledge(&state, &token) == GICV2_ERR_ARGUMENT);
     assert(gicv2_end_interrupt(&state, 1U) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_enable_group1(&state) == GICV2_ERR_ARGUMENT);
 
     state.initialized = 1U;
     distributor[GICD_TYPER / 4U] = 0U;

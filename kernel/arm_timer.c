@@ -127,3 +127,29 @@ int arm_timer_set_oneshot_ns(uint64_t duration_ns, uint32_t *programmed_ticks)
     *programmed_ticks = ticks;
     return ARM_TIMER_OK;
 }
+
+int arm_timer_start_oneshot_ns(uint64_t duration_ns,
+                               uint32_t *programmed_ticks)
+{
+    uint32_t ticks;
+    int rc;
+
+    if (timer_frequency == 0U)
+        return ARM_TIMER_ERR_UNAVAILABLE;
+    if (programmed_ticks == 0)
+        return ARM_TIMER_ERR_ARGUMENT;
+
+    rc = arm_timer_ticks_from_ns(timer_frequency, duration_ns, &ticks);
+    if (rc != ARM_TIMER_OK)
+        return rc;
+
+    /* Mask while updating TVAL, then enable the physical timer IRQ. */
+    write_cntp_ctl(CNTP_CTL_IMASK);
+    write_cntp_tval(ticks);
+    timer_isb();
+    write_cntp_ctl(CNTP_CTL_ENABLE);
+    timer_isb();
+
+    *programmed_ticks = ticks;
+    return ARM_TIMER_OK;
+}

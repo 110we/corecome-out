@@ -17,6 +17,9 @@ uint64_t arm_timer_frequency(void);
 uint64_t arm_timer_now(void);
 int arm_timer_disable(void);
 int arm_timer_set_oneshot_ns(uint64_t duration_ns, uint32_t *programmed_ticks);
+/* Start/rearm a one-shot timer with its interrupt unmasked. */
+int arm_timer_start_oneshot_ns(uint64_t duration_ns,
+                               uint32_t *programmed_ticks);
 
 /* Pure conversion helper, shared by host tests and the hardware driver. */
 int arm_timer_ticks_from_ns(uint64_t frequency, uint64_t duration_ns,

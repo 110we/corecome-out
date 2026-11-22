@@ -8,6 +8,10 @@ int main(void)
 {
     uint32_t ticks = 77U;
 
+    assert(arm_timer_set_oneshot_ns(1000000U, &ticks) ==
+           ARM_TIMER_ERR_UNAVAILABLE);
+    assert(arm_timer_start_oneshot_ns(1000000U, &ticks) ==
+           ARM_TIMER_ERR_UNAVAILABLE);
     assert(arm_timer_ticks_from_ns(0U, 1000000U, &ticks) ==
            ARM_TIMER_ERR_ARGUMENT);
     assert(arm_timer_ticks_from_ns(1000000U, 0U, &ticks) ==
