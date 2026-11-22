@@ -20,6 +20,7 @@
 #define GICD_CTLR_DS (1U << 6)
 #define GICD_CTLR_ENABLE_MASK 0x3U
 #define GICC_CTLR_ENABLE_MASK 0x3U
+#define GICV2_ENABLE_SINGLE (1U << 0)
 #define GICV2_ENABLE_GRP1 (1U << 1)
 #define GICD_TYPER_ITLINES_MASK 0x1fU
 #define GICV2_MAX_LINES 1020U
@@ -163,7 +164,9 @@ int gicv2_enable_ppi(struct gicv2_state *state, uint32_t interrupt_id,
     /* PPI enable/group/priority registers are banked for the current CPU. */
     *reg32(state->distributor_base, GICD_ICENABLER0) = bit;
     mmio_barrier();
-    *reg32(state->distributor_base, GICD_IGROUPR0) |= bit;
+    /* GICv2 without Security Extensions has one interrupt group only. */
+    if (state->security_extensions != 0U)
+        *reg32(state->distributor_base, GICD_IGROUPR0) |= bit;
     *reg8(state->distributor_base, GICD_IPRIORITYR + interrupt_id) = priority;
     *reg32(state->distributor_base, GICD_ICPENDR0) = bit;
     mmio_barrier();
@@ -174,18 +177,27 @@ int gicv2_enable_ppi(struct gicv2_state *state, uint32_t interrupt_id,
 
 int gicv2_enable_group1(struct gicv2_state *state)
 {
+    uint32_t enable_mask;
+
     if (state == NULL || state->initialized != 1U ||
         state->distributor_base == 0U || state->cpu_interface_base == 0U)
         return GICV2_ERR_ARGUMENT;
 
-    *reg32(state->distributor_base, GICD_CTLR) = GICV2_ENABLE_GRP1;
-    *reg32(state->cpu_interface_base, GICC_CTLR) = GICV2_ENABLE_GRP1;
+    /*
+     * GICv2 without Security Extensions implements a single interrupt group:
+     * bit 0 is the global Enable bit. With Security Extensions, this EL1
+     * platform path configures and enables Non-secure Group 1 through bit 1.
+     */
+    enable_mask = state->security_extensions != 0U ?
+                  GICV2_ENABLE_GRP1 : GICV2_ENABLE_SINGLE;
+    *reg32(state->distributor_base, GICD_CTLR) = enable_mask;
+    *reg32(state->cpu_interface_base, GICC_CTLR) = enable_mask;
     mmio_barrier();
 
     if ((*reg32(state->distributor_base, GICD_CTLR) &
-         GICV2_ENABLE_GRP1) == 0U ||
+         enable_mask) == 0U ||
         (*reg32(state->cpu_interface_base, GICC_CTLR) &
-         GICV2_ENABLE_GRP1) == 0U)
+         enable_mask) == 0U)
         return GICV2_ERR_MMIO;
     return GICV2_OK;
 }
