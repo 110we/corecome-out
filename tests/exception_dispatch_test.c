@@ -25,10 +25,13 @@ static void test_handler(uint32_t id, void *context)
 int main(void)
 {
     struct gicv2_state gic = {
-        (uintptr_t)distributor_regs,
-        (uintptr_t)cpu_regs,
-        64U,
-        1U
+        .distributor_base = (uintptr_t)distributor_regs,
+        .cpu_interface_base = (uintptr_t)cpu_regs,
+        .interrupt_lines = 64U,
+        .initialized = 1U,
+        .security_extensions = 0U,
+        .security_disabled = 1U,
+        .last_ack_alias = 0U
     };
     struct exception_frame frame = { {0}, 0x1000U, 0U, 0U, 0U, 5U };
     uint32_t context_count = 0U;
