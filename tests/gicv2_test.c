@@ -75,10 +75,16 @@ int main(void)
 
     state.initialized = 1U;
     distributor[GICD_TYPER / 4U] = 0U;
+    distributor[0x080U / 4U] = 0U;
     assert(gicv2_init(&state, (uintptr_t)distributor,
                       (uintptr_t)cpu_interface) == GICV2_OK);
     assert(state.interrupt_lines == 32U);
     assert(state.security_extensions == 0U);
+    assert(gicv2_enable_ppi(&state, 30U, 0x80U) == GICV2_OK);
+    assert(distributor[0x080U / 4U] == 0U);
+    assert(gicv2_enable_group1(&state) == GICV2_OK);
+    assert(distributor[GICD_CTLR / 4U] == 1U);
+    assert(cpu_interface[GICC_CTLR / 4U] == 1U);
     cpu_interface[GICC_IAR / 4U] = 0x0000001fU;
     assert(gicv2_acknowledge(&state, &token) ==
            GICV2_INTERRUPT_PENDING);
@@ -88,7 +94,7 @@ int main(void)
     cpu_interface[GICC_IAR / 4U] = 40U;
     assert(gicv2_acknowledge(&state, &token) == GICV2_NO_INTERRUPT);
     assert(gicv2_end_interrupt(&state, 40U) == GICV2_ERR_ARGUMENT);
-    assert(cpu_interface[GICC_CTLR / 4U] == 0U);
+    assert(cpu_interface[GICC_CTLR / 4U] == 1U);
 
     puts("COXVBN GICv2 quiescent-init and acknowledge/EOI tests: PASS");
     return 0;
