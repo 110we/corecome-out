@@ -60,6 +60,7 @@ jobs:
           grep -q "COXVBN: UART READY" qemu.log
           grep -q "COXVBN: VFS IN-MEMORY READY; SELFTEST PASS" qemu.log
           grep -q "COXVBN: FDT PARSED" qemu.log
+          grep -q "COXVBN: ARMV8 TIMER NONSECURE PHYSICAL PPI 0x000000000000001e" qemu.log
           grep -q "COXVBN: MEMORY DISCOVERY READY" qemu.log
           grep -q "COXVBN: PHYSICAL ALLOCATOR SELFTEST PASS" qemu.log
           grep -q "COXVBN: MMU ENABLED; IDENTITY MAP ACTIVE" qemu.log

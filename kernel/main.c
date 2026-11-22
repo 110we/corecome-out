@@ -137,6 +137,13 @@ void kernel_main(const void *boot_fdt)
     }
 
     uart_write("COXVBN: FDT PARSED\n");
+    if (fdt.armv8_timer_found != 0U) {
+        uart_write("COXVBN: ARMV8 TIMER NONSECURE PHYSICAL PPI ");
+        uart_write_hex((uintptr_t)fdt.armv8_timer_ppi);
+        uart_write("\n");
+    } else {
+        uart_write("COXVBN: ARMV8 TIMER PPI NOT FOUND\n");
+    }
     uart_write("COXVBN: RAM regions ");
     uart_write_hex(fdt.memory_count);
     uart_write("\nCOXVBN: reserved regions ");
