@@ -71,7 +71,20 @@ int main(void)
     state.initialized = 0U;
     assert(gicv2_acknowledge(&state, &token) == GICV2_ERR_ARGUMENT);
     assert(gicv2_end_interrupt(&state, 1U) == GICV2_ERR_ARGUMENT);
-    assert(gicv2_enable_group1(&state) == GICV2_ERR_ARGUMENT);
+    assert(gicv2_enable_interrupts(&state) == GICV2_ERR_ARGUMENT);
+
+    /* DS is sampled before the driver writes GICD_CTLR to quiesce it. */
+    distributor[GICD_CTLR / 4U] = 1U << 6;
+    assert(gicv2_init(&state, (uintptr_t)distributor,
+                      (uintptr_t)cpu_interface) == GICV2_OK);
+    assert(state.security_extensions == 1U);
+    assert(state.security_disabled == 1U);
+    cpu_interface[GICC_IAR / 4U] = 0x0000001fU;
+    assert(gicv2_acknowledge(&state, &token) ==
+           GICV2_INTERRUPT_PENDING);
+    assert(token == 0x0000001fU);
+    assert(gicv2_end_interrupt(&state, token) == GICV2_OK);
+    assert(cpu_interface[GICC_EOIR / 4U] == 0x0000001fU);
 
     state.initialized = 1U;
     distributor[GICD_TYPER / 4U] = 0U;
@@ -82,7 +95,7 @@ int main(void)
     assert(state.security_extensions == 0U);
     assert(gicv2_enable_ppi(&state, 30U, 0x80U) == GICV2_OK);
     assert(distributor[0x080U / 4U] == 0U);
-    assert(gicv2_enable_group1(&state) == GICV2_OK);
+    assert(gicv2_enable_interrupts(&state) == GICV2_OK);
     assert(distributor[GICD_CTLR / 4U] == 1U);
     assert(cpu_interface[GICC_CTLR / 4U] == 1U);
     cpu_interface[GICC_IAR / 4U] = 0x0000001fU;

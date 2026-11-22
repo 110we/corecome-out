@@ -29,7 +29,6 @@
 - [x] QEMU-test EL1 SVC entry/return, cooperative task yield, and task-exit handoff (synchronous-fault injection remains open)
 - [x] QEMU-test timer IRQ exception entry, dispatch, EOI, task-frame selection, and `eret` return on the single-core virt target
 - [ ] Inject and runtime-test synchronous faults; add safe recoverable synchronous-fault handling
-- [ ] Add safe recoverable synchronous-fault handling
 - [x] Add host-tested GICv2 quiescent initialization (disable interfaces, read line count, prepare PMR; no IRQ delivery)
 - [x] Discover supported GICv2 compatible strings and distributor/CPU-interface `reg` ranges from FDT; validate and bind after the initial MMU map (host-tested parser; QEMU boot-tested)
 - [ ] Add a generic interrupt-controller abstraction

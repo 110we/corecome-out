@@ -76,7 +76,6 @@ until the scheduler is integrated with a trusted execution-context provider.
 
 ## Remaining execution work
 
-- add IRQ/preemption-safe serialization and per-CPU current-task state
 - add IRQ/preemption-safe synchronization and per-CPU current-task state before SMP
 - generalize timer sources and add an idle task with explicit wakeup semantics
 - add EL0/address-space isolation and a userspace syscall ABI
