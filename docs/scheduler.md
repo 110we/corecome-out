@@ -32,11 +32,13 @@ IRQ has been acknowledged and serviced, save the interrupted task frame and
 return the next READY task frame. The host exception-dispatch test exercises
 round-robin handoff between two task-owned frames.
 
-Two EL1 tasks now use the narrow `SVC #0` cooperative-yield ABI. The
-exception dispatcher accepts only the AArch64 SVC exception class with immediate
-zero from the current-EL SPx vector, advances ELR by four bytes, and schedules
-the next saved task frame. Other synchronous exceptions and unsupported SVC
-numbers still fail closed. Host tests verify the SVC handoff and ELR advancement.
+Two EL1 tasks now use a narrow internal SVC task-control ABI:
+`SVC #0` yields, and `SVC #1` retires the current task through its return
+trampoline. The dispatcher accepts only the AArch64 SVC exception class from
+the current-EL SPx vector. For `SVC #0`, it preserves ELR_EL1 as captured:
+AArch64 records the address of the instruction after SVC, so adding four bytes
+again would skip a caller instruction and corrupt control flow. Host tests
+assert ELR preservation and task-exit state.
 
 The boot path creates two task-owned stacks and enters the first task. Both tasks
 yield through SVC, allowing QEMU to exercise real exception entry, saved-frame

@@ -26,6 +26,7 @@
 - [x] Record and report the architectural vector index without clobbering the interrupted register state
 - [x] Define and host-test the exception-frame field offsets and payload size
 - [x] Implement the exception entry/exit assembly path: 304-byte aligned save frame, ELR/SPSR restore, full GPR restore, and `eret` return
+- [x] QEMU-test EL1 SVC entry/return, cooperative task yield, and task-exit handoff (synchronous-fault injection and hardware IRQ runtime tests remain open)
 - [ ] Runtime-test exception entry/return with injected synchronous and IRQ exceptions
 - [ ] Add safe recoverable synchronous-fault handling
 - [x] Add host-tested GICv2 quiescent initialization (disable interfaces, read line count, prepare PMR; no IRQ delivery)
@@ -37,9 +38,10 @@
 - [ ] Enable and QEMU-test hardware IRQ delivery after timer and exception-return runtime validation
 
 ## Milestone 4 — execution
-- [x] Add host-tested bounded task lifecycle records, generation-bound references, and round-robin READY-task selection model (bookkeeping only; no CPU context switch)
-- [ ] Add AArch64 context-save/restore, first-run stack frames, per-CPU state, and a runnable scheduler
-- [ ] Add IRQ/preemption-safe synchronization and timer-driven preemption
+- [x] Add host-tested bounded task lifecycle records, generation-bound references, and round-robin READY-task selection model
+- [x] Add AArch64 GPR context save/restore, first-run stack frames, and QEMU-tested cooperative EL1 scheduling via internal SVC #0 yield and SVC #1 task exit (not preemptive)
+- [ ] Add per-CPU state and IRQ/preemption-safe synchronization
+- [ ] Add timer-driven preemption after GIC and timer IRQ validation
 - [ ] Bind scheduler-owned active execution context to module identity
 - [ ] Introduce user mode only after address-space isolation and syscall validation exist
 
@@ -67,7 +69,7 @@
 
 ## Milestone 7 — userspace and compatibility
 - [ ] Minimal init process and shell
-- [ ] Native system-call ABI
+- [ ] Native system-call ABI for EL0/user processes (internal EL1 SVC yield/exit exists; this is not a userspace syscall interface)
 - [ ] POSIX compatibility as a separately tested layer
 
 ## Milestone 8 — COXVBN RedLab authorized security assessment
