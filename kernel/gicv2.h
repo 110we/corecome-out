@@ -42,7 +42,7 @@ int gicv2_end_interrupt(struct gicv2_state *state, uint32_t acknowledge);
 int gicv2_enable_ppi(struct gicv2_state *state, uint32_t interrupt_id,
                      uint8_t priority);
 
-/* Enable Group 1 at the distributor and current CPU interface. */
-int gicv2_enable_group1(struct gicv2_state *state);
+/* Enable interrupt forwarding for the controller's detected group model. */
+int gicv2_enable_interrupts(struct gicv2_state *state);
 
 #endif

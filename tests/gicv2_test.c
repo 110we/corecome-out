@@ -48,7 +48,7 @@ int main(void)
     assert(distributor_bytes[0x400U + 30U] == 0x80U);
     assert(distributor[0x280U / 4U] == (1U << 30));
     assert(distributor[0x100U / 4U] == (1U << 30));
-    assert(gicv2_enable_group1(&state) == GICV2_OK);
+    assert(gicv2_enable_interrupts(&state) == GICV2_OK);
     assert(distributor[GICD_CTLR / 4U] == 2U);
     assert(cpu_interface[GICC_CTLR / 4U] == 2U);
 

@@ -26,22 +26,24 @@
 - [x] Record and report the architectural vector index without clobbering the interrupted register state
 - [x] Define and host-test the exception-frame field offsets and payload size
 - [x] Implement the exception entry/exit assembly path: 304-byte aligned save frame, ELR/SPSR restore, full GPR restore, and `eret` return
-- [x] QEMU-test EL1 SVC entry/return, cooperative task yield, and task-exit handoff (synchronous-fault injection and hardware IRQ runtime tests remain open)
-- [ ] Runtime-test exception entry/return with injected synchronous and IRQ exceptions
+- [x] QEMU-test EL1 SVC entry/return, cooperative task yield, and task-exit handoff (synchronous-fault injection remains open)
+- [x] QEMU-test timer IRQ exception entry, dispatch, EOI, task-frame selection, and `eret` return on the single-core virt target
+- [ ] Inject and runtime-test synchronous faults; add safe recoverable synchronous-fault handling
 - [ ] Add safe recoverable synchronous-fault handling
 - [x] Add host-tested GICv2 quiescent initialization (disable interfaces, read line count, prepare PMR; no IRQ delivery)
 - [x] Discover supported GICv2 compatible strings and distributor/CPU-interface `reg` ranges from FDT; validate and bind after the initial MMU map (host-tested parser; QEMU boot-tested)
-- [ ] Add a generic interrupt-controller interface and timer PPI binding/dispatch
-- [x] Add EL1 physical Generic Timer frequency/counter access and masked one-shot programming (host-tested conversion; timer IRQ remains masked)
-- [x] Add host-tested GICv2 interrupt acknowledge and EOI register primitives (IRQ delivery remains disabled)
-- [x] Add bounded IRQ handler registration/dispatch, full-token GICv2 EOI, spurious IRQ handling, and fail-closed unhandled IRQ policy (host-tested; hardware delivery remains disabled)
-- [ ] Enable and QEMU-test hardware IRQ delivery after timer and exception-return runtime validation
+- [ ] Add a generic interrupt-controller abstraction
+- [x] Discover ARMv8 non-secure physical timer PPI 30 from FDT and bind it to GICv2 dispatch (QEMU boot/runtime tested)
+- [x] Add EL1 physical Generic Timer frequency/counter access and one-shot programming with QEMU-verified PPI 30 rearming
+- [x] Add host-tested GICv2 acknowledge/EOI primitives, including the AIAR/AEOIR alias and single-group controller paths
+- [x] Add bounded IRQ handler registration/dispatch, full-token GICv2 EOI, spurious IRQ handling, and fail-closed unhandled IRQ policy (host-tested; QEMU timer delivery runtime-verified)
+- [x] Enable and QEMU-test hardware IRQ delivery on the single-core QEMU virt GICv2 target
 
 ## Milestone 4 — execution
 - [x] Add host-tested bounded task lifecycle records, generation-bound references, and round-robin READY-task selection model
-- [x] Add AArch64 GPR context save/restore, first-run stack frames, and QEMU-tested cooperative EL1 scheduling via internal SVC #0 yield and SVC #1 task exit (not preemptive)
+- [x] Add AArch64 GPR context save/restore, first-run stack frames, and QEMU-tested EL1 scheduling via SVC #0 yield, SVC #1 task exit, and timer PPI 30 preemption (single-core QEMU only)
 - [ ] Add per-CPU state and IRQ/preemption-safe synchronization
-- [ ] Add timer-driven preemption after GIC and timer IRQ validation
+- [x] Add single-core QEMU timer-driven preemption using the ARMv8 physical timer PPI 30 (SMP-safe locking and multi-core scheduling remain open)
 - [ ] Bind scheduler-owned active execution context to module identity
 - [ ] Introduce user mode only after address-space isolation and syscall validation exist
 

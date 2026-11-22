@@ -40,11 +40,17 @@ AArch64 records the address of the instruction after SVC, so adding four bytes
 again would skip a caller instruction and corrupt control flow. Host tests
 assert ELR preservation and task-exit state.
 
-The boot path creates two task-owned stacks and enters the first task. Both tasks
-yield through SVC, allowing QEMU to exercise real exception entry, saved-frame
-ownership, scheduler rotation, and exception return without enabling external
-IRQ delivery. GIC delivery and the physical timer IRQ remain disabled, so this
-is cooperative—not preemptive—scheduling.
+The boot path creates two task-owned stacks and enters the first task. Task A
+first performs a bounded busy wait without yielding. The ARMv8 physical timer
+is programmed as a one-shot source and GICv2 PPI 30 is enabled only after the
+handler and both task frames are ready. On each timer IRQ, the handler rearms
+the one-shot timer; the dispatcher acknowledges the interrupt, invokes the
+registered handler, writes the original token to EOI, and can return the next
+ready task frame through the common `eret` path. QEMU serial CI asserts the
+first timer tick, repeated timer delivery, task B running before task A's busy
+wait completes, cooperative rotation, and task A's exit handoff. This validates
+a single-core QEMU timer-preemption path; it does not establish SMP or
+preemption-safe locking.
 
 A task that returns enters the `SVC #1` exit ABI through its return trampoline.
 The dispatcher retires the running task, records the signed 32-bit result, drops
@@ -71,6 +77,7 @@ until the scheduler is integrated with a trusted execution-context provider.
 ## Remaining execution work
 
 - add IRQ/preemption-safe serialization and per-CPU current-task state
-- enable timer-driven preemption only after IRQ routing and EOI behavior are verified
-- add idle-task integration and EL0/address-space isolation
-- run hardware IRQ, timer-preemption, and Vectras VM validation
+- add IRQ/preemption-safe synchronization and per-CPU current-task state before SMP
+- generalize timer sources and add an idle task with explicit wakeup semantics
+- add EL0/address-space isolation and a userspace syscall ABI
+- validate the same IRQ/preemption path on the user's Vectras VM and additional hardware

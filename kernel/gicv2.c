@@ -175,7 +175,7 @@ int gicv2_enable_ppi(struct gicv2_state *state, uint32_t interrupt_id,
     return GICV2_OK;
 }
 
-int gicv2_enable_group1(struct gicv2_state *state)
+int gicv2_enable_interrupts(struct gicv2_state *state)
 {
     uint32_t enable_mask;
 

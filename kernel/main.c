@@ -289,7 +289,7 @@ void kernel_main(const void *boot_fdt)
         for (;;) __asm__ volatile("wfe");
     }
     if (gicv2_enable_ppi(&boot_gic, fdt.armv8_timer_ppi, 0x80U) != GICV2_OK ||
-        gicv2_enable_group1(&boot_gic) != GICV2_OK) {
+        gicv2_enable_interrupts(&boot_gic) != GICV2_OK) {
         uart_write("COXVBN: GICV2 TIMER PPI ENABLE FAILED\n");
         for (;;) __asm__ volatile("wfe");
     }
@@ -298,7 +298,7 @@ void kernel_main(const void *boot_fdt)
         uart_write("COXVBN: PHYSICAL TIMER START FAILED\n");
         for (;;) __asm__ volatile("wfe");
     }
-    uart_write("COXVBN: GICV2 GROUP1 ENABLED; TIMER PPI 30 ARMED\n");
+    uart_write("COXVBN: GICV2 INTERRUPT DELIVERY ENABLED; TIMER PPI 30 ARMED\n");
     uart_write("COXVBN: BOOT COMPLETE\n");
 
     dispatch_frame = coxvbn_scheduler_schedule_frame(&boot_scheduler, 0);
